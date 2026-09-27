@@ -1,0 +1,1 @@
+"""Rambu local transcription prototype."""
