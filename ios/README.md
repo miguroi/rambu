@@ -26,15 +26,18 @@ brew install xcodegen && cd ios && xcodegen generate
 
 ## Alur demo
 
-Satu HP menjalankan ketiga peran lewat **mode demo** (ketuk avatar di pojok kanan atas): Ibu Ratna sebagai orang tua, Sinta dan Richard sebagai pengawas. Di produk nyata tiap orang memakai HP sendiri.
+Satu HP menjalankan ketiga peran lewat **Mode demo** (ketuk avatar di kanan atas, lalu Mode demo di Profil): Ibu Ratna sebagai orang tua, Sinta dan Richard sebagai pengawas. Di produk nyata tiap orang memakai HP sendiri.
 
-1. Sebagai Ibu Ratna, ketuk **Pilih contoh telepon** dan pilih skenario. Ada empat: petugas bank minta OTP, kabar anak kecelakaan, kurir menyuruh pasang aplikasi, dan telepon wajar dari tetangga.
-2. Layar telepon simulasi muncul. Banner Rambu naik dari Mendengarkan ke Perlu dicek lalu Bahaya, setiap sekitar 5 detik sesuai potongan audio puck.
-3. Ganti peran ke Sinta. Peringatan tampil di beranda, lengkap dengan kategori tanda dan kalimat penelepon yang disorot.
-4. Sinta menekan **Ini penipuan**. Richard langsung melihat bahwa Sinta sudah menjawab, dan tombolnya terkunci.
-5. Kembali ke Ibu Ratna: banner berubah jadi "Ini penipuan. Tutup teleponnya sekarang", dan tombol merah berdenyut.
+1. Onboarding orang tua: tutorial tiga kartu bersuara, nama, pasang puck, persetujuan (sekaligus izin notifikasi), undangan lewat WhatsApp, lalu latihan mengetuk push.
+2. Onboarding pengawas: kode (atau tautan undangan), nama dan hubungan, lalu latihan memutuskan satu contoh peringatan.
+3. Di beranda orang tua, ketuk **Coba simulasi telepon**. Layar telepon polos seperti app Telepon atau WhatsApp. Rambu hanya muncul lewat push dari atas dan Live Activity. Telepon aman tidak memunculkan apa pun.
+4. Ketuk push untuk membuka **Status telepon**: satu instruksi besar, jawaban pengawas, dan tombol telepon anak.
+5. Ganti peran ke Sinta, buka peringatan, lalu tekan **Penipuan**. Richard melihat tombolnya terkunci. Ibu Ratna menerima push "Sinta: ini penipuan. Tutup telepon sekarang."
+6. Kalau tidak ada yang menjawab dalam 45 detik (8 detik dengan `RAMBU_FAST=1`), orang tua menerima push "Belum ada jawaban. Jangan lakukan tindakan apa pun dulu."
 
-Live Activity di Dynamic Island dan Lock Screen ikut berubah selama panggilan. Keluar ke layar utama saat telepon berjalan untuk melihatnya.
+Di Mode demo ada **Simulasi gangguan**: loudspeaker mati di telepon berikutnya, internet putus, Bluetooth mati, puck terputus, dan baterai lemah.
+
+Semua data (nama, pengawas, riwayat, pengaturan) tersimpan lokal di `Application Support/Rambu/state.json`. Tidak ada akun.
 
 ## Batas serah terima ke backend
 
@@ -54,6 +57,26 @@ Kontrak data yang diharapkan UI:
 - `TranscriptLine.speaker` membedakan penelepon dari orang tua. Pengawas hanya menerima kalimat penelepon yang memicu peringatan (lihat `AppModel.makeAlert`). Ini butuh pemisahan suara dari satu mikrofon puck.
 - Tingkat Aman tidak pernah dikirim ke pengawas.
 
+### Aturan jawaban pertama di server
+
+Dua pengawas bisa menekan hampir bersamaan, jadi keputusan harus dikunci di server dengan update atomik:
+
+```sql
+UPDATE alerts
+SET decision = :verdict, decided_by = :member_id, decided_at = now()
+WHERE id = :alert_id AND decision IS NULL;
+```
+
+Kalau tidak ada baris yang berubah, balas `409` dengan keputusan yang sudah ada. App memetakan ini ke `DecisionOutcome.alreadyDecided`, mengunci tombol, dan memberi tahu "Richard sudah menjawab lebih dulu". Pemenang memicu push ke orang tua dan pengawas lain.
+
+### Lainnya untuk backend
+
+- **Ringkasan kejadian** (`CallRecord.incidentSummary`) sekarang disusun lokal dari tanda dan keputusan. Di produk nyata teks ini dibuat watsonx Orchestrate setelah panggilan selesai dan dikirim bersama riwayat.
+- **Umpan balik deteksi**: jawaban "Aman" dari pengawas dilaporkan lewat `DetectionFeedback` sebagai false positive untuk memperbaiki model Langflow. Nyata: `POST /feedback`.
+- **Eskalasi tanpa jawaban** berjalan di app untuk prototipe. Di produk nyata sebaiknya timer di server supaya tetap jalan walau HP orang tua sibuk.
+- **Tautan undangan**: `InviteLink` membuat tautan `https://rambu-saku.vercel.app/gabung?kode=482913` (bisa diketuk di WhatsApp). Halaman itu perlu meneruskan ke `rambu://gabung?kode=…` atau dijadikan Universal Link dengan file `apple-app-site-association`. Skema `rambu://` sudah terdaftar di app. Uji dengan `xcrun simctl openurl booted "rambu://gabung?kode=482913"`.
+- **Pengingat loudspeaker**: di awal telepon (`CXCallObserver`), app menyuruh puck mengukur volume ±5 detik. Kalau terlalu pelan, app mengirim push lokal "Nyalakan loudspeaker". iOS tidak memberi tahu ke mana suara telepon app lain diarahkan, jadi pengukuran harus lewat puck. App tetap hidup di background karena mode `bluetooth-central`.
+
 `RiskRules` di `Model/Domain.swift` adalah aturan tiruan (dua tanda berbeda langsung dianggap Bahaya). Backend boleh menggantinya sepenuhnya.
 
 ## Yang disimulasikan dan yang belum ada
@@ -61,7 +84,7 @@ Kontrak data yang diharapkan UI:
 - **Layar telepon** adalah tiruan. Di iPhone asli layar telepon milik iOS, dan Rambu tampil lewat Live Activity serta notifikasi.
 - **Memutus telepon orang tua tidak mungkin di iOS.** Aplikasi pihak ketiga tidak bisa mengakhiri panggilan seluler maupun WhatsApp. Gantinya, setelah keputusan "Ini penipuan", pengawas bisa menekan **Telepon Ibu Ratna sekarang**. Kalau operator mengaktifkan panggilan tunggu, panggilan itu muncul di atas telepon penipu dan orang tua bisa langsung beralih. Perlu diuji di HP asli.
 - **Live Activity** diperbarui secara lokal. Kalau app di latar belakang, pembaruan butuh push APNs dari server. Live Activity dari proses sebelumnya dibersihkan saat app dibuka.
-- Belum ada: BLE nyata, push notification ke pengawas, panggilan penyelamat VoIP, akun, dan penyimpanan.
+- Belum ada: BLE nyata, push APNs dari server, panggilan penyelamat VoIP, dan akun. Push di prototipe memakai notifikasi lokal; kalau izin ditolak, tiruan banner muncul di dalam app.
 
 ## Struktur
 

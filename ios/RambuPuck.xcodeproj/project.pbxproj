@@ -7,12 +7,14 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		015C33D79CB70CA2E04974AC /* TutorialViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = A14FC06D1DC47049CD2579C5 /* TutorialViews.swift */; };
 		08C53254A80489879E8BE5C9 /* Components.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1ADD3D9E0E2BB4F30BECDE08 /* Components.swift */; };
 		0FE9538C2A23EC0BADD38011 /* BrandTokens.swift in Sources */ = {isa = PBXBuildFile; fileRef = 69DFED1BBE7FF071A75558A4 /* BrandTokens.swift */; };
 		168791791AA0350AD7025A9A /* Notifier.swift in Sources */ = {isa = PBXBuildFile; fileRef = D73DC190DB3434F464EE9AFE /* Notifier.swift */; };
 		26261C7131CA31A2A54BC477 /* RambuPuckWidgets.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7DF654B5013C8198BA3E1168 /* RambuPuckWidgets.swift */; };
 		31C9F5F79F53B7D2F19C60EE /* BrandTokens.swift in Sources */ = {isa = PBXBuildFile; fileRef = 69DFED1BBE7FF071A75558A4 /* BrandTokens.swift */; };
 		3BAEBDB7399E26DC1AE84FEE /* CallActivityAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 91303AE084840EFA17FD0C49 /* CallActivityAttributes.swift */; };
+		530E3EC772DB134178BF0434 /* CallStatusView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 584D32FC4D1AFB6F3AECB476 /* CallStatusView.swift */; };
 		71757F5BA9B88838F65F13CC /* Mascot.swift in Sources */ = {isa = PBXBuildFile; fileRef = EE025E71C0581D1C225224FF /* Mascot.swift */; };
 		81A35F3B49B46E52142134CF /* CallActivityAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 91303AE084840EFA17FD0C49 /* CallActivityAttributes.swift */; };
 		9DB85FF86E6CB4DCCCC67546 /* CallViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = B7CDCE6EF63A63200F0B2FB4 /* CallViews.swift */; };
@@ -21,6 +23,7 @@
 		A82B691C1E05301974E55EFB /* RambuPuckWidgets.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 3369AA22200DFAE58EEC64F7 /* RambuPuckWidgets.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		AEA4C2444F3A9F021AC710C3 /* GuardianViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 35A862CC980FBCAD88AEECD0 /* GuardianViews.swift */; };
 		B3E832FFCAE34EF8F6054722 /* RambuPuckApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC01F61E0E715FC4C1E3A6CB /* RambuPuckApp.swift */; };
+		C77EFB6842B87DEB060C0946 /* Support.swift in Sources */ = {isa = PBXBuildFile; fileRef = 70D9204B33F579FD3246A5D6 /* Support.swift */; };
 		CABA98908EE7419C4B419AF4 /* PuckViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = A68455BBE5D4A4EF1A7C27D7 /* PuckViews.swift */; };
 		D0CA677252CCA64E4000EFF3 /* OnboardingViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = FE7BE65253CF157F4F782378 /* OnboardingViews.swift */; };
 		D32AB0A138E33C90D9CF4041 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 07FB2AA968E7685E5A7F9560 /* Assets.xcassets */; };
@@ -28,6 +31,7 @@
 		DA909706F54B5272FFBB142B /* ParentViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = D39AD886929DFFEA490113F8 /* ParentViews.swift */; };
 		DE8693354EB57D34C194D6AA /* AppModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7063BB5996D0F7B663126971 /* AppModel.swift */; };
 		E4D76DC7F6F475C00D25BE05 /* CommonViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2CBA6D976ED7058FF1EE07B /* CommonViews.swift */; };
+		E934C20C3166E000727A4A3E /* ProfileViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1CE1F0114F9D56B372E361A9 /* ProfileViews.swift */; };
 		E960566922C3EA42A5F41262 /* AppModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7316B1ED576711FE1FBE6402 /* AppModelTests.swift */; };
 		F317B9D4BC4504C2FA1A3E59 /* Mascot.swift in Sources */ = {isa = PBXBuildFile; fileRef = EE025E71C0581D1C225224FF /* Mascot.swift */; };
 /* End PBXBuildFile section */
@@ -66,12 +70,15 @@
 /* Begin PBXFileReference section */
 		07FB2AA968E7685E5A7F9560 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		1ADD3D9E0E2BB4F30BECDE08 /* Components.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Components.swift; sourceTree = "<group>"; };
+		1CE1F0114F9D56B372E361A9 /* ProfileViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileViews.swift; sourceTree = "<group>"; };
 		254EDE427C00FEAD4D6BF286 /* Services.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Services.swift; sourceTree = "<group>"; };
 		3369AA22200DFAE58EEC64F7 /* RambuPuckWidgets.appex */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = "wrapper.app-extension"; path = RambuPuckWidgets.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		35A862CC980FBCAD88AEECD0 /* GuardianViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GuardianViews.swift; sourceTree = "<group>"; };
 		507E3EC86822C5E1CF0D93FD /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		584D32FC4D1AFB6F3AECB476 /* CallStatusView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CallStatusView.swift; sourceTree = "<group>"; };
 		69DFED1BBE7FF071A75558A4 /* BrandTokens.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BrandTokens.swift; sourceTree = "<group>"; };
 		7063BB5996D0F7B663126971 /* AppModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppModel.swift; sourceTree = "<group>"; };
+		70D9204B33F579FD3246A5D6 /* Support.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Support.swift; sourceTree = "<group>"; };
 		7316B1ED576711FE1FBE6402 /* AppModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppModelTests.swift; sourceTree = "<group>"; };
 		7426E7D445E89B52B25F83A1 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		7681D4A10BB857FF3E4ADBA5 /* RambuPuck.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = RambuPuck.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -79,6 +86,7 @@
 		857CE598D86BC69C87D8F317 /* Scenarios.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Scenarios.swift; sourceTree = "<group>"; };
 		91303AE084840EFA17FD0C49 /* CallActivityAttributes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CallActivityAttributes.swift; sourceTree = "<group>"; };
 		98AE9A49065B9F67BA237979 /* RambuPuckTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = RambuPuckTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		A14FC06D1DC47049CD2579C5 /* TutorialViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TutorialViews.swift; sourceTree = "<group>"; };
 		A2CBA6D976ED7058FF1EE07B /* CommonViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CommonViews.swift; sourceTree = "<group>"; };
 		A68455BBE5D4A4EF1A7C27D7 /* PuckViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PuckViews.swift; sourceTree = "<group>"; };
 		AC01F61E0E715FC4C1E3A6CB /* RambuPuckApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RambuPuckApp.swift; sourceTree = "<group>"; };
@@ -123,6 +131,7 @@
 				FE70D1DF145F6B7F16DBA97B /* Guardian */,
 				D8D19EDBF62FFC82953100A8 /* Onboarding */,
 				B52FD72EC85E9B988178FD0E /* Parent */,
+				CE8711D1EFF172905961A587 /* Profile */,
 			);
 			path = Features;
 			sourceTree = "<group>";
@@ -167,6 +176,7 @@
 			children = (
 				D73DC190DB3434F464EE9AFE /* Notifier.swift */,
 				254EDE427C00FEAD4D6BF286 /* Services.swift */,
+				70D9204B33F579FD3246A5D6 /* Support.swift */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -210,6 +220,7 @@
 		B52FD72EC85E9B988178FD0E /* Parent */ = {
 			isa = PBXGroup;
 			children = (
+				584D32FC4D1AFB6F3AECB476 /* CallStatusView.swift */,
 				B7CDCE6EF63A63200F0B2FB4 /* CallViews.swift */,
 				D39AD886929DFFEA490113F8 /* ParentViews.swift */,
 				A68455BBE5D4A4EF1A7C27D7 /* PuckViews.swift */,
@@ -217,10 +228,19 @@
 			path = Parent;
 			sourceTree = "<group>";
 		};
+		CE8711D1EFF172905961A587 /* Profile */ = {
+			isa = PBXGroup;
+			children = (
+				1CE1F0114F9D56B372E361A9 /* ProfileViews.swift */,
+			);
+			path = Profile;
+			sourceTree = "<group>";
+		};
 		D8D19EDBF62FFC82953100A8 /* Onboarding */ = {
 			isa = PBXGroup;
 			children = (
 				FE7BE65253CF157F4F782378 /* OnboardingViews.swift */,
+				A14FC06D1DC47049CD2579C5 /* TutorialViews.swift */,
 			);
 			path = Onboarding;
 			sourceTree = "<group>";
@@ -381,6 +401,7 @@
 				DE8693354EB57D34C194D6AA /* AppModel.swift in Sources */,
 				0FE9538C2A23EC0BADD38011 /* BrandTokens.swift in Sources */,
 				3BAEBDB7399E26DC1AE84FEE /* CallActivityAttributes.swift in Sources */,
+				530E3EC772DB134178BF0434 /* CallStatusView.swift in Sources */,
 				9DB85FF86E6CB4DCCCC67546 /* CallViews.swift in Sources */,
 				E4D76DC7F6F475C00D25BE05 /* CommonViews.swift in Sources */,
 				08C53254A80489879E8BE5C9 /* Components.swift in Sources */,
@@ -390,10 +411,13 @@
 				168791791AA0350AD7025A9A /* Notifier.swift in Sources */,
 				D0CA677252CCA64E4000EFF3 /* OnboardingViews.swift in Sources */,
 				DA909706F54B5272FFBB142B /* ParentViews.swift in Sources */,
+				E934C20C3166E000727A4A3E /* ProfileViews.swift in Sources */,
 				CABA98908EE7419C4B419AF4 /* PuckViews.swift in Sources */,
 				B3E832FFCAE34EF8F6054722 /* RambuPuckApp.swift in Sources */,
 				A31ADF44058EF81EC4CAE2DE /* Scenarios.swift in Sources */,
 				D8700001363B381322D5280F /* Services.swift in Sources */,
+				C77EFB6842B87DEB060C0946 /* Support.swift in Sources */,
+				015C33D79CB70CA2E04974AC /* TutorialViews.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

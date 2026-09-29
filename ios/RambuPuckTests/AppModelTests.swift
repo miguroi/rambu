@@ -10,7 +10,8 @@ struct AppModelTests {
             onboardingComplete: true,
             analysis: ScenarioAnalysis(interval: .zero, initialDelay: .zero),
             liveActivities: false,
-            notifications: false
+            notifications: false,
+            speech: false
         )
     }
 
@@ -120,5 +121,108 @@ struct AppModelTests {
         #expect(RiskRules.level(for: [.urgency]) == .review)
         #expect(RiskRules.level(for: [.secretCode]) == .danger)
         #expect(RiskRules.level(for: [.impersonation, .urgency]) == .danger)
+    }
+
+    // MARK: Fitur P0 sampai P2
+
+    @Test("Data keluarga dan riwayat tersimpan di HP dan terbaca lagi")
+    func stateSurvivesRelaunch() async throws {
+        let url = FileManager.default.temporaryDirectory.appendingPathComponent("rambu-\(UUID()).json")
+        let store = LocalStore(url: url)
+        defer { store.clear() }
+
+        let first = AppModel(analysis: ScenarioAnalysis(interval: .zero, initialDelay: .zero),
+                             liveActivities: false, notifications: false, speech: false, store: store)
+        first.renameParent("Bu Sri")
+        first.completeOnboarding(as: .ratna)
+        await first.startCall(.bankOTP).value
+        first.endCall()
+
+        let second = AppModel(liveActivities: false, notifications: false, speech: false, store: store)
+        #expect(second.onboardingComplete)
+        #expect(second.parent.name == "Bu Sri")
+        #expect(second.history.first?.level == .danger)
+    }
+
+    @Test("Tanpa jawaban pengawas, orang tua diminta menahan diri")
+    func unansweredAlertEscalates() async throws {
+        let model = AppModel(persona: .ratna, onboardingComplete: true,
+                             analysis: ScenarioAnalysis(interval: .zero, initialDelay: .zero),
+                             liveActivities: false, notifications: false, speech: false,
+                             escalationDelay: .milliseconds(50))
+        await model.startCall(.bankOTP).value
+        try await Task.sleep(for: .milliseconds(200))
+
+        let id = try #require(model.session?.id)
+        #expect(model.unanswered.contains(id))
+        #expect(model.toast?.title == "Belum ada jawaban")
+        #expect(model.toast?.body.contains("Jangan lakukan tindakan apa pun dulu") == true)
+    }
+
+    @Test("Loudspeaker mati: Rambu mengingatkan dan baru mendengar setelah dinyalakan")
+    func speakerReminder() async throws {
+        let model = AppModel(persona: .ratna, onboardingComplete: true,
+                             analysis: ScenarioAnalysis(interval: .zero, initialDelay: .zero),
+                             liveActivities: false, notifications: false, speech: false,
+                             speakerCheckDelay: .milliseconds(10))
+        model.speakerOffNextCall = true
+        await model.startCall(.bankOTP).value
+
+        #expect(model.toast?.title == "Nyalakan loudspeaker")
+        #expect(model.alerts.isEmpty)
+
+        await model.turnOnSpeaker()?.value
+        #expect(model.session?.speakerOn == true)
+        #expect(model.alerts.first?.level == .danger)
+    }
+
+    @Test("Pengawas yang kalah cepat diberi tahu siapa yang menjawab lebih dulu")
+    func lateGuardianIsTold() async throws {
+        let model = makeModel()
+        await model.startCall(.bankOTP).value
+        let id = try #require(model.alerts.first?.id)
+        model.simulateDecision(by: .richard, .scam, on: id)
+
+        model.switchPersona(.sinta)
+        let outcome = model.decide(.safe, on: id)
+        #expect(outcome == .alreadyDecided(try #require(model.alerts.first?.decision)))
+        #expect(model.toast?.title == "Richard sudah menjawab lebih dulu")
+    }
+
+    @Test("Tautan undangan dari WhatsApp mengisi kode pengawas")
+    func inviteLinkFillsCode() {
+        #expect(InviteLink.code(from: URL(string: "rambu://gabung?kode=482913")!) == "482913")
+        #expect(InviteLink.code(from: InviteLink.url(code: "715204")) == "715204")
+        #expect(InviteLink.code(from: URL(string: "rambu://gabung?kode=12")!) == nil)
+
+        let model = AppModel(liveActivities: false, notifications: false, speech: false)
+        model.handleIncoming(URL(string: "rambu://gabung?kode=482913")!)
+        #expect(model.onboardingStep == .enterCode)
+        #expect(model.pendingInviteCode == "482913")
+    }
+
+    @Test("Jawaban Aman tercatat sebagai umpan balik dan masuk ringkasan")
+    func safeDecisionIsFeedback() async throws {
+        let model = makeModel()
+        await model.startCall(.courierApp).value
+        let id = try #require(model.alerts.first?.id)
+        model.switchPersona(.sinta)
+        model.decide(.safe, on: id)
+        model.switchPersona(.ratna)
+        model.endCall()
+
+        let feedback = try #require(model.feedback as? LocalDetectionFeedback)
+        #expect(feedback.reported == [id])
+        let record = try #require(model.history.first { $0.id == id })
+        #expect(record.incidentSummary.contains("Sinta menandai aman"))
+        #expect(record.incidentSummary.contains("menyuruh pasang aplikasi"))
+    }
+
+    @Test("Pengawas bisa menjaga lebih dari satu orang tua")
+    func guardianProtectsSeveralParents() {
+        let model = makeModel(persona: .sinta)
+        let added = model.addProtectedParent(code: "715204")
+        #expect(added?.name == "Pak Hadi")
+        #expect(model.protectedParents.count == 2)
     }
 }

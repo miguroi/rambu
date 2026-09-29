@@ -25,6 +25,7 @@ struct GuardianHome: View {
         NavigationStack(path: $model.guardianPath) {
             ScrollView {
                 VStack(alignment: .leading, spacing: 22) {
+                    IssueList()
                     if let alert = model.featuredAlert {
                         NavigationLink(value: alert.id) { AlertHeroCard(alert: alert) }
                             .buttonStyle(.plain)
@@ -35,6 +36,7 @@ struct GuardianHome: View {
                     VStack(alignment: .leading, spacing: 10) {
                         SectionHeader(title: "Yang Anda jaga")
                         ProtectedParentCard()
+                        ForEach(model.extraParents) { OtherParentRow(person: $0) }
                     }
                 }
                 .padding(.horizontal, 20)
@@ -44,7 +46,7 @@ struct GuardianHome: View {
             .background(Brand.canvas)
             .navigationTitle("Halo, \(model.currentPerson.name)")
             .navigationDestination(for: UUID.self) { AlertDetail(alertID: $0) }
-            .toolbar { ToolbarItem(placement: .topBarTrailing) { DemoButton() } }
+            .toolbar { ToolbarItem(placement: .topBarTrailing) { ProfileButton() } }
         }
     }
 }
@@ -132,6 +134,26 @@ private struct LevelBand: View {
 }
 
 /// Orang tua yang dijaga plus rekan pengawas, dalam satu kartu.
+/// Orang tua lain yang dijaga. Di demo tidak ada telepon dari HP mereka.
+private struct OtherParentRow: View {
+    let person: Person
+
+    var body: some View {
+        HStack(spacing: 14) {
+            Avatar(person: person, size: 44)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(person.name).font(.headline).foregroundStyle(Brand.ink)
+                Text("\(person.relation), tidak menelepon").font(.subheadline).foregroundStyle(Brand.ink2)
+            }
+            Spacer(minLength: 0)
+            Image(systemName: "checkmark.shield.fill").foregroundStyle(Brand.safe)
+                .accessibilityLabel("Dijaga")
+        }
+        .card(padding: 14)
+        .accessibilityElement(children: .combine)
+    }
+}
+
 private struct ProtectedParentCard: View {
     @Environment(AppModel.self) private var model
 

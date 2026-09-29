@@ -19,6 +19,10 @@ struct ParentRoot: View {
         .tabBarMinimizeBehavior(.onScrollDown)
         .fullScreenCover(isPresented: $model.isCallScreenPresented) {
             CallScreen()
+                .sheet(isPresented: $model.showCallStatus) {
+                    CallStatusView()
+                        .presentationDetents([.large])
+                }
         }
     }
 }
@@ -31,12 +35,13 @@ struct ParentHome: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 22) {
+                    IssueList()
                     ProtectionHero()
                     DemoCallCard { showScenarios = true }
 
                     VStack(alignment: .leading, spacing: 10) {
                         SectionHeader(title: "Ragu? Telepon dulu")
-                        GuardiansCard()
+                        QuickCallGuardians()
                     }
 
                     if let last = model.history.first {
@@ -57,8 +62,9 @@ struct ParentHome: View {
             .background(Brand.canvas)
             .navigationTitle("Halo, \(model.parent.name)")
             .navigationDestination(for: UUID.self) { CallDetail(recordID: $0) }
-            .toolbar { ToolbarItem(placement: .topBarTrailing) { DemoButton() } }
+            .toolbar { ToolbarItem(placement: .topBarTrailing) { ProfileButton() } }
             .sheet(isPresented: $showScenarios) { ScenarioPicker() }
+            .animation(.smooth, value: model.issues)
         }
     }
 }
@@ -69,21 +75,23 @@ private struct ProtectionHero: View {
 
     var body: some View {
         let showMascot = !typeSize.isAccessibilitySize
+        let ready = model.puck.isConnected && model.bluetoothOn
         VStack(alignment: .leading, spacing: 18) {
             HStack(alignment: .center, spacing: 8) {
                 VStack(alignment: .leading, spacing: 8) {
-                    Label(model.puck.isConnected ? "Aktif" : "Puck terputus",
-                          systemImage: model.puck.isConnected ? "checkmark.shield.fill" : "exclamationmark.shield.fill")
+                    Label(ready ? "Aktif" : "Belum aktif",
+                          systemImage: ready ? "checkmark.shield.fill" : "exclamationmark.shield.fill")
                         .font(.subheadline.weight(.semibold))
                         .foregroundStyle(Color(hex: 0xA8F5DC))
-                    Text("Rambu siap mendengarkan")
+                    Text(ready ? "Rambu siap mendengarkan" : "Rambu belum bisa mendengar")
                         .font(Brand.display(.title2))
                         .foregroundStyle(.white)
                         .fixedSize(horizontal: false, vertical: true)
                 }
                 Spacer(minLength: 0)
                 if showMascot {
-                    MascotBuddy(sign: .safe, onDark: true, greeting: "Saya ikut berjaga")
+                    MascotBuddy(sign: ready ? .safe : .review, onDark: true,
+                                greeting: ready ? "Saya ikut berjaga" : "Sambungkan puck, ya")
                         .frame(width: 92)
                 }
             }
@@ -108,47 +116,6 @@ private struct ProtectionHero: View {
         .clipShape(.rect(cornerRadius: 28, style: .continuous))
         .shadow(color: Brand.teal.opacity(0.3), radius: 18, y: 8)
         .accessibilityElement(children: .combine)
-    }
-}
-
-/// Tombol cepat menelepon pengawas. Saat ragu di tengah telepon, cukup satu ketukan.
-private struct GuardiansCard: View {
-    @Environment(AppModel.self) private var model
-    @Environment(\.openURL) private var openURL
-    @State private var callInfo: Person?
-
-    var body: some View {
-        HStack(spacing: 12) {
-            ForEach(model.guardians) { person in
-                VStack(spacing: 10) {
-                    Avatar(person: person, size: 52)
-                    VStack(spacing: 1) {
-                        Text(person.name).font(.headline).foregroundStyle(Brand.ink)
-                        Text(person.relation).font(.subheadline).foregroundStyle(Brand.ink2)
-                    }
-                    .lineLimit(1)
-                    Button {
-                        openURL(URL(string: "tel:+620000000000")!) { accepted in if !accepted { callInfo = person } }
-                    } label: {
-                        Label("Telepon", systemImage: "phone.fill")
-                            .font(.subheadline.weight(.semibold))
-                            .frame(maxWidth: .infinity)
-                    }
-                    .buttonStyle(.glassProminent)
-                    .tint(Brand.safe)
-                    .accessibilityLabel("Telepon \(person.name)")
-                }
-                .frame(maxWidth: .infinity)
-                .padding(14)
-                .background(.white, in: .rect(cornerRadius: 24, style: .continuous))
-                .shadow(color: Brand.ink.opacity(0.06), radius: 14, y: 6)
-            }
-        }
-        .alert("Telepon \(callInfo?.name ?? "")", isPresented: .init(get: { callInfo != nil }, set: { if !$0 { callInfo = nil } })) {
-            Button("Oke", role: .cancel) {}
-        } message: {
-            Text("Simulator tidak bisa menelepon. Di HP asli, telepon langsung tersambung.")
-        }
     }
 }
 
