@@ -133,8 +133,12 @@ private struct TutorialVisual: View {
     var body: some View {
         Group {
             switch visual {
-            case .attachPuck: attachPuck
-            case .speaker: speaker
+            case .attachPuck:
+                PhotoSlot(name: "PhotoPuckOnPhone") { attachPuck }
+                    .padding(.horizontal, 28)
+            case .speaker:
+                PhotoSlot(name: "PhotoSpeakerCall") { speaker }
+                    .padding(.horizontal, 28)
             case .push, .alertIn: pushDrop
             case .readQuote: readQuote
             case .decide: decide

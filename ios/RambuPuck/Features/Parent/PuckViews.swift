@@ -9,8 +9,11 @@ struct PuckScreen: View {
             List {
                 Section {
                     VStack(spacing: 14) {
-                        PuckIllustration(ledColor: model.puck.isCharging ? Brand.danger : nil)
-                            .frame(maxWidth: 240)
+                        PhotoSlot(name: "PhotoPuckProduct") {
+                            PuckIllustration(ledColor: model.puck.isCharging ? Brand.danger : nil)
+                                .frame(maxWidth: 240)
+                        }
+                        .frame(height: 170)
                         HStack(spacing: 8) {
                             StatusPill(systemImage: model.puck.isConnected ? "checkmark.circle.fill" : "xmark.circle.fill",
                                        text: model.puck.isConnected ? "Terhubung" : "Terputus",
