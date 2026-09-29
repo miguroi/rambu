@@ -56,7 +56,7 @@ struct ParentHome: View {
                 .padding(.bottom, 28)
             }
             .background(Brand.canvas)
-            .navigationTitle("Halo, Ibu Ratna")
+            .navigationTitle("Halo, \(model.parent.name)")
             .navigationDestination(for: UUID.self) { CallDetail(recordID: $0) }
             .toolbar { ToolbarItem(placement: .topBarTrailing) { DemoButton() } }
             .sheet(isPresented: $showScenarios) { ScenarioPicker() }

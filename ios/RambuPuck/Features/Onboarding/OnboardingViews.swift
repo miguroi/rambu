@@ -8,6 +8,8 @@ struct OnboardingFlow: View {
             Group {
                 switch model.onboardingStep {
                 case .welcome: WelcomeStep()
+                case .parentProfile: ParentProfileStep()
+                case .guardianProfile: GuardianProfileStep()
                 case .pairPuck: PairPuckStep()
                 case .consent: ConsentStep()
                 case .invite: InviteGuardiansStep()
@@ -30,10 +32,12 @@ struct OnboardingFlow: View {
 
     private func goBack() {
         switch model.onboardingStep {
-        case .pairPuck, .enterCode: model.onboardingStep = .welcome
+        case .parentProfile, .enterCode: model.onboardingStep = .welcome
+        case .pairPuck: model.onboardingStep = .parentProfile
         case .consent: model.onboardingStep = .pairPuck
         case .invite: model.onboardingStep = .consent
-        case .waiting: model.onboardingStep = .enterCode
+        case .guardianProfile: model.onboardingStep = .enterCode
+        case .waiting: model.onboardingStep = .guardianProfile
         case .welcome: break
         }
     }
@@ -113,7 +117,7 @@ private struct WelcomeStep: View {
         .scrollBounceBehavior(.basedOnSize)
         .safeAreaBar(edge: .bottom) {
             VStack(spacing: 10) {
-                Button { model.onboardingStep = .pairPuck } label: {
+                Button { model.onboardingStep = .parentProfile } label: {
                     WideLabel(title: "Saya ingin dilindungi", systemImage: "shield.lefthalf.filled")
                 }
                 .primaryAction()
@@ -124,6 +128,122 @@ private struct WelcomeStep: View {
             }
             .padding(.horizontal, 24)
             .padding(.bottom, 8)
+        }
+    }
+}
+
+// MARK: - Isian nama
+
+/// Kolom nama besar dan jelas. Sudah terisi data contoh, tetap bisa diubah.
+private struct NameField: View {
+    let title: String
+    @Binding var text: String
+    let prompt: String
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(title).font(.subheadline.weight(.semibold)).foregroundStyle(Brand.ink2)
+            TextField(prompt, text: $text)
+                .font(.title3.weight(.semibold))
+                .foregroundStyle(Brand.ink)
+                .textInputAutocapitalization(.words)
+                .autocorrectionDisabled()
+                .textContentType(.name)
+                .submitLabel(.done)
+                .padding(.horizontal, 16)
+                .frame(minHeight: 58)
+                .background(.white, in: .rect(cornerRadius: 16, style: .continuous))
+                .overlay {
+                    RoundedRectangle(cornerRadius: 16, style: .continuous).strokeBorder(Brand.hairline)
+                }
+        }
+    }
+}
+
+private struct DemoPrefillNote: View {
+    var body: some View {
+        Label("Sudah diisi contoh untuk demo. Boleh diganti.", systemImage: "info.circle")
+            .font(.footnote)
+            .foregroundStyle(Brand.ink3)
+    }
+}
+
+// MARK: - Orang tua: nama
+
+private struct ParentProfileStep: View {
+    @Environment(AppModel.self) private var model
+    @State private var name = ""
+
+    var body: some View {
+        StepScaffold(
+            step: "Langkah 1 dari 4",
+            title: "Siapa nama Anda?",
+            message: "Nama ini yang dilihat keluarga saat Rambu memberi tahu mereka."
+        ) {
+            NameField(title: "Nama panggilan", text: $name, prompt: "Contoh: Ibu Ratna")
+            DemoPrefillNote()
+        } actions: {
+            Button {
+                model.renameParent(name)
+                model.onboardingStep = .pairPuck
+            } label: { WideLabel(title: "Lanjut") }
+                .primaryAction()
+                .disabled(name.trimmingCharacters(in: .whitespaces).isEmpty)
+        }
+        .onAppear { if name.isEmpty { name = model.parent.name } }
+    }
+}
+
+// MARK: - Pengawas: nama dan hubungan
+
+private struct GuardianProfileStep: View {
+    @Environment(AppModel.self) private var model
+    @State private var name = ""
+    @State private var relation = "Anak"
+
+    private let relations = ["Anak", "Cucu", "Saudara"]
+
+    var body: some View {
+        StepScaffold(
+            step: "Untuk pengawas · langkah 2 dari 2",
+            title: "Perkenalkan diri Anda",
+            message: "\(model.parent.name) akan melihat nama ini sebelum mengizinkan Anda."
+        ) {
+            NameField(title: "Nama Anda", text: $name, prompt: "Contoh: Sinta")
+
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Hubungan dengan \(model.parent.name)")
+                    .font(.subheadline.weight(.semibold)).foregroundStyle(Brand.ink2)
+                HStack(spacing: 8) {
+                    ForEach(relations, id: \.self) { option in
+                        Button { relation = option } label: {
+                            Text(option)
+                                .font(.headline)
+                                .foregroundStyle(relation == option ? .white : Brand.ink)
+                                .frame(maxWidth: .infinity, minHeight: 50)
+                                .background(relation == option ? Brand.teal : .white, in: .capsule)
+                                .overlay { Capsule().strokeBorder(relation == option ? .clear : Brand.hairline) }
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityAddTraits(relation == option ? .isSelected : [])
+                    }
+                }
+            }
+            DemoPrefillNote()
+        } actions: {
+            Button {
+                model.renameGuardian(.sinta, name: name, relation: relation)
+                model.onboardingStep = .waiting
+            } label: { WideLabel(title: "Kirim permintaan") }
+                .primaryAction()
+                .disabled(name.trimmingCharacters(in: .whitespaces).isEmpty)
+        }
+        .onAppear {
+            if name.isEmpty {
+                let me = model.person(for: .sinta)
+                name = me.name
+                relation = me.relation
+            }
         }
     }
 }
@@ -139,7 +259,7 @@ private struct PairPuckStep: View {
 
     var body: some View {
         StepScaffold(
-            step: "Langkah 1 dari 3",
+            step: "Langkah 2 dari 4",
             title: "Pasang Rambu Puck",
             message: "Tempelkan puck di punggung HP, lalu tekan tombol di sisinya sampai lampunya berkedip."
         ) {
@@ -228,7 +348,7 @@ private struct ConsentStep: View {
 
     var body: some View {
         StepScaffold(
-            step: "Langkah 2 dari 3",
+            step: "Langkah 3 dari 4",
             title: "Sebelum Rambu mendengarkan",
             message: "Tiga hal yang berlaku sejak awal."
         ) {
@@ -274,7 +394,7 @@ private struct InviteGuardiansStep: View {
 
     var body: some View {
         StepScaffold(
-            step: "Langkah 3 dari 3",
+            step: "Langkah 4 dari 4",
             title: "Hubungkan pengawas",
             message: "Minta anak Anda membuka aplikasi Rambu dan memasukkan kode ini. Anda bisa punya lebih dari satu pengawas."
         ) {
@@ -317,7 +437,7 @@ private struct InviteGuardiansStep: View {
             Avatar(person: person, size: 44)
             VStack(alignment: .leading, spacing: 2) {
                 Text(person.name).font(.headline).foregroundStyle(Brand.ink)
-                Text(approved.contains(person.id) ? "Terhubung" : "Ingin menjaga Anda")
+                Text(approved.contains(person.id) ? "\(person.relation) · terhubung" : "\(person.relation) · ingin menjaga Anda")
                     .font(.subheadline)
                     .foregroundStyle(approved.contains(person.id) ? Brand.safeInk : Brand.ink2)
             }
@@ -354,7 +474,7 @@ private struct EnterCodeStep: View {
 
     var body: some View {
         StepScaffold(
-            step: "Untuk pengawas",
+            step: "Untuk pengawas · langkah 1 dari 2",
             title: "Masukkan kode dari orang tua Anda",
             message: "Kode 6 angka ada di aplikasi Rambu milik orang tua Anda."
         ) {
@@ -375,7 +495,7 @@ private struct EnterCodeStep: View {
             Text("Kode contoh untuk demo: 482 913")
                 .font(.subheadline).foregroundStyle(Brand.ink3)
         } actions: {
-            Button { model.onboardingStep = .waiting } label: { WideLabel(title: "Hubungkan") }
+            Button { model.onboardingStep = .guardianProfile } label: { WideLabel(title: "Lanjut") }
                 .primaryAction()
                 .disabled(code.count < 6)
         }
@@ -388,21 +508,23 @@ private struct GuardianWaitingStep: View {
     @State private var connected = false
 
     var body: some View {
+        let me = model.person(for: .sinta)
+        let partner = model.person(for: .richard)
         StepScaffold(
             step: "Untuk pengawas",
-            title: connected ? "Terhubung dengan Ibu Ratna" : "Menunggu izin",
+            title: connected ? "Terhubung dengan \(model.parent.name)" : "Menunggu izin",
             message: connected
-                ? "Anda menjaga Ibu Ratna bersama Richard. Jawaban pertama yang masuk yang berlaku, jadi cukup salah satu dari kalian."
-                : "Ibu Ratna perlu mengizinkan permintaan Anda di HP-nya."
+                ? "Anda menjaga \(model.parent.name) bersama \(partner.name). Jawaban pertama yang masuk yang berlaku, jadi cukup salah satu dari kalian."
+                : "\(model.parent.name) perlu mengizinkan permintaan Anda di HP-nya."
         ) {
             VStack(spacing: 18) {
                 HStack(spacing: 14) {
-                    Avatar(person: .sinta, size: 64)
+                    Avatar(person: me, size: 64)
                     Image(systemName: connected ? "link" : "ellipsis")
                         .font(.title2.weight(.semibold))
                         .foregroundStyle(connected ? Brand.safe : Brand.ink3)
                         .symbolEffect(.pulse, isActive: !connected)
-                    Avatar(person: .ratna, size: 64)
+                    Avatar(person: model.parent, size: 64)
                 }
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 8)

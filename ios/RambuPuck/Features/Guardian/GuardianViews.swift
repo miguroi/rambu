@@ -174,12 +174,14 @@ private struct CoGuardianCard: View {
 }
 
 private struct QuietState: View {
+    @Environment(AppModel.self) private var model
+
     var body: some View {
         VStack(spacing: 10) {
             MascotView(pose: .rest).frame(height: 120)
             Text("Tidak ada yang perlu diputuskan")
                 .font(Brand.display(.headline)).foregroundStyle(Brand.ink)
-            Text("Anda akan diberi tahu kalau Rambu menemukan tanda penipuan di telepon Ibu Ratna.")
+            Text("Anda akan diberi tahu kalau Rambu menemukan tanda penipuan di telepon \(model.parent.name).")
                 .font(.subheadline).foregroundStyle(Brand.ink2).multilineTextAlignment(.center)
                 .fixedSize(horizontal: false, vertical: true)
         }
