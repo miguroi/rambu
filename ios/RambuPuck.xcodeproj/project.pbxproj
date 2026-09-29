@@ -1,0 +1,683 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		08C53254A80489879E8BE5C9 /* Components.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1ADD3D9E0E2BB4F30BECDE08 /* Components.swift */; };
+		0FE9538C2A23EC0BADD38011 /* BrandTokens.swift in Sources */ = {isa = PBXBuildFile; fileRef = 69DFED1BBE7FF071A75558A4 /* BrandTokens.swift */; };
+		26261C7131CA31A2A54BC477 /* RambuPuckWidgets.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7DF654B5013C8198BA3E1168 /* RambuPuckWidgets.swift */; };
+		31C9F5F79F53B7D2F19C60EE /* BrandTokens.swift in Sources */ = {isa = PBXBuildFile; fileRef = 69DFED1BBE7FF071A75558A4 /* BrandTokens.swift */; };
+		3BAEBDB7399E26DC1AE84FEE /* CallActivityAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 91303AE084840EFA17FD0C49 /* CallActivityAttributes.swift */; };
+		71757F5BA9B88838F65F13CC /* Mascot.swift in Sources */ = {isa = PBXBuildFile; fileRef = EE025E71C0581D1C225224FF /* Mascot.swift */; };
+		81A35F3B49B46E52142134CF /* CallActivityAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 91303AE084840EFA17FD0C49 /* CallActivityAttributes.swift */; };
+		9DB85FF86E6CB4DCCCC67546 /* CallViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = B7CDCE6EF63A63200F0B2FB4 /* CallViews.swift */; };
+		A1248D2B8AC64A6E0CE58B70 /* Domain.swift in Sources */ = {isa = PBXBuildFile; fileRef = E254F226511470847AFAE0A2 /* Domain.swift */; };
+		A31ADF44058EF81EC4CAE2DE /* Scenarios.swift in Sources */ = {isa = PBXBuildFile; fileRef = 857CE598D86BC69C87D8F317 /* Scenarios.swift */; };
+		A82B691C1E05301974E55EFB /* RambuPuckWidgets.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 3369AA22200DFAE58EEC64F7 /* RambuPuckWidgets.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		AEA4C2444F3A9F021AC710C3 /* GuardianViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 35A862CC980FBCAD88AEECD0 /* GuardianViews.swift */; };
+		B3E832FFCAE34EF8F6054722 /* RambuPuckApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC01F61E0E715FC4C1E3A6CB /* RambuPuckApp.swift */; };
+		CABA98908EE7419C4B419AF4 /* PuckViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = A68455BBE5D4A4EF1A7C27D7 /* PuckViews.swift */; };
+		D0CA677252CCA64E4000EFF3 /* OnboardingViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = FE7BE65253CF157F4F782378 /* OnboardingViews.swift */; };
+		D32AB0A138E33C90D9CF4041 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 07FB2AA968E7685E5A7F9560 /* Assets.xcassets */; };
+		D8700001363B381322D5280F /* Services.swift in Sources */ = {isa = PBXBuildFile; fileRef = 254EDE427C00FEAD4D6BF286 /* Services.swift */; };
+		DA909706F54B5272FFBB142B /* ParentViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = D39AD886929DFFEA490113F8 /* ParentViews.swift */; };
+		DE8693354EB57D34C194D6AA /* AppModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7063BB5996D0F7B663126971 /* AppModel.swift */; };
+		E4D76DC7F6F475C00D25BE05 /* CommonViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2CBA6D976ED7058FF1EE07B /* CommonViews.swift */; };
+		E960566922C3EA42A5F41262 /* AppModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7316B1ED576711FE1FBE6402 /* AppModelTests.swift */; };
+		F317B9D4BC4504C2FA1A3E59 /* Mascot.swift in Sources */ = {isa = PBXBuildFile; fileRef = EE025E71C0581D1C225224FF /* Mascot.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		289C8411764BBB5C6802B419 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = C076EC00E81CA52879B3115E /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = FDDB49AECDDB4120E9115001;
+			remoteInfo = RambuPuck;
+		};
+		C5C4DF6D7ADC90F6CA52D569 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = C076EC00E81CA52879B3115E /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = D7E763B5D8B7AF2BD72D44BE;
+			remoteInfo = RambuPuckWidgets;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		429F9BE8B99C0F136C9AF4C1 /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				A82B691C1E05301974E55EFB /* RambuPuckWidgets.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
+/* Begin PBXFileReference section */
+		07FB2AA968E7685E5A7F9560 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		1ADD3D9E0E2BB4F30BECDE08 /* Components.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Components.swift; sourceTree = "<group>"; };
+		254EDE427C00FEAD4D6BF286 /* Services.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Services.swift; sourceTree = "<group>"; };
+		3369AA22200DFAE58EEC64F7 /* RambuPuckWidgets.appex */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = "wrapper.app-extension"; path = RambuPuckWidgets.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		35A862CC980FBCAD88AEECD0 /* GuardianViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GuardianViews.swift; sourceTree = "<group>"; };
+		507E3EC86822C5E1CF0D93FD /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		69DFED1BBE7FF071A75558A4 /* BrandTokens.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BrandTokens.swift; sourceTree = "<group>"; };
+		7063BB5996D0F7B663126971 /* AppModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppModel.swift; sourceTree = "<group>"; };
+		7316B1ED576711FE1FBE6402 /* AppModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppModelTests.swift; sourceTree = "<group>"; };
+		7426E7D445E89B52B25F83A1 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		7681D4A10BB857FF3E4ADBA5 /* RambuPuck.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = RambuPuck.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		7DF654B5013C8198BA3E1168 /* RambuPuckWidgets.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RambuPuckWidgets.swift; sourceTree = "<group>"; };
+		857CE598D86BC69C87D8F317 /* Scenarios.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Scenarios.swift; sourceTree = "<group>"; };
+		91303AE084840EFA17FD0C49 /* CallActivityAttributes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CallActivityAttributes.swift; sourceTree = "<group>"; };
+		98AE9A49065B9F67BA237979 /* RambuPuckTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = RambuPuckTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		A2CBA6D976ED7058FF1EE07B /* CommonViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CommonViews.swift; sourceTree = "<group>"; };
+		A68455BBE5D4A4EF1A7C27D7 /* PuckViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PuckViews.swift; sourceTree = "<group>"; };
+		AC01F61E0E715FC4C1E3A6CB /* RambuPuckApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RambuPuckApp.swift; sourceTree = "<group>"; };
+		B7CDCE6EF63A63200F0B2FB4 /* CallViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CallViews.swift; sourceTree = "<group>"; };
+		D39AD886929DFFEA490113F8 /* ParentViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ParentViews.swift; sourceTree = "<group>"; };
+		E254F226511470847AFAE0A2 /* Domain.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Domain.swift; sourceTree = "<group>"; };
+		EE025E71C0581D1C225224FF /* Mascot.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Mascot.swift; sourceTree = "<group>"; };
+		FE7BE65253CF157F4F782378 /* OnboardingViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingViews.swift; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXGroup section */
+		06C815458CE00C2DF0599A51 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				7681D4A10BB857FF3E4ADBA5 /* RambuPuck.app */,
+				98AE9A49065B9F67BA237979 /* RambuPuckTests.xctest */,
+				3369AA22200DFAE58EEC64F7 /* RambuPuckWidgets.appex */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		0F72262098B8FF16C45D4235 /* RambuPuck */ = {
+			isa = PBXGroup;
+			children = (
+				07FB2AA968E7685E5A7F9560 /* Assets.xcassets */,
+				7426E7D445E89B52B25F83A1 /* Info.plist */,
+				870C3695D4DF9C32C546E753 /* App */,
+				F12BEB0CBC8503D9E7999DED /* DesignSystem */,
+				2DCA120CA21EDF32D384C618 /* Features */,
+				B2A0F66B5B1C50C3B8AB49E1 /* Model */,
+				722EFC4DA5F1A40D3CC86A7F /* Services */,
+				6C54F43BF3FF52B7A5C9CBDE /* Store */,
+			);
+			path = RambuPuck;
+			sourceTree = "<group>";
+		};
+		2DCA120CA21EDF32D384C618 /* Features */ = {
+			isa = PBXGroup;
+			children = (
+				3DB750CBE32B93798DEFA6F6 /* Common */,
+				FE70D1DF145F6B7F16DBA97B /* Guardian */,
+				D8D19EDBF62FFC82953100A8 /* Onboarding */,
+				B52FD72EC85E9B988178FD0E /* Parent */,
+			);
+			path = Features;
+			sourceTree = "<group>";
+		};
+		3DB750CBE32B93798DEFA6F6 /* Common */ = {
+			isa = PBXGroup;
+			children = (
+				A2CBA6D976ED7058FF1EE07B /* CommonViews.swift */,
+			);
+			path = Common;
+			sourceTree = "<group>";
+		};
+		5BC1FC6B341EE206FF06FBD3 = {
+			isa = PBXGroup;
+			children = (
+				0F72262098B8FF16C45D4235 /* RambuPuck */,
+				6DCB7BE303F95ABDB061580D /* RambuPuckTests */,
+				9D3ACEB8E7F4F2AC052E2077 /* RambuPuckWidgets */,
+				82D099C7D938237124D4687A /* Shared */,
+				06C815458CE00C2DF0599A51 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		6C54F43BF3FF52B7A5C9CBDE /* Store */ = {
+			isa = PBXGroup;
+			children = (
+				7063BB5996D0F7B663126971 /* AppModel.swift */,
+			);
+			path = Store;
+			sourceTree = "<group>";
+		};
+		6DCB7BE303F95ABDB061580D /* RambuPuckTests */ = {
+			isa = PBXGroup;
+			children = (
+				7316B1ED576711FE1FBE6402 /* AppModelTests.swift */,
+			);
+			path = RambuPuckTests;
+			sourceTree = "<group>";
+		};
+		722EFC4DA5F1A40D3CC86A7F /* Services */ = {
+			isa = PBXGroup;
+			children = (
+				254EDE427C00FEAD4D6BF286 /* Services.swift */,
+			);
+			path = Services;
+			sourceTree = "<group>";
+		};
+		82D099C7D938237124D4687A /* Shared */ = {
+			isa = PBXGroup;
+			children = (
+				69DFED1BBE7FF071A75558A4 /* BrandTokens.swift */,
+				91303AE084840EFA17FD0C49 /* CallActivityAttributes.swift */,
+				EE025E71C0581D1C225224FF /* Mascot.swift */,
+			);
+			path = Shared;
+			sourceTree = "<group>";
+		};
+		870C3695D4DF9C32C546E753 /* App */ = {
+			isa = PBXGroup;
+			children = (
+				AC01F61E0E715FC4C1E3A6CB /* RambuPuckApp.swift */,
+			);
+			path = App;
+			sourceTree = "<group>";
+		};
+		9D3ACEB8E7F4F2AC052E2077 /* RambuPuckWidgets */ = {
+			isa = PBXGroup;
+			children = (
+				507E3EC86822C5E1CF0D93FD /* Info.plist */,
+				7DF654B5013C8198BA3E1168 /* RambuPuckWidgets.swift */,
+			);
+			path = RambuPuckWidgets;
+			sourceTree = "<group>";
+		};
+		B2A0F66B5B1C50C3B8AB49E1 /* Model */ = {
+			isa = PBXGroup;
+			children = (
+				E254F226511470847AFAE0A2 /* Domain.swift */,
+				857CE598D86BC69C87D8F317 /* Scenarios.swift */,
+			);
+			path = Model;
+			sourceTree = "<group>";
+		};
+		B52FD72EC85E9B988178FD0E /* Parent */ = {
+			isa = PBXGroup;
+			children = (
+				B7CDCE6EF63A63200F0B2FB4 /* CallViews.swift */,
+				D39AD886929DFFEA490113F8 /* ParentViews.swift */,
+				A68455BBE5D4A4EF1A7C27D7 /* PuckViews.swift */,
+			);
+			path = Parent;
+			sourceTree = "<group>";
+		};
+		D8D19EDBF62FFC82953100A8 /* Onboarding */ = {
+			isa = PBXGroup;
+			children = (
+				FE7BE65253CF157F4F782378 /* OnboardingViews.swift */,
+			);
+			path = Onboarding;
+			sourceTree = "<group>";
+		};
+		F12BEB0CBC8503D9E7999DED /* DesignSystem */ = {
+			isa = PBXGroup;
+			children = (
+				1ADD3D9E0E2BB4F30BECDE08 /* Components.swift */,
+			);
+			path = DesignSystem;
+			sourceTree = "<group>";
+		};
+		FE70D1DF145F6B7F16DBA97B /* Guardian */ = {
+			isa = PBXGroup;
+			children = (
+				35A862CC980FBCAD88AEECD0 /* GuardianViews.swift */,
+			);
+			path = Guardian;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		64A87743DAD85BC878022384 /* RambuPuckTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 0D0CF91CAD7FB3F15F5A4452 /* Build configuration list for PBXNativeTarget "RambuPuckTests" */;
+			buildPhases = (
+				32C626E47DA50D402B374D19 /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				71EBA1562C61A15AE4D19802 /* PBXTargetDependency */,
+			);
+			name = RambuPuckTests;
+			packageProductDependencies = (
+			);
+			productName = RambuPuckTests;
+			productReference = 98AE9A49065B9F67BA237979 /* RambuPuckTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+		D7E763B5D8B7AF2BD72D44BE /* RambuPuckWidgets */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = E7F2DB9846B67B869D6754EA /* Build configuration list for PBXNativeTarget "RambuPuckWidgets" */;
+			buildPhases = (
+				31B8D3FA01A87696EE21ADE0 /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = RambuPuckWidgets;
+			packageProductDependencies = (
+			);
+			productName = RambuPuckWidgets;
+			productReference = 3369AA22200DFAE58EEC64F7 /* RambuPuckWidgets.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
+		FDDB49AECDDB4120E9115001 /* RambuPuck */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = A6CB3BA361CB8962BBA2721A /* Build configuration list for PBXNativeTarget "RambuPuck" */;
+			buildPhases = (
+				37883CB55884F67E7B863C15 /* Sources */,
+				5A1C66975BF216218E7E4BD2 /* Resources */,
+				429F9BE8B99C0F136C9AF4C1 /* Embed Foundation Extensions */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				BAC2A50D5554E6CA32DF59F1 /* PBXTargetDependency */,
+			);
+			name = RambuPuck;
+			packageProductDependencies = (
+			);
+			productName = RambuPuck;
+			productReference = 7681D4A10BB857FF3E4ADBA5 /* RambuPuck.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		C076EC00E81CA52879B3115E /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = YES;
+				LastUpgradeCheck = 1430;
+				TargetAttributes = {
+					64A87743DAD85BC878022384 = {
+						DevelopmentTeam = "";
+						ProvisioningStyle = Automatic;
+					};
+					D7E763B5D8B7AF2BD72D44BE = {
+						DevelopmentTeam = "";
+						ProvisioningStyle = Automatic;
+					};
+					FDDB49AECDDB4120E9115001 = {
+						DevelopmentTeam = "";
+						ProvisioningStyle = Automatic;
+					};
+				};
+			};
+			buildConfigurationList = 8A31C7AA6721DC8789CAE32C /* Build configuration list for PBXProject "RambuPuck" */;
+			developmentRegion = id;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				Base,
+				id,
+			);
+			mainGroup = 5BC1FC6B341EE206FF06FBD3;
+			minimizedProjectReferenceProxies = 1;
+			preferredProjectObjectVersion = 77;
+			productRefGroup = 06C815458CE00C2DF0599A51 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				FDDB49AECDDB4120E9115001 /* RambuPuck */,
+				D7E763B5D8B7AF2BD72D44BE /* RambuPuckWidgets */,
+				64A87743DAD85BC878022384 /* RambuPuckTests */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		5A1C66975BF216218E7E4BD2 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				D32AB0A138E33C90D9CF4041 /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		31B8D3FA01A87696EE21ADE0 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				31C9F5F79F53B7D2F19C60EE /* BrandTokens.swift in Sources */,
+				81A35F3B49B46E52142134CF /* CallActivityAttributes.swift in Sources */,
+				F317B9D4BC4504C2FA1A3E59 /* Mascot.swift in Sources */,
+				26261C7131CA31A2A54BC477 /* RambuPuckWidgets.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		32C626E47DA50D402B374D19 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				E960566922C3EA42A5F41262 /* AppModelTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		37883CB55884F67E7B863C15 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				DE8693354EB57D34C194D6AA /* AppModel.swift in Sources */,
+				0FE9538C2A23EC0BADD38011 /* BrandTokens.swift in Sources */,
+				3BAEBDB7399E26DC1AE84FEE /* CallActivityAttributes.swift in Sources */,
+				9DB85FF86E6CB4DCCCC67546 /* CallViews.swift in Sources */,
+				E4D76DC7F6F475C00D25BE05 /* CommonViews.swift in Sources */,
+				08C53254A80489879E8BE5C9 /* Components.swift in Sources */,
+				A1248D2B8AC64A6E0CE58B70 /* Domain.swift in Sources */,
+				AEA4C2444F3A9F021AC710C3 /* GuardianViews.swift in Sources */,
+				71757F5BA9B88838F65F13CC /* Mascot.swift in Sources */,
+				D0CA677252CCA64E4000EFF3 /* OnboardingViews.swift in Sources */,
+				DA909706F54B5272FFBB142B /* ParentViews.swift in Sources */,
+				CABA98908EE7419C4B419AF4 /* PuckViews.swift in Sources */,
+				B3E832FFCAE34EF8F6054722 /* RambuPuckApp.swift in Sources */,
+				A31ADF44058EF81EC4CAE2DE /* Scenarios.swift in Sources */,
+				D8700001363B381322D5280F /* Services.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		71EBA1562C61A15AE4D19802 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = FDDB49AECDDB4120E9115001 /* RambuPuck */;
+			targetProxy = 289C8411764BBB5C6802B419 /* PBXContainerItemProxy */;
+		};
+		BAC2A50D5554E6CA32DF59F1 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = D7E763B5D8B7AF2BD72D44BE /* RambuPuckWidgets */;
+			targetProxy = C5C4DF6D7ADC90F6CA52D569 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		455A527648A1CEE7FAAE7B01 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = id.rambu.puck.tests;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/RambuPuck.app/RambuPuck";
+			};
+			name = Release;
+		};
+		59FCDC477DF43B704007A7FB /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				INFOPLIST_FILE = RambuPuckWidgets/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = id.rambu.puck.widgets;
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Release;
+		};
+		6AA079682866D4AF70F9190E /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				INFOPLIST_FILE = RambuPuck/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = id.rambu.puck;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Release;
+		};
+		98BFA44B4471F2088A3FD478 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 1;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				DEVELOPMENT_TEAM = "";
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					"DEBUG=1",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
+				MARKETING_VERSION = 0.1.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 6.0;
+			};
+			name = Debug;
+		};
+		B0D82FF9032215675631FEB9 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				INFOPLIST_FILE = RambuPuck/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = id.rambu.puck;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Debug;
+		};
+		C2650449F639975E68A4DC07 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				INFOPLIST_FILE = RambuPuckWidgets/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = id.rambu.puck.widgets;
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Debug;
+		};
+		C78FFF4A1CF606203C3A9B6D /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = id.rambu.puck.tests;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/RambuPuck.app/RambuPuck";
+			};
+			name = Debug;
+		};
+		E28D1941F702459A2FB21D8C /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 1;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				DEVELOPMENT_TEAM = "";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
+				MARKETING_VERSION = 0.1.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 6.0;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		0D0CF91CAD7FB3F15F5A4452 /* Build configuration list for PBXNativeTarget "RambuPuckTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				C78FFF4A1CF606203C3A9B6D /* Debug */,
+				455A527648A1CEE7FAAE7B01 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		8A31C7AA6721DC8789CAE32C /* Build configuration list for PBXProject "RambuPuck" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				98BFA44B4471F2088A3FD478 /* Debug */,
+				E28D1941F702459A2FB21D8C /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		A6CB3BA361CB8962BBA2721A /* Build configuration list for PBXNativeTarget "RambuPuck" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				B0D82FF9032215675631FEB9 /* Debug */,
+				6AA079682866D4AF70F9190E /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		E7F2DB9846B67B869D6754EA /* Build configuration list for PBXNativeTarget "RambuPuckWidgets" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				C2650449F639975E68A4DC07 /* Debug */,
+				59FCDC477DF43B704007A7FB /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = C076EC00E81CA52879B3115E /* Project object */;
+}
