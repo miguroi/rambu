@@ -645,3 +645,24 @@ struct MascotBuddy: View {
         }
     }
 }
+
+// MARK: - Tempat foto
+
+/// Foto yang bisa diisi belakangan. Kalau aset belum ada di katalog, ilustrasi cadangan tampil.
+/// Nama slot: PhotoPuckProduct, PhotoPuckOnPhone, PhotoSpeakerCall (lihat ios/README.md).
+struct PhotoSlot<Fallback: View>: View {
+    let name: String
+    var cornerRadius: CGFloat = 28
+    @ViewBuilder var fallback: Fallback
+
+    var body: some View {
+        if let image = UIImage(named: name) {
+            Color.clear
+                .overlay { Image(uiImage: image).resizable().scaledToFill() }
+                .clipShape(.rect(cornerRadius: cornerRadius, style: .continuous))
+                .accessibilityHidden(true)
+        } else {
+            fallback
+        }
+    }
+}

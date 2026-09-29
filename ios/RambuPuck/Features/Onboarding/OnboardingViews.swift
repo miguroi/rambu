@@ -92,37 +92,67 @@ private struct StepScaffold<Content: View, Actions: View>: View {
 
 private struct WelcomeStep: View {
     @Environment(AppModel.self) private var model
-    @Environment(\.dynamicTypeSize) private var typeSize
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var showPush = false
+
+    private let sample = Toast(id: "sambutan", title: "Bahaya: terindikasi penipuan",
+                               body: "Sudah dikirim ke Sinta dan Richard.", level: .danger, alertID: nil)
 
     var body: some View {
         ScrollView {
-            VStack(spacing: 18) {
-                Image("Wordmark")
+            VStack(alignment: .leading, spacing: 0) {
+                // Foto asli: ibu dan anak di Bandung (Tuti Isnawati, Pexels).
+                Image("PhotoWelcome")
                     .resizable()
-                    .scaledToFit()
-                    .frame(height: 40)
-                    .accessibilityLabel("Rambu")
-                    .padding(.top, 12)
+                    .scaledToFill()
+                    .frame(height: 470)
+                    .frame(maxWidth: .infinity)
+                    .clipped()
+                    .overlay(alignment: .top) {
+                        LinearGradient(colors: [Brand.canvas.opacity(0.85), .clear], startPoint: .top, endPoint: .bottom)
+                            .frame(height: 130)
+                    }
+                    .overlay(alignment: .bottom) {
+                        LinearGradient(colors: [.clear, Brand.canvas], startPoint: .top, endPoint: .bottom)
+                            .frame(height: 170)
+                    }
+                    .overlay(alignment: .topLeading) {
+                        Image("Wordmark")
+                            .resizable()
+                            .scaledToFit()
+                            .frame(height: 26)
+                            .padding(.horizontal, 14)
+                            .padding(.vertical, 9)
+                            .background(.white.opacity(0.9), in: .capsule)
+                            .padding(.leading, 20)
+                            .padding(.top, 62)
+                            .accessibilityLabel("Rambu")
+                    }
+                    .overlay(alignment: .bottom) {
+                        if showPush {
+                            PushBanner(toast: sample)
+                                .padding(.horizontal, 14)
+                                .padding(.bottom, 44)
+                                .transition(.move(edge: .top).combined(with: .opacity))
+                        }
+                    }
+                    .accessibilityLabel("Seorang ibu dan anaknya duduk di teras rumah")
 
-                MascotView(pose: .wave)
-                    .frame(height: typeSize.isAccessibilitySize ? 150 : 220)
-                    .padding(.vertical, 4)
-
-                VStack(spacing: 10) {
+                VStack(alignment: .leading, spacing: 10) {
                     Text("Kenali tanda, hindari tipu daya.")
-                        .font(Brand.display(.title))
+                        .font(Brand.display(.largeTitle))
                         .foregroundStyle(Brand.ink)
-                        .multilineTextAlignment(.center)
                     Text("Puck di punggung HP ikut mendengar telepon. Ada tanda penipuan, keluarga langsung tahu.")
                         .font(.body)
                         .foregroundStyle(Brand.ink2)
-                        .multilineTextAlignment(.center)
                 }
                 .fixedSize(horizontal: false, vertical: true)
+                .padding(.horizontal, 24)
+                .padding(.top, -18)
+                .padding(.bottom, 24)
             }
-            .padding(.horizontal, 24)
-            .padding(.bottom, 24)
         }
+        .ignoresSafeArea(edges: .top)
         .scrollBounceBehavior(.basedOnSize)
         .safeAreaBar(edge: .bottom) {
             VStack(spacing: 10) {
@@ -138,6 +168,11 @@ private struct WelcomeStep: View {
             .padding(.horizontal, 24)
             .padding(.bottom, 8)
         }
+        .task {
+            try? await Task.sleep(for: .seconds(0.9))
+            withAnimation(reduceMotion ? nil : .spring(duration: 0.6, bounce: 0.3)) { showPush = true }
+        }
+        .sensoryFeedback(.warning, trigger: showPush) { _, new in new }
     }
 }
 
@@ -274,8 +309,10 @@ private struct PairPuckStep: View {
             VStack(spacing: 16) {
                 ZStack {
                     if phase == .searching { SearchRings() }
-                    PuckIllustration(ledColor: phase == .idle ? nil : Brand.tealBright)
-                        .frame(maxWidth: 240)
+                    PhotoSlot(name: "PhotoPuckProduct") {
+                        PuckIllustration(ledColor: phase == .idle ? nil : Brand.tealBright)
+                            .frame(maxWidth: 240)
+                    }
                 }
                 .frame(maxWidth: .infinity)
                 .frame(height: 200)
@@ -708,7 +745,6 @@ private struct GuardianWaitingStep: View {
     @State private var connected = false
 
     var body: some View {
-        let me = model.person(for: .sinta)
         let partner = model.person(for: .richard)
         StepScaffold(
             title: connected ? "Terhubung" : "Menunggu izin",
@@ -716,30 +752,50 @@ private struct GuardianWaitingStep: View {
                 ? "Anda menjaga \(model.parent.name) bersama \(partner.name). Cukup satu yang menjawab."
                 : "\(model.parent.name) perlu mengizinkan di HP-nya."
         ) {
-            VStack(spacing: 18) {
-                HStack(spacing: 14) {
-                    Avatar(person: me, size: 64)
-                    Image(systemName: connected ? "link" : "ellipsis")
-                        .font(.title2.weight(.semibold))
-                        .foregroundStyle(connected ? Brand.safe : Brand.ink3)
-                        .symbolEffect(.pulse, isActive: !connected)
-                        .contentTransition(.symbolEffect(.replace))
-                    Avatar(person: model.parent, size: 64)
-                }
+            // Foto asli: Tia Rahayu, Pexels.
+            Image("PhotoGuardian")
+                .resizable()
+                .scaledToFill()
+                .frame(height: 400)
                 .frame(maxWidth: .infinity)
-                .padding(.vertical, 8)
-
-                MascotView(pose: connected ? .happy : .check)
-                    .frame(height: 150)
-            }
+                .clipShape(.rect(cornerRadius: 32, style: .continuous))
+                .overlay(alignment: .bottom) {
+                    Group {
+                        if connected {
+                            PushBanner(toast: Toast(id: "contoh", title: "Bahaya: \(model.parent.name) mungkin ditipu",
+                                                    body: "Ketuk untuk melihat dan memutuskan.", level: .danger, alertID: nil))
+                                .transition(.move(edge: .bottom).combined(with: .opacity))
+                        } else {
+                            HStack(spacing: 10) {
+                                ProgressView()
+                                Text("Menunggu \(model.parent.name)…").font(.subheadline.weight(.semibold))
+                            }
+                            .foregroundStyle(Brand.ink)
+                            .padding(.horizontal, 16).padding(.vertical, 12)
+                            .background(.white.opacity(0.92), in: .capsule)
+                        }
+                    }
+                    .padding(12)
+                }
+                .overlay(alignment: .topTrailing) {
+                    HStack(spacing: -8) {
+                        Avatar(person: model.person(for: .sinta), size: 40)
+                        Avatar(person: model.parent, size: 40)
+                    }
+                    .padding(6)
+                    .background(.white.opacity(0.9), in: .capsule)
+                    .padding(14)
+                }
+                .accessibilityLabel("Seorang perempuan melihat HP")
         } actions: {
             Button { model.completeOnboarding(as: .sinta) } label: { WideLabel(title: "Mulai menjaga") }
                 .primaryAction()
                 .disabled(!connected)
         }
+        .animation(.spring(duration: 0.5, bounce: 0.25), value: connected)
         .task {
             try? await Task.sleep(for: .seconds(2))
-            withAnimation(.smooth) { connected = true }
+            connected = true
         }
     }
 }

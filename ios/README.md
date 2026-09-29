@@ -113,6 +113,21 @@ ios/
 - Maskot digambar ulang sebagai vektor (`Shared/Mascot.swift`) dengan enam pose. Titik kuning di dadanya selalu amber merek, bukan penanda status.
 - Mode terang saja.
 
+## Foto dan slot gambar
+
+Foto asli dari Pexels (lisensi Pexels, bebas dipakai termasuk komersial):
+
+- `PhotoWelcome`: ibu dan anak di teras rumah, Bandung. Foto oleh Tuti Isnawati.
+- `PhotoGuardian`: perempuan melihat HP. Foto oleh Tia Rahayu.
+
+Slot yang menunggu gambar (tampil ilustrasi cadangan selama asetnya belum ada). Tambahkan sebagai image set dengan nama persis ini di `Assets.xcassets`:
+
+| Slot | Dipakai di | Ukuran |
+|---|---|---|
+| `PhotoPuckProduct` | Langkah pasang puck, tab Puck | 1600 × 1000 |
+| `PhotoPuckOnPhone` | Tutorial kartu 1 | 1400 × 1400 |
+| `PhotoSpeakerCall` | Tutorial kartu 2 | 1400 × 1400 |
+
 ## Screenshot
 
 ```bash
