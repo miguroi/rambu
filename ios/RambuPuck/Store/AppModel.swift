@@ -186,6 +186,10 @@ final class AppModel {
         narrator.speak(text)
     }
 
+    func stopNarration() {
+        narrator.stop()
+    }
+
     // MARK: Gangguan
 
     var issues: [SystemIssue] {

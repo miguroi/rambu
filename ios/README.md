@@ -90,19 +90,33 @@ Kalau tidak ada baris yang berubah, balas `409` dengan keputusan yang sudah ada.
 
 ```
 ios/
-  project.yml                  konfigurasi XcodeGen
+  project.yml                        konfigurasi XcodeGen (jalankan `xcodegen` setelah menambah file)
   RambuPuck/
-    App/                       titik masuk + peluncur demo (RAMBU_SCENE)
-    Store/AppModel.swift       satu sumber kebenaran untuk ketiga peran
-    Model/                     domain, aturan risiko, skenario sintetis
-    Services/                  protokol serah terima + simulasi + Live Activity
-    DesignSystem/              kartu, tombol kaca, ikon tingkat, ilustrasi puck
-    Features/                  Onboarding, Parent, Guardian, Common
-  Shared/                      dipakai app dan widget: token merek, maskot, atribut Live Activity
-  RambuPuckWidgets/            Live Activity: Lock Screen + Dynamic Island
-  RambuPuckTests/              Swift Testing
-  Screenshots/                 hasil scripts/screenshots.sh
+    App/RambuPuckApp.swift           titik masuk, RootView, peluncur demo (RAMBU_SCENE)
+    Store/AppModel.swift             satu sumber kebenaran: panggilan, peringatan, keputusan, profil, penyimpanan
+    Model/Domain.swift               tipe domain, aturan risiko tiruan, ringkasan kejadian
+    Model/Scenarios.swift            percakapan sintetis dan riwayat awal
+    Services/Services.swift          protokol serah terima ke backend + simulasi + Live Activity
+    Services/Notifier.swift          push lokal (pengganti APNs di prototipe)
+    Services/Support.swift           penyimpanan lokal, narasi suara, internet, tautan undangan, umpan balik
+    DesignSystem/
+      Components.swift               kartu, tombol, avatar, header, kode 6 digit, PhotoSlot
+      RiskViews.swift                ikon, label, dan chip tingkat risiko; gelembung kalimat penelepon
+      PushBanner.swift               tampilan push Rambu
+      Illustrations.swift            ilustrasi puck, maskot interaktif
+    Features/
+      Onboarding/                    alur, jalur orang tua, jalur pengawas, tutorial, latihan
+      Parent/                        beranda, layar telepon, Status telepon, Puck
+      Guardian/                      beranda pengawas, detail peringatan
+      Profile/                       profil, undangan, jaga orang tua lain
+      Common/                        riwayat, Mode demo, banner gangguan, telepon cepat, tiruan push
+  Shared/                            dipakai app dan widget: token merek, maskot, atribut Live Activity
+  RambuPuckWidgets/                  Live Activity: Lock Screen + Dynamic Island
+  RambuPuckTests/                    Swift Testing
+  Screenshots/                       hasil scripts/screenshots.sh
 ```
+
+Setiap file berisi satu layar atau satu kelompok komponen. Tipe `private` dipakai untuk bagian yang hanya dipakai di file itu.
 
 ## Desain
 
@@ -120,7 +134,7 @@ Foto asli dari Pexels (lisensi Pexels, bebas dipakai termasuk komersial):
 - `PhotoWelcome`: ibu usia sekitar 40 menelepon dengan cemas di rumah. Foto oleh RDNE Stock project.
 - `PhotoGuardian`: perempuan melihat HP. Foto oleh Tia Rahayu.
 
-Slot yang menunggu gambar (tampil ilustrasi cadangan selama asetnya belum ada). Tambahkan sebagai image set dengan nama persis ini di `Assets.xcassets`:
+Gambar produk dan gaya hidup dibuat dengan image generation (puck belum punya foto fisik). Kalau asetnya dihapus, `PhotoSlot` menampilkan ilustrasi cadangan:
 
 | Slot | Dipakai di | Ukuran |
 |---|---|---|

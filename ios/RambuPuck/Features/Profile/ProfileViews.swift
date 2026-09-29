@@ -171,6 +171,8 @@ struct ProfileView: View {
         }
     }
 
+    /// Profil dan Mode demo sama-sama sheet di RootView, jadi Profil ditutup dulu
+    /// sebelum Mode demo dibuka.
     private func openDemo() {
         saveName()
         model.showProfile = false

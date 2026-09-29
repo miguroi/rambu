@@ -9,15 +9,6 @@ enum Persona: String, CaseIterable, Identifiable, Codable, Sendable {
 
     var id: String { rawValue }
 
-    /// Data contoh sebelum nama diisi saat onboarding. Nama sebenarnya ada di AppModel.
-    var defaultPerson: Person {
-        switch self {
-        case .ratna: .ratna
-        case .sinta: .sinta
-        case .richard: .richard
-        }
-    }
-
     var isParent: Bool { self == .ratna }
     var roleLabel: String { isParent ? "Orang tua" : "Pengawas" }
 }
@@ -164,7 +155,6 @@ struct CallSession: Identifiable, Sendable {
 enum Verdict: String, Codable, Hashable, Sendable {
     case scam, safe
 
-    var buttonTitle: String { self == .scam ? "Ini penipuan" : "Aman" }
     var pastTitle: String { self == .scam ? "penipuan" : "aman" }
 }
 

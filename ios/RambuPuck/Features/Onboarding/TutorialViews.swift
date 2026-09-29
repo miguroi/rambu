@@ -62,7 +62,7 @@ struct TutorialCarousel: View {
         .background(Brand.canvas.ignoresSafeArea())
         .onAppear { speak() }
         .onChange(of: page) { speak() }
-        .onDisappear { model.narrate("") }
+        .onDisappear { model.stopNarration() }
     }
 
     private func speak() {
