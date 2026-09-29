@@ -14,18 +14,22 @@ struct HistoryList: View {
     var body: some View {
         List {
             if records.isEmpty {
-                ContentUnavailableView("Belum ada riwayat", systemImage: "clock",
-                                       description: Text("Panggilan yang diperiksa Rambu muncul di sini."))
-                    .listRowBackground(Color.clear)
+                VStack(spacing: 10) {
+                    MascotView(pose: .calm, sign: .safe).frame(height: 130)
+                    Text("Belum ada peringatan").font(Brand.display(.title3)).foregroundStyle(Brand.ink)
+                    Text("Telepon Waspada dan Bahaya muncul di sini.")
+                        .font(.subheadline).foregroundStyle(Brand.ink2)
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 40)
+                .listRowBackground(Color.clear)
             } else {
                 Section {
                     ForEach(records) { record in
                         NavigationLink(value: record.id) { HistoryRow(record: record, forGuardian: forGuardian) }
                     }
                 } footer: {
-                    Text(forGuardian
-                         ? "Hanya telepon yang ditandai Perlu dicek atau Bahaya yang dibagikan ke pengawas."
-                         : "Riwayat tersimpan di HP ini. Pengawas hanya melihat telepon yang ditandai.")
+                    Label("Hanya telepon Waspada dan Bahaya", systemImage: "lock.fill")
                 }
             }
         }
@@ -44,21 +48,23 @@ struct HistoryRow: View {
 
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
-            LevelIcon(level: record.level, size: 26)
-                .frame(width: 34)
+            LevelTile(level: record.level)
             VStack(alignment: .leading, spacing: 3) {
-                Text(forGuardian ? "\(model.parent.name) · \(record.title)" : record.title)
+                Text(record.title)
                     .font(.headline).foregroundStyle(Brand.ink)
                     .fixedSize(horizontal: false, vertical: true)
-                Text("\(Fmt.day(record.startedAt)) · \(record.channel.short) · \(Fmt.duration(record.duration))")
-                    .font(.subheadline).foregroundStyle(Brand.ink2)
+                HStack(spacing: 8) {
+                    RiskBadge(level: record.level)
+                    Label(Fmt.day(record.startedAt), systemImage: record.channel.symbol)
+                        .font(.subheadline).foregroundStyle(Brand.ink2)
+                        .labelStyle(CompactLabelStyle())
+                }
                 if let decision = record.decision {
                     Label("\(decision.by.name): \(decision.verdict.pastTitle)",
                           systemImage: decision.verdict == .scam ? "hand.raised.fill" : "checkmark.circle.fill")
                         .font(.subheadline.weight(.semibold))
                         .foregroundStyle(decision.verdict == .scam ? Brand.dangerInk : Brand.safeInk)
-                } else if record.level == .safe {
-                    Text("Tidak ada tanda penipuan").font(.subheadline).foregroundStyle(Brand.safeInk)
+                        .labelStyle(CompactLabelStyle())
                 }
             }
             Spacer(minLength: 0)
@@ -77,21 +83,27 @@ struct CallDetail: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 22) {
                     VStack(alignment: .leading, spacing: 10) {
-                        LevelPill(level: record.level)
+                        RiskBadge(level: record.level, large: true)
                         Text(record.title)
                             .font(Brand.display(.title))
                             .foregroundStyle(Brand.ink)
                             .fixedSize(horizontal: false, vertical: true)
-                        Text("\(Fmt.day(record.startedAt)) · \(record.channel.label) · \(Fmt.duration(record.duration))")
-                            .font(.subheadline).foregroundStyle(Brand.ink2)
-                        Text(record.callerDetail).font(.subheadline).foregroundStyle(Brand.ink3)
+                        HStack(spacing: 14) {
+                            Label(Fmt.day(record.startedAt), systemImage: "calendar")
+                            Label(Fmt.duration(record.duration), systemImage: "timer")
+                        }
+                        .font(.subheadline).foregroundStyle(Brand.ink2)
+                        .labelStyle(CompactLabelStyle())
+                        Label(record.callerDetail, systemImage: record.channel.symbol)
+                            .font(.subheadline).foregroundStyle(Brand.ink3)
+                            .labelStyle(CompactLabelStyle())
                     }
 
                     if let decision = record.decision {
                         HStack(spacing: 12) {
                             Avatar(person: decision.by, size: 40)
                             VStack(alignment: .leading, spacing: 2) {
-                                Text("\(decision.by.name) menandai \(decision.verdict.pastTitle)")
+                                Text("\(decision.by.name): \(decision.verdict.pastTitle)")
                                     .font(.headline).foregroundStyle(Brand.ink)
                                 Text(Fmt.day(decision.at)).font(.subheadline).foregroundStyle(Brand.ink2)
                             }
@@ -102,21 +114,17 @@ struct CallDetail: View {
                     if record.signals.isEmpty {
                         HStack(spacing: 12) {
                             MascotView(pose: .calm, animated: false).frame(width: 56)
-                            Text("Rambu tidak menemukan tanda penipuan di telepon ini. Telepon ini tidak dibagikan ke pengawas.")
+                            Text("Tidak ada tanda penipuan. Tidak dibagikan ke pengawas.")
                                 .font(.body).foregroundStyle(Brand.ink2)
                                 .fixedSize(horizontal: false, vertical: true)
                         }
                         .card()
                     } else {
-                        VStack(alignment: .leading, spacing: 12) {
-                            SectionHeader(title: "Tanda yang terdeteksi")
-                            VStack(alignment: .leading, spacing: 14) {
-                                ForEach(record.signals, id: \.self) { SignalRow(kind: $0, level: record.level) }
-                            }
-                            .card()
+                        FlowLayout(spacing: 6) {
+                            ForEach(record.signals, id: \.self) { SignalChip(kind: $0, level: record.level) }
                         }
-                        VStack(alignment: .leading, spacing: 12) {
-                            SectionHeader(title: "Kata-kata penelepon")
+                        VStack(alignment: .leading, spacing: 14) {
+                            SectionHeader(title: "Kata penelepon")
                             ForEach(record.evidence) { EvidenceCard(line: $0, level: record.level) }
                         }
                     }
@@ -124,7 +132,7 @@ struct CallDetail: View {
                 .padding(20)
             }
             .background(Brand.canvas)
-            .navigationTitle("Detail telepon")
+            .navigationTitle("Detail")
             .navigationBarTitleDisplayMode(.inline)
         } else {
             ContentUnavailableView("Riwayat tidak ditemukan", systemImage: "clock.badge.xmark")
@@ -152,7 +160,7 @@ struct ScenarioPicker: View {
                         .buttonStyle(.plain)
                     }
                 } footer: {
-                    Text("Semua percakapan fiktif. Rambu memeriksa potongan suara tiap sekitar 5 detik, jadi tanda muncul bertahap.")
+                    Text("Semua percakapan fiktif.")
                 }
             }
             .navigationTitle("Contoh telepon")
@@ -181,11 +189,8 @@ struct ScenarioRow: View {
                 Text(scenario.title).font(.headline).foregroundStyle(Brand.ink)
                 Text(scenario.summary).font(.subheadline).foregroundStyle(Brand.ink2)
                     .fixedSize(horizontal: false, vertical: true)
-                HStack(spacing: 8) {
-                    LevelPill(level: scenario.expectedLevel)
-                    Text(scenario.channel.short).font(.caption).foregroundStyle(Brand.ink3)
-                }
-                .padding(.top, 2)
+                LevelPill(level: scenario.expectedLevel)
+                    .padding(.top, 2)
             }
         }
         .padding(.vertical, 6)
@@ -227,7 +232,7 @@ struct DemoSheet: View {
                 } header: {
                     Text("Lihat sebagai")
                 } footer: {
-                    Text("Di produk nyata, setiap orang memakai HP masing-masing. Mode demo menggabungkan ketiganya di satu HP.")
+                    Text("Aslinya tiap orang memakai HP sendiri.")
                 }
 
                 if model.persona.isParent, model.onboardingComplete {
@@ -245,21 +250,21 @@ struct DemoSheet: View {
                 if !model.persona.isParent, let alert = model.alerts.first(where: { $0.decision == nil }) {
                     let other = model.otherGuardians(than: model.currentPerson).first ?? .richard
                     Section {
-                        Button("\(other.name) menandai penipuan lebih dulu") {
+                        Button("\(other.name) menjawab lebih dulu") {
                             model.simulateDecision(by: other, .scam, on: alert.id)
                             dismiss()
                         }
                     } header: {
                         Text("Pengawas lain")
                     } footer: {
-                        Text("Untuk melihat tombol keputusan yang terkunci setelah jawaban pertama masuk.")
+                        Text("Lihat tombol yang terkunci.")
                     }
                 }
 
                 Section {
                     Button("Ulangi dari awal", role: .destructive) { confirmReset = true }
                 } footer: {
-                    Text("Semua nama, nomor, dan percakapan di aplikasi ini fiktif. Puck, transkripsi, dan pengiriman ke pengawas disimulasikan.")
+                    Text("Semua data di sini fiktif.")
                 }
             }
             .navigationTitle("Mode demo")
@@ -279,83 +284,49 @@ struct DemoSheet: View {
     }
 }
 
-// MARK: - Toast
+// MARK: - Tiruan push
 
+/// Tiruan banner push Rambu, dipakai saat izin notifikasi belum diberikan.
+/// Turun dari atas, hilang sendiri, bisa diusap ke atas, dan bisa diketuk.
 struct ToastOverlay: View {
     @Environment(AppModel.self) private var model
+    @GestureState private var drag: CGFloat = 0
 
     var body: some View {
         Group {
             if let toast = model.toast {
-                ToastCard(toast: toast)
-                    .padding(.horizontal, 12)
+                Button { open(toast) } label: { PushBanner(toast: toast) }
+                    .buttonStyle(.plain)
+                    .padding(.horizontal, 10)
+                    .offset(y: min(drag, 0))
+                    .gesture(
+                        DragGesture()
+                            .updating($drag) { value, state, _ in state = value.translation.height }
+                            .onEnded { value in if value.translation.height < -30 { model.toast = nil } }
+                    )
                     .transition(.move(edge: .top).combined(with: .opacity))
                     .task(id: toast.id) {
-                        try? await Task.sleep(for: .seconds(5))
+                        try? await Task.sleep(for: .seconds(6))
                         if model.toast?.id == toast.id { model.toast = nil }
                     }
             }
         }
         .animation(.spring(duration: 0.45, bounce: 0.2), value: model.toast)
     }
+
+    private func open(_ toast: Toast) {
+        model.toast = nil
+        guard !model.persona.isParent, let id = toast.alertID else { return }
+        model.openAlert(id)
+    }
 }
 
-private struct ToastCard: View {
-    let toast: Toast
-    @Environment(AppModel.self) private var model
-
-    var body: some View {
-        Button(action: open) {
-            HStack(spacing: 12) {
-                icon
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(title).font(.headline).foregroundStyle(Brand.ink)
-                    Text(subtitle).font(.subheadline).foregroundStyle(Brand.ink2)
-                }
-                Spacer(minLength: 0)
-            }
-            .padding(14)
-            .glassEffect(.regular.interactive(), in: .rect(cornerRadius: 24, style: .continuous))
-        }
-        .buttonStyle(.plain)
-        .accessibilityElement(children: .combine)
-    }
-
-    @ViewBuilder
-    private var icon: some View {
-        switch toast {
-        case .alert(let id):
-            LevelIcon(level: model.alerts.first { $0.id == id }?.level ?? .review, size: 30)
-        case .decision(_, let decision):
-            Avatar(person: decision.by, size: 36)
-        }
-    }
-
-    private var title: String {
-        switch toast {
-        case .alert(let id):
-            model.alerts.first { $0.id == id }?.title ?? "Peringatan baru"
-        case .decision(_, let decision):
-            "\(decision.by.name) menandai \(decision.verdict.pastTitle)"
-        }
-    }
-
-    private var subtitle: String {
-        switch toast {
-        case .alert: "Ketuk untuk melihat kalimatnya"
-        case .decision: "Keputusan sudah dikirim ke \(model.parent.name)"
-        }
-    }
-
-    private func open() {
-        switch toast {
-        case .alert(let id), .decision(let id, _):
-            if model.persona.isParent {
-                model.parentTab = .history
-                model.toast = nil
-            } else {
-                model.openAlert(id)
-            }
+/// Ikon kecil rapat dengan teks, untuk baris metadata.
+struct CompactLabelStyle: LabelStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        HStack(spacing: 5) {
+            configuration.icon.font(.footnote)
+            configuration.title
         }
     }
 }

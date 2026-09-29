@@ -151,58 +151,127 @@ struct HighlightedText: View {
     }
 }
 
-struct SignalRow: View {
+/// Satu tanda penipuan sebagai kapsul berikon. Menggantikan paragraf penjelasan.
+struct SignalChip: View {
     let kind: SignalKind
     var level: RiskLevel = .danger
-    var showHint = true
+    /// Di atas latar berwarna risiko, kapsul memakai putih supaya tetap terlihat.
+    var onTint = false
 
     var body: some View {
-        HStack(alignment: .top, spacing: 12) {
-            Image(systemName: kind.symbol)
-                .font(.body.weight(.semibold))
-                .foregroundStyle(level.ink)
-                .frame(width: 38, height: 38)
-                .background(level.soft, in: .rect(cornerRadius: 12, style: .continuous))
-            VStack(alignment: .leading, spacing: 3) {
-                Text(kind.title).font(.body.weight(.semibold)).foregroundStyle(Brand.ink)
-                if showHint {
-                    Text(kind.hint).font(.subheadline).foregroundStyle(Brand.ink2)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-            }
-        }
-        .accessibilityElement(children: .combine)
+        Label(kind.title, systemImage: kind.symbol)
+            .font(.footnote.weight(.semibold))
+            .foregroundStyle(level.ink)
+            .lineLimit(1)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 7)
+            .background(onTint ? .white : level.soft, in: .capsule)
     }
 }
 
+/// Deretan kapsul yang turun baris saat tidak muat.
+struct FlowLayout: Layout {
+    var spacing: CGFloat = 8
+
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        let rows = arrange(width: proposal.width ?? .infinity, subviews: subviews)
+        let height = rows.last.map { $0.y + $0.height } ?? 0
+        let width = rows.map(\.width).max() ?? 0
+        return CGSize(width: proposal.width ?? width, height: height)
+    }
+
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+        for row in arrange(width: bounds.width, subviews: subviews) {
+            var x = bounds.minX
+            for index in row.indices {
+                let size = subviews[index].sizeThatFits(.unspecified)
+                subviews[index].place(at: CGPoint(x: x, y: bounds.minY + row.y), proposal: ProposedViewSize(size))
+                x += size.width + spacing
+            }
+        }
+    }
+
+    private struct Row { var indices: [Int] = []; var y: CGFloat = 0; var width: CGFloat = 0; var height: CGFloat = 0 }
+
+    private func arrange(width: CGFloat, subviews: Subviews) -> [Row] {
+        var rows = [Row()]
+        for index in subviews.indices {
+            let size = subviews[index].sizeThatFits(.unspecified)
+            if !rows[rows.count - 1].indices.isEmpty, rows[rows.count - 1].width + spacing + size.width > width {
+                let last = rows[rows.count - 1]
+                rows.append(Row(y: last.y + last.height + spacing))
+            }
+            let gap: CGFloat = rows[rows.count - 1].indices.isEmpty ? 0 : spacing
+            rows[rows.count - 1].indices.append(index)
+            rows[rows.count - 1].width += gap + size.width
+            rows[rows.count - 1].height = max(rows[rows.count - 1].height, size.height)
+        }
+        return rows
+    }
+}
+
+/// Kalimat penelepon sebagai gelembung chat, supaya langsung terbaca sebagai "yang dia ucapkan".
 struct EvidenceCard: View {
     let line: TranscriptLine
     var level: RiskLevel = .danger
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack {
-                Label(line.speaker.label, systemImage: "person.wave.2.fill")
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(Brand.ink3)
-                Spacer()
-                Text(Fmt.offset(line.offset))
-                    .font(.caption.monospacedDigit())
-                    .foregroundStyle(Brand.ink3)
-                    .accessibilityLabel("Detik ke \(Int(line.offset))")
-            }
-            HighlightedText(text: line.text, phrases: line.flagged, tint: level.tint, ink: level.ink)
-                .font(.body)
-            if let first = line.signals.first {
-                Label(first.title, systemImage: first.symbol)
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(level.ink)
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 5)
-                    .background(level.soft, in: .capsule)
+        HStack(alignment: .top, spacing: 10) {
+            Image(systemName: "person.fill")
+                .font(.footnote)
+                .foregroundStyle(Brand.ink3)
+                .frame(width: 30, height: 30)
+                .background(Brand.hairline, in: .circle)
+                .accessibilityHidden(true)
+            VStack(alignment: .leading, spacing: 6) {
+                HighlightedText(text: line.text, phrases: line.flagged, tint: level.tint, ink: level.ink)
+                    .font(.body)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 12)
+                    .background(.white, in: UnevenRoundedRectangle(topLeadingRadius: 6, bottomLeadingRadius: 20,
+                                                                  bottomTrailingRadius: 20, topTrailingRadius: 20,
+                                                                  style: .continuous))
+                    .shadow(color: Brand.ink.opacity(0.05), radius: 8, y: 3)
+                HStack(spacing: 6) {
+                    if let first = line.signals.first {
+                        Image(systemName: first.symbol)
+                        Text(first.title)
+                    }
+                    Spacer(minLength: 0)
+                    Text(Fmt.offset(line.offset)).monospacedDigit()
+                        .foregroundStyle(Brand.ink3)
+                        .accessibilityLabel("detik ke \(Int(line.offset))")
+                }
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(level.ink)
+                .padding(.horizontal, 6)
             }
         }
-        .card(padding: 16)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Penelepon: \(line.text)")
+    }
+}
+
+// MARK: - Progres langkah
+
+/// Garis progres pengganti teks "Langkah 1 dari 4".
+struct StepProgress: View {
+    let current: Int
+    let total: Int
+
+    var body: some View {
+        HStack(spacing: 6) {
+            ForEach(1...total, id: \.self) { index in
+                Capsule()
+                    .fill(index <= current ? Brand.teal : Brand.hairline)
+                    .frame(height: 5)
+            }
+        }
+        .frame(maxWidth: 48 * CGFloat(total))
+        .animation(.smooth, value: current)
+        .accessibilityElement()
+        .accessibilityLabel("Langkah \(current) dari \(total)")
     }
 }
 
@@ -330,5 +399,132 @@ struct DemoButton: View {
             Avatar(person: model.currentPerson, size: 30)
         }
         .accessibilityLabel("Mode demo, sedang sebagai \(model.currentPerson.name). Ketuk untuk ganti peran.")
+    }
+}
+
+// MARK: - Indikator risiko berwarna penuh
+
+/// Label status berwarna penuh: kuning untuk Waspada, merah untuk Bahaya.
+struct RiskBadge: View {
+    let level: RiskLevel
+    var large = false
+
+    var body: some View {
+        HStack(spacing: 5) {
+            Image(systemName: level.symbol)
+            Text(level.title)
+        }
+            .font(large ? .headline : .subheadline.weight(.bold))
+            .foregroundStyle(level.glyph)
+            .lineLimit(1)
+            .fixedSize()
+            .padding(.horizontal, large ? 14 : 10)
+            .padding(.vertical, large ? 8 : 5)
+            .background(level.tint, in: .capsule)
+            .accessibilityElement(children: .combine)
+    }
+}
+
+/// Ubin ikon berwarna penuh untuk baris daftar.
+struct LevelTile: View {
+    let level: RiskLevel
+    @ScaledMetric private var size: CGFloat = 44
+
+    var body: some View {
+        Image(systemName: level.symbol)
+            .font(.system(size: size * 0.46, weight: .bold))
+            .foregroundStyle(level.glyph)
+            .frame(width: size, height: size)
+            .background(level.tint, in: .rect(cornerRadius: size * 0.3, style: .continuous))
+            .accessibilityLabel(level.title)
+    }
+}
+
+// MARK: - Push Rambu
+
+/// Tampilan push notifikasi Rambu, mengikuti banner notifikasi iOS:
+/// ikon app, nama app, waktu, judul, isi, dan thumbnail maskot yang memegang rambu.
+struct PushBanner: View {
+    let toast: Toast
+
+    var body: some View {
+        HStack(alignment: .center, spacing: 12) {
+            Image("RambuIcon")
+                .resizable()
+                .frame(width: 38, height: 38)
+                .clipShape(.rect(cornerRadius: 9, style: .continuous))
+                .accessibilityHidden(true)
+            VStack(alignment: .leading, spacing: 1) {
+                HStack {
+                    Text("RAMBU").font(.caption.weight(.semibold)).foregroundStyle(Brand.ink3)
+                    Spacer()
+                    Text("sekarang").font(.caption).foregroundStyle(Brand.ink3)
+                }
+                Text(toast.title).font(.subheadline.weight(.semibold)).foregroundStyle(Brand.ink)
+                Text(toast.body).font(.subheadline).foregroundStyle(Brand.ink)
+                    .lineLimit(3)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            MascotView(pose: toast.level.mascotPose, animated: false, sign: toast.level)
+                .padding(.top, 2)
+                .frame(width: 54, height: 54)
+                .background(toast.level.soft, in: .rect(cornerRadius: 11, style: .continuous))
+                .accessibilityHidden(true)
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 12)
+        .background(.white.opacity(0.9), in: .rect(cornerRadius: 26, style: .continuous))
+        .background(.ultraThinMaterial, in: .rect(cornerRadius: 26, style: .continuous))
+        .shadow(color: .black.opacity(0.18), radius: 20, y: 8)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Notifikasi Rambu. \(toast.title). \(toast.body)")
+    }
+}
+
+// MARK: - Maskot interaktif
+
+/// Maskot yang memegang rambu hijau dan menyapa saat diketuk.
+struct MascotBuddy: View {
+    var sign: RiskLevel = .safe
+    var onDark = false
+    let greeting: String
+
+    @State private var cheering = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    var body: some View {
+        MascotView(pose: cheering ? .happy : sign.mascotPose, onDark: onDark, sign: sign)
+            .scaleEffect(cheering && !reduceMotion ? 1.08 : 1, anchor: .bottom)
+            .rotationEffect(.degrees(cheering && !reduceMotion ? -4 : 0), anchor: .bottom)
+            .overlay(alignment: .topLeading) {
+                if cheering {
+                    Text(greeting)
+                        .font(.footnote.weight(.semibold))
+                        .foregroundStyle(Brand.ink)
+                        .fixedSize()
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 6)
+                        .background(.white, in: .capsule)
+                        .shadow(color: .black.opacity(0.12), radius: 6, y: 2)
+                        .offset(x: -70, y: -6)
+                        .transition(.scale(scale: 0.6, anchor: .bottomTrailing).combined(with: .opacity))
+                }
+            }
+            .contentShape(.rect)
+            .onTapGesture { cheer() }
+            .sensoryFeedback(.impact(weight: .light), trigger: cheering) { _, new in new }
+            .accessibilityElement()
+            .accessibilityLabel("Maskot Rambu")
+            .accessibilityAddTraits(.isButton)
+            .accessibilityAction { cheer() }
+    }
+
+    private func cheer() {
+        guard !cheering else { return }
+        withAnimation(.spring(duration: 0.4, bounce: 0.5)) { cheering = true }
+        Task {
+            try? await Task.sleep(for: .seconds(1.8))
+            withAnimation(.smooth) { cheering = false }
+        }
     }
 }

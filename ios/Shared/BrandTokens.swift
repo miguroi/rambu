@@ -14,12 +14,13 @@ enum Brand {
     static let canvas = Color(hex: 0xF2F6F5)
     static let hairline = Color(hex: 0xDCE7E4)
 
-    static let signal = Color(hex: 0xE59A0C)
-    static let signalSoft = Color(hex: 0xFEF2D6)
-    static let signalInk = Color(hex: 0x6B4500)
+    // Kuning Waspada dan merah Bahaya, seperti rambu jalan.
+    static let signal = Color(hex: 0xF4B400)
+    static let signalSoft = Color(hex: 0xFFF3C7)
+    static let signalInk = Color(hex: 0x5A4100)
 
-    static let danger = Color(hex: 0xC0332A)
-    static let dangerSoft = Color(hex: 0xFDE8E5)
+    static let danger = Color(hex: 0xD2372C)
+    static let dangerSoft = Color(hex: 0xFDE6E3)
     static let dangerInk = Color(hex: 0x9E1F15)
 
     static let safe = Color(hex: 0x1E8259)
@@ -65,7 +66,7 @@ enum RiskLevel: Int, Codable, Hashable, Comparable, CaseIterable, Sendable {
     var title: String {
         switch self {
         case .safe: "Aman"
-        case .review: "Perlu dicek"
+        case .review: "Waspada"
         case .danger: "Bahaya"
         }
     }
@@ -74,7 +75,7 @@ enum RiskLevel: Int, Codable, Hashable, Comparable, CaseIterable, Sendable {
     var shortTitle: String {
         switch self {
         case .safe: "Aman"
-        case .review: "Cek"
+        case .review: "Waspada"
         case .danger: "Bahaya"
         }
     }
@@ -121,8 +122,8 @@ enum RiskLevel: Int, Codable, Hashable, Comparable, CaseIterable, Sendable {
     var parentAdvice: String {
         switch self {
         case .safe: "Belum ada tanda penipuan."
-        case .review: "Jangan berikan data apa pun dulu."
-        case .danger: "Jangan transfer. Jangan sebutkan kode apa pun."
+        case .review: "Jangan beri data apa pun dulu."
+        case .danger: "Jangan transfer. Jangan sebut kode."
         }
     }
 

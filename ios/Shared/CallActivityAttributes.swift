@@ -26,7 +26,7 @@ extension RambuCallAttributes.ContentState {
     var decisionAdvice: String? {
         guard let decisionIsScam else { return nil }
         return decisionIsScam
-            ? "Tutup teleponnya sekarang."
-            : "Tetap jangan berikan kode atau transfer uang."
+            ? "Tutup telepon sekarang."
+            : "Tetap jangan beri kode atau transfer."
     }
 }

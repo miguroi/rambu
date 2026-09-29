@@ -9,6 +9,7 @@
 /* Begin PBXBuildFile section */
 		08C53254A80489879E8BE5C9 /* Components.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1ADD3D9E0E2BB4F30BECDE08 /* Components.swift */; };
 		0FE9538C2A23EC0BADD38011 /* BrandTokens.swift in Sources */ = {isa = PBXBuildFile; fileRef = 69DFED1BBE7FF071A75558A4 /* BrandTokens.swift */; };
+		168791791AA0350AD7025A9A /* Notifier.swift in Sources */ = {isa = PBXBuildFile; fileRef = D73DC190DB3434F464EE9AFE /* Notifier.swift */; };
 		26261C7131CA31A2A54BC477 /* RambuPuckWidgets.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7DF654B5013C8198BA3E1168 /* RambuPuckWidgets.swift */; };
 		31C9F5F79F53B7D2F19C60EE /* BrandTokens.swift in Sources */ = {isa = PBXBuildFile; fileRef = 69DFED1BBE7FF071A75558A4 /* BrandTokens.swift */; };
 		3BAEBDB7399E26DC1AE84FEE /* CallActivityAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 91303AE084840EFA17FD0C49 /* CallActivityAttributes.swift */; };
@@ -83,6 +84,7 @@
 		AC01F61E0E715FC4C1E3A6CB /* RambuPuckApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RambuPuckApp.swift; sourceTree = "<group>"; };
 		B7CDCE6EF63A63200F0B2FB4 /* CallViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CallViews.swift; sourceTree = "<group>"; };
 		D39AD886929DFFEA490113F8 /* ParentViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ParentViews.swift; sourceTree = "<group>"; };
+		D73DC190DB3434F464EE9AFE /* Notifier.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Notifier.swift; sourceTree = "<group>"; };
 		E254F226511470847AFAE0A2 /* Domain.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Domain.swift; sourceTree = "<group>"; };
 		EE025E71C0581D1C225224FF /* Mascot.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Mascot.swift; sourceTree = "<group>"; };
 		FE7BE65253CF157F4F782378 /* OnboardingViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingViews.swift; sourceTree = "<group>"; };
@@ -163,6 +165,7 @@
 		722EFC4DA5F1A40D3CC86A7F /* Services */ = {
 			isa = PBXGroup;
 			children = (
+				D73DC190DB3434F464EE9AFE /* Notifier.swift */,
 				254EDE427C00FEAD4D6BF286 /* Services.swift */,
 			);
 			path = Services;
@@ -384,6 +387,7 @@
 				A1248D2B8AC64A6E0CE58B70 /* Domain.swift in Sources */,
 				AEA4C2444F3A9F021AC710C3 /* GuardianViews.swift in Sources */,
 				71757F5BA9B88838F65F13CC /* Mascot.swift in Sources */,
+				168791791AA0350AD7025A9A /* Notifier.swift in Sources */,
 				D0CA677252CCA64E4000EFF3 /* OnboardingViews.swift in Sources */,
 				DA909706F54B5272FFBB142B /* ParentViews.swift in Sources */,
 				CABA98908EE7419C4B419AF4 /* PuckViews.swift in Sources */,

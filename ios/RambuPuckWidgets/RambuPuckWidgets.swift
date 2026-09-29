@@ -21,8 +21,8 @@ struct RambuCallLiveActivity: Widget {
             let state = context.state
             return DynamicIsland {
                 DynamicIslandExpandedRegion(.leading) {
-                    MascotView(pose: state.pose, onDark: true, animated: false)
-                        .frame(width: 46, height: 52)
+                    MascotView(pose: state.pose, onDark: true, animated: false, sign: state.signLevel)
+                        .frame(width: 50, height: 60)
                         .padding(.leading, 4)
                 }
                 DynamicIslandExpandedRegion(.trailing) {
@@ -36,7 +36,7 @@ struct RambuCallLiveActivity: Widget {
                         Text(state.islandTitle)
                             .font(.headline)
                             .foregroundStyle(state.accent)
-                        Text(state.decisionTitle == nil ? state.headline : "Jawaban dari \(state.decidedBy ?? "pengawas")")
+                        Text(state.decisionTitle == nil ? state.headline : "Dari \(state.decidedBy ?? "pengawas")")
                             .font(.subheadline)
                             .foregroundStyle(.white)
                             .lineLimit(2)
@@ -74,8 +74,8 @@ private struct LockScreenCallView: View {
 
     var body: some View {
         HStack(alignment: .center, spacing: 14) {
-            MascotView(pose: state.pose, animated: false)
-                .frame(width: 48, height: 56)
+            MascotView(pose: state.pose, animated: false, sign: state.signLevel)
+                .frame(width: 54, height: 64)
             VStack(alignment: .leading, spacing: 4) {
                 HStack(spacing: 6) {
                     Image(systemName: state.symbol)
@@ -115,6 +115,13 @@ private extension RambuCallAttributes.ContentState {
         case .review: return .check
         case .danger: return .stop
         }
+    }
+
+    /// Papan yang dipegang maskot: ikut keputusan pengawas kalau sudah ada.
+    var signLevel: RiskLevel {
+        if isScamDecision { return .danger }
+        if isSafeDecision { return .safe }
+        return level
     }
 
     var symbol: String {

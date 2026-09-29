@@ -138,6 +138,8 @@ final class CallLiveActivity {
         }
     }
 
+    var isActive: Bool { activity != nil }
+
     func start(attributes: RambuCallAttributes, state: RambuCallAttributes.ContentState) {
         guard enabled, ActivityAuthorizationInfo().areActivitiesEnabled else { return }
         end(state: state, dismissImmediately: true)

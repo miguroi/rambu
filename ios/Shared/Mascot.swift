@@ -14,6 +14,8 @@ struct MascotView: View {
     var pose: MascotPose
     var onDark: Bool = false
     var animated: Bool = true
+    /// Papan rambu yang diangkat maskot: lingkaran hijau, segitiga kuning, atau oktagon STOP merah.
+    var sign: RiskLevel? = nil
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
@@ -27,21 +29,28 @@ struct MascotView: View {
                 canvas(time: nil)
             }
         }
-        .aspectRatio(MascotArt.size.width / MascotArt.size.height, contentMode: .fit)
+        .aspectRatio(MascotArt.box(sign: sign).width / MascotArt.box(sign: sign).height, contentMode: .fit)
         .accessibilityHidden(true)
     }
 
     private func canvas(time: TimeInterval?) -> some View {
         let pose = pose
+        let sign = sign
         let palette = MascotArt.Palette(onDark: onDark)
         return Canvas { context, size in
-            MascotArt.draw(pose: pose, palette: palette, time: time, in: &context, size: size)
+            MascotArt.draw(pose: pose, sign: sign, palette: palette, time: time, in: &context, size: size)
         }
     }
 }
 
 enum MascotArt {
     static let size = CGSize(width: 156, height: 180)
+    /// Ruang tambahan di atas dan kanan untuk papan rambu.
+    private static let signInset = CGSize(width: 16, height: 36)
+
+    static func box(sign: RiskLevel?) -> CGSize {
+        sign == nil ? size : CGSize(width: size.width + signInset.width, height: size.height + signInset.height)
+    }
 
     struct Palette: Sendable {
         let body: Color
@@ -98,19 +107,37 @@ enum MascotArt {
         }
     }
 
-    static func draw(pose: MascotPose, palette: Palette, time: TimeInterval?, in ctx: inout GraphicsContext, size: CGSize) {
-        let scale = min(size.width / Self.size.width, size.height / Self.size.height)
+    static func draw(pose: MascotPose, sign: RiskLevel? = nil, palette: Palette, time: TimeInterval?, in ctx: inout GraphicsContext, size: CGSize) {
+        let art = box(sign: sign)
+        let scale = min(size.width / art.width, size.height / art.height)
         ctx.translateBy(
-            x: (size.width - Self.size.width * scale) / 2,
-            y: (size.height - Self.size.height * scale) / 2
+            x: (size.width - art.width * scale) / 2,
+            y: (size.height - art.height * scale) / 2
         )
         ctx.scaleBy(x: scale, y: scale)
+        if sign != nil { ctx.translateBy(x: 0, y: signInset.height) }
 
-        let recipe = recipe(for: pose)
+        var recipe = recipe(for: pose)
+        if sign != nil {
+            recipe.arms = [armDownL, armUpR]
+            recipe.accessory = .none
+        }
         if recipe.dim { ctx.opacity = 0.78 }
 
         let outline = StrokeStyle(lineWidth: 5.4, lineCap: .round, lineJoin: .round)
         let feature = StrokeStyle(lineWidth: 4.3, lineCap: .round, lineJoin: .round)
+
+        // Papan bergoyang pelan di tangan, bertumpu di genggaman.
+        var sway: Double = 0
+        if let time, sign != nil { sway = 3.5 * sin(time * 1.4) }
+        var signCtx = ctx
+        signCtx.translateBy(x: 137, y: 58)
+        signCtx.rotate(by: .degrees(sway))
+        signCtx.translateBy(x: -137, y: -58)
+        if sign != nil {
+            filled(Path(roundedRect: CGRect(x: 133.5, y: 8, width: 7, height: 52), cornerRadius: 3.5),
+                   Color(hex: 0xC9D3D1), outline: palette.ink, style: StrokeStyle(lineWidth: 3.5), in: &signCtx)
+        }
 
         for shape in [leg(x: 55), leg(x: 82)] + recipe.arms {
             filled(shape, palette.body, outline: palette.ink, style: outline, in: &ctx)
@@ -171,6 +198,49 @@ enum MascotArt {
             ctx.fill(circle(center, radius), with: .color(palette.glow.opacity(opacity * orbOpacity)))
         }
         ctx.fill(circle(center, 11), with: .color(palette.orb.opacity(orbOpacity)))
+
+        if let sign { drawSign(sign, ink: palette.ink, in: &signCtx) }
+    }
+
+    /// Bentuk rambu mengikuti tingkat risiko, sama dengan ikon status di app.
+    private static func drawSign(_ level: RiskLevel, ink: Color, in ctx: inout GraphicsContext) {
+        let c = CGPoint(x: 137, y: -8)
+        let edge = StrokeStyle(lineWidth: 4.5, lineCap: .round, lineJoin: .round)
+        switch level {
+        case .safe:
+            filled(circle(c, 25), Brand.safe, outline: ink, style: edge, in: &ctx)
+            var check = Path()
+            check.move(to: CGPoint(x: c.x - 11, y: c.y + 1))
+            check.addLine(to: CGPoint(x: c.x - 3, y: c.y + 9))
+            check.addLine(to: CGPoint(x: c.x + 12, y: c.y - 8))
+            ctx.stroke(check, with: .color(.white), style: StrokeStyle(lineWidth: 6, lineCap: .round, lineJoin: .round))
+        case .review:
+            var tri = Path()
+            tri.move(to: CGPoint(x: c.x, y: c.y - 29))
+            tri.addLine(to: CGPoint(x: c.x + 29, y: c.y + 21))
+            tri.addLine(to: CGPoint(x: c.x - 29, y: c.y + 21))
+            tri.closeSubpath()
+            filled(tri, Brand.signal, outline: ink, style: StrokeStyle(lineWidth: 4.5, lineCap: .round, lineJoin: .round), in: &ctx)
+            var bar = Path()
+            bar.move(to: CGPoint(x: c.x, y: c.y - 12))
+            bar.addLine(to: CGPoint(x: c.x, y: c.y + 4))
+            ctx.stroke(bar, with: .color(ink), style: StrokeStyle(lineWidth: 6, lineCap: .round))
+            ctx.fill(circle(CGPoint(x: c.x, y: c.y + 13), 3.4), with: .color(ink))
+        case .danger:
+            func octagon(_ r: CGFloat) -> Path {
+                var p = Path()
+                for i in 0..<8 {
+                    let a = Double(i) * .pi / 4 + .pi / 8
+                    let pt = CGPoint(x: c.x + r * CGFloat(cos(a)), y: c.y + r * CGFloat(sin(a)))
+                    i == 0 ? p.move(to: pt) : p.addLine(to: pt)
+                }
+                p.closeSubpath()
+                return p
+            }
+            filled(octagon(28), Brand.danger, outline: ink, style: edge, in: &ctx)
+            ctx.stroke(octagon(22), with: .color(.white.opacity(0.9)), style: StrokeStyle(lineWidth: 1.8))
+            ctx.draw(Text("STOP").font(.system(size: 12.5, weight: .black, design: .rounded)).foregroundColor(.white), at: c)
+        }
     }
 
     private static func filled(_ path: Path, _ fill: Color, outline: Color, style: StrokeStyle, in ctx: inout GraphicsContext) {

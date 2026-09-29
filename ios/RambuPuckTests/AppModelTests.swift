@@ -9,7 +9,8 @@ struct AppModelTests {
             persona: persona,
             onboardingComplete: true,
             analysis: ScenarioAnalysis(interval: .zero, initialDelay: .zero),
-            liveActivities: false
+            liveActivities: false,
+            notifications: false
         )
     }
 
@@ -20,6 +21,22 @@ struct AppModelTests {
 
         #expect(model.alerts.isEmpty)
         #expect(model.session?.level == .safe)
+        // Telepon aman tidak memunculkan push dan tidak masuk riwayat.
+        #expect(model.toast == nil)
+        let before = model.history.count
+        model.endCall()
+        #expect(model.history.count == before)
+    }
+
+    @Test("Orang tua menerima push Bahaya yang menyebut kedua pengawas")
+    func parentGetsDangerPush() async throws {
+        let model = makeModel()
+        await model.startCall(.bankOTP).value
+
+        let push = try #require(model.toast)
+        #expect(push.level == .danger)
+        #expect(push.title.hasPrefix("Bahaya"))
+        #expect(push.body.contains("Sinta") && push.body.contains("Richard"))
     }
 
     @Test("Telepon penipuan sampai ke kedua pengawas beserta kalimat penelepon saja")

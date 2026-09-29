@@ -32,16 +32,16 @@ struct ParentHome: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 22) {
                     ProtectionHero()
-                    SpeakerReminder()
+                    DemoCallCard { showScenarios = true }
 
                     VStack(alignment: .leading, spacing: 10) {
-                        SectionHeader(title: "Pengawas Anda", trailing: "\(model.guardians.count) orang")
+                        SectionHeader(title: "Ragu? Telepon dulu")
                         GuardiansCard()
                     }
 
                     if let last = model.history.first {
                         VStack(alignment: .leading, spacing: 10) {
-                            SectionHeader(title: "Terakhir diperiksa")
+                            SectionHeader(title: "Peringatan terakhir")
                             NavigationLink(value: last.id) {
                                 HistoryRow(record: last, forGuardian: false).card(padding: 16)
                             }
@@ -49,7 +49,6 @@ struct ParentHome: View {
                         }
                     }
 
-                    DemoCallCard { showScenarios = true }
                 }
                 .padding(.horizontal, 20)
                 .padding(.top, 4)
@@ -70,28 +69,22 @@ private struct ProtectionHero: View {
 
     var body: some View {
         let showMascot = !typeSize.isAccessibilitySize
-        VStack(alignment: .leading, spacing: 16) {
-            HStack(alignment: .top, spacing: 8) {
-                VStack(alignment: .leading, spacing: 10) {
-                    HStack(spacing: 8) {
-                        Circle().fill(Color(hex: 0x7CF0C9)).frame(width: 8, height: 8)
-                        Text(model.puck.isConnected ? "Perlindungan aktif" : "Puck belum terhubung")
-                            .font(.subheadline.weight(.semibold))
-                            .foregroundStyle(.white.opacity(0.9))
-                    }
-                    Text("Rambu Puck siap mendengarkan")
+        VStack(alignment: .leading, spacing: 18) {
+            HStack(alignment: .center, spacing: 8) {
+                VStack(alignment: .leading, spacing: 8) {
+                    Label(model.puck.isConnected ? "Aktif" : "Puck terputus",
+                          systemImage: model.puck.isConnected ? "checkmark.shield.fill" : "exclamationmark.shield.fill")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(Color(hex: 0xA8F5DC))
+                    Text("Rambu siap mendengarkan")
                         .font(Brand.display(.title2))
                         .foregroundStyle(.white)
-                        .fixedSize(horizontal: false, vertical: true)
-                    Text("Setiap telepon yang memakai loudspeaker akan diperiksa.")
-                        .font(.subheadline)
-                        .foregroundStyle(.white.opacity(0.85))
                         .fixedSize(horizontal: false, vertical: true)
                 }
                 Spacer(minLength: 0)
                 if showMascot {
-                    MascotView(pose: .calm, onDark: true)
-                        .frame(width: 86)
+                    MascotBuddy(sign: .safe, onDark: true, greeting: "Saya ikut berjaga")
+                        .frame(width: 92)
                 }
             }
 
@@ -113,60 +106,49 @@ private struct ProtectionHero: View {
         }
         .background(Brand.hero, in: .rect(cornerRadius: 28, style: .continuous))
         .clipShape(.rect(cornerRadius: 28, style: .continuous))
-        .shadow(color: Brand.teal.opacity(0.35), radius: 20, y: 10)
+        .shadow(color: Brand.teal.opacity(0.3), radius: 18, y: 8)
         .accessibilityElement(children: .combine)
     }
 }
 
-private struct SpeakerReminder: View {
-    var body: some View {
-        HStack(spacing: 14) {
-            Image(systemName: "speaker.wave.3.fill")
-                .font(.title2)
-                .foregroundStyle(Brand.teal)
-                .frame(width: 54, height: 54)
-                .background(Brand.tealSoft, in: .rect(cornerRadius: 16, style: .continuous))
-            VStack(alignment: .leading, spacing: 3) {
-                Text("Angkat, lalu nyalakan loudspeaker")
-                    .font(.headline).foregroundStyle(Brand.ink)
-                Text("Puck hanya bisa mendengar suara dari speaker HP.")
-                    .font(.subheadline).foregroundStyle(Brand.ink2)
-            }
-            .fixedSize(horizontal: false, vertical: true)
-        }
-        .card()
-        .accessibilityElement(children: .combine)
-    }
-}
-
+/// Tombol cepat menelepon pengawas. Saat ragu di tengah telepon, cukup satu ketukan.
 private struct GuardiansCard: View {
     @Environment(AppModel.self) private var model
+    @Environment(\.openURL) private var openURL
+    @State private var callInfo: Person?
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
+        HStack(spacing: 12) {
             ForEach(model.guardians) { person in
-                HStack(spacing: 12) {
-                    Avatar(person: person, size: 44)
-                    VStack(alignment: .leading, spacing: 2) {
+                VStack(spacing: 10) {
+                    Avatar(person: person, size: 52)
+                    VStack(spacing: 1) {
                         Text(person.name).font(.headline).foregroundStyle(Brand.ink)
                         Text(person.relation).font(.subheadline).foregroundStyle(Brand.ink2)
                     }
-                    Spacer()
-                    Label("Terhubung", systemImage: "link")
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(Brand.safeInk)
+                    .lineLimit(1)
+                    Button {
+                        openURL(URL(string: "tel:+620000000000")!) { accepted in if !accepted { callInfo = person } }
+                    } label: {
+                        Label("Telepon", systemImage: "phone.fill")
+                            .font(.subheadline.weight(.semibold))
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.glassProminent)
+                    .tint(Brand.safe)
+                    .accessibilityLabel("Telepon \(person.name)")
                 }
-                .padding(.vertical, 8)
-                .accessibilityElement(children: .combine)
-                if person != model.guardians.last { Divider().padding(.leading, 56) }
+                .frame(maxWidth: .infinity)
+                .padding(14)
+                .background(.white, in: .rect(cornerRadius: 24, style: .continuous))
+                .shadow(color: Brand.ink.opacity(0.06), radius: 14, y: 6)
             }
-            Text("Kalau ada tanda penipuan, mereka diberi tahu bersamaan. Jawaban pertama yang masuk yang berlaku.")
-                .font(.footnote)
-                .foregroundStyle(Brand.ink3)
-                .padding(.top, 10)
-                .fixedSize(horizontal: false, vertical: true)
         }
-        .card(padding: 16)
+        .alert("Telepon \(callInfo?.name ?? "")", isPresented: .init(get: { callInfo != nil }, set: { if !$0 { callInfo = nil } })) {
+            Button("Oke", role: .cancel) {}
+        } message: {
+            Text("Simulator tidak bisa menelepon. Di HP asli, telepon langsung tersambung.")
+        }
     }
 }
 
@@ -174,22 +156,22 @@ private struct DemoCallCard: View {
     let action: () -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack(spacing: 8) {
-                Text("DEMO")
-                    .font(.caption2.weight(.heavy))
-                    .tracking(1)
+        Button(action: action) {
+            HStack(spacing: 14) {
+                Image(systemName: "phone.badge.waveform.fill")
+                    .font(.title3)
                     .foregroundStyle(Brand.teal)
-                    .padding(.horizontal, 8).padding(.vertical, 3)
-                    .background(Brand.tealSoft, in: .capsule)
-                Text("Coba simulasi telepon").font(.headline).foregroundStyle(Brand.ink)
+                    .frame(width: 48, height: 48)
+                    .background(Brand.tealSoft, in: .rect(cornerRadius: 14, style: .continuous))
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Coba simulasi telepon").font(.headline).foregroundStyle(Brand.ink)
+                    Text("4 contoh percakapan").font(.subheadline).foregroundStyle(Brand.ink2)
+                }
+                Spacer(minLength: 0)
+                Image(systemName: "chevron.right").font(.subheadline.weight(.bold)).foregroundStyle(Brand.ink3)
             }
-            Text("Pilih contoh percakapan untuk melihat cara Rambu dan pengawas bekerja.")
-                .font(.subheadline).foregroundStyle(Brand.ink2)
-                .fixedSize(horizontal: false, vertical: true)
-            Button(action: action) { WideLabel(title: "Pilih contoh telepon", systemImage: "phone.arrow.down.left.fill") }
-                .primaryAction()
+            .card(padding: 14)
         }
-        .card()
+        .buttonStyle(.plain)
     }
 }

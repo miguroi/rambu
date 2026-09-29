@@ -8,64 +8,43 @@ struct PuckScreen: View {
         NavigationStack {
             List {
                 Section {
-                    VStack(spacing: 10) {
+                    VStack(spacing: 14) {
                         PuckIllustration(ledColor: model.puck.isCharging ? Brand.danger : nil)
-                            .frame(maxWidth: 260)
-                        Text(model.puck.name).font(Brand.display(.title2)).foregroundStyle(Brand.ink)
-                        Label(model.puck.isConnected ? "Terhubung" : "Tidak terhubung",
-                              systemImage: model.puck.isConnected ? "checkmark.circle.fill" : "xmark.circle.fill")
-                            .font(.subheadline.weight(.semibold))
-                            .foregroundStyle(model.puck.isConnected ? Brand.safeInk : Brand.ink3)
+                            .frame(maxWidth: 240)
+                        HStack(spacing: 8) {
+                            StatusPill(systemImage: model.puck.isConnected ? "checkmark.circle.fill" : "xmark.circle.fill",
+                                       text: model.puck.isConnected ? "Terhubung" : "Terputus",
+                                       tint: model.puck.isConnected ? Brand.safeInk : Brand.ink3,
+                                       background: model.puck.isConnected ? Brand.safeSoft : Brand.hairline)
+                            StatusPill(systemImage: model.puck.batterySymbol, text: "\(model.puck.battery)%",
+                                       tint: Brand.ink, background: .white)
+                        }
                     }
                     .frame(maxWidth: .infinity)
-                    .padding(.vertical, 6)
+                    .padding(.vertical, 4)
                     .listRowBackground(Color.clear)
-                }
-
-                Section("Status") {
-                    LabeledContent {
-                        Text("\(model.puck.battery)%").monospacedDigit()
-                    } label: {
-                        Label("Baterai", systemImage: model.puck.batterySymbol)
-                    }
-                    LabeledContent {
-                        Text("Siap")
-                    } label: {
-                        Label("Mikrofon", systemImage: "mic.fill")
-                    }
-                    LabeledContent {
-                        Text(model.puck.serial).monospaced()
-                    } label: {
-                        Label("Nomor seri", systemImage: "number")
-                    }
-                    LabeledContent {
-                        Text(model.puck.firmware)
-                    } label: {
-                        Label("Firmware", systemImage: "cpu")
-                    }
                 }
 
                 Section {
                     MicTestRow()
-                } header: {
-                    Text("Tes mikrofon")
                 } footer: {
-                    Text("Nyalakan loudspeaker lalu bicara di dekat HP. Puck perlu mendengar suara dari speaker dengan jelas.")
+                    Text("Nyalakan loudspeaker, lalu bicara.")
                 }
 
                 Section("Arti lampu") {
-                    LightRow(color: Brand.danger, filled: true, title: "Merah menyala", detail: "Sedang mengisi daya")
-                    LightRow(color: Brand.ink3, filled: false, title: "Mati", detail: "Baterai penuh, kabel boleh dicabut")
+                    LightRow(color: Brand.danger, filled: true, title: "Menyala merah", detail: "Mengisi daya")
+                    LightRow(color: Brand.ink3, filled: false, title: "Mati", detail: "Penuh, cabut kabel")
                 }
 
-                Section("Cara mengisi daya") {
-                    StepRow(number: 1, text: "Pakai charger HP biasa dengan kabel USB-C.")
-                    StepRow(number: 2, text: "Telungkupkan HP, lalu colok kabel ke cap putih puck.")
-                    StepRow(number: 3, text: "Sekali isi sekitar 1 sampai 1,5 jam. Tidak perlu magnet.")
+                Section("Isi daya") {
+                    ChargeSteps()
+                        .listRowInsets(EdgeInsets(top: 14, leading: 12, bottom: 14, trailing: 12))
                 }
 
                 Section {
-                    Button("Lepaskan puck dan ulangi demo", role: .destructive) { confirmUnpair = true }
+                    Button("Lepaskan puck", role: .destructive) { confirmUnpair = true }
+                } footer: {
+                    Text("\(model.puck.serial), firmware \(model.puck.firmware)").monospacedDigit()
                 }
             }
             .scrollContentBackground(.hidden)
@@ -73,11 +52,61 @@ struct PuckScreen: View {
             .navigationTitle("Rambu Puck")
             .toolbar { ToolbarItem(placement: .topBarTrailing) { DemoButton() } }
             .confirmationDialog("Lepaskan puck?", isPresented: $confirmUnpair, titleVisibility: .visible) {
-                Button("Lepaskan dan ulangi", role: .destructive) { model.resetDemo() }
+                Button("Lepaskan", role: .destructive) { model.resetDemo() }
             } message: {
-                Text("Pengawas, riwayat, dan pengaturan demo akan kembali ke awal.")
+                Text("Demo kembali ke awal.")
             }
         }
+    }
+}
+
+private struct StatusPill: View {
+    let systemImage: String
+    let text: String
+    let tint: Color
+    let background: Color
+
+    var body: some View {
+        HStack(spacing: 6) {
+            Image(systemName: systemImage)
+            Text(text)
+        }
+            .font(.subheadline.weight(.semibold))
+            .foregroundStyle(tint)
+            .lineLimit(1)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 8)
+            .background(background, in: .capsule)
+    }
+}
+
+/// Tiga langkah isi daya sebagai ikon berjajar.
+private struct ChargeSteps: View {
+    private let steps: [(symbol: String, label: String)] = [
+        ("cable.connector", "Kabel USB-C"),
+        ("iphone.gen3", "Telungkupkan HP"),
+        ("clock.fill", "±1,5 jam"),
+    ]
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 8) {
+            ForEach(steps, id: \.label) { step in
+                VStack(spacing: 8) {
+                    Image(systemName: step.symbol)
+                        .font(.title2)
+                        .foregroundStyle(Brand.teal)
+                        .frame(width: 52, height: 52)
+                        .background(Brand.tealSoft, in: .circle)
+                    Text(step.label)
+                        .font(.footnote.weight(.semibold))
+                        .foregroundStyle(Brand.ink)
+                        .multilineTextAlignment(.center)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                .frame(maxWidth: .infinity)
+            }
+        }
+        .accessibilityElement(children: .combine)
     }
 }
 
@@ -116,9 +145,9 @@ private struct MicTestRow: View {
 
     private var label: String {
         switch phase {
-        case .idle: "Belum dites"
+        case .idle: "Tes mikrofon"
         case .listening: "Mendengarkan…"
-        case .done: "Suara terdengar jelas"
+        case .done: "Terdengar jelas"
         }
     }
 
@@ -149,24 +178,6 @@ private struct LightRow: View {
                 Text(title).font(.body.weight(.semibold))
                 Text(detail).font(.subheadline).foregroundStyle(Brand.ink2)
             }
-        }
-        .accessibilityElement(children: .combine)
-    }
-}
-
-private struct StepRow: View {
-    let number: Int
-    let text: String
-
-    var body: some View {
-        HStack(alignment: .top, spacing: 14) {
-            Text("\(number)")
-                .font(.subheadline.weight(.bold))
-                .foregroundStyle(Brand.teal)
-                .frame(width: 28, height: 28)
-                .background(Brand.tealSoft, in: .circle)
-                .frame(width: 32)
-            Text(text).font(.body).fixedSize(horizontal: false, vertical: true)
         }
         .accessibilityElement(children: .combine)
     }

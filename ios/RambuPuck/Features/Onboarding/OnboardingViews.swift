@@ -43,26 +43,29 @@ struct OnboardingFlow: View {
     }
 }
 
-/// Kerangka langkah: judul, isi, dan tombol di bawah.
+/// Kerangka langkah: progres, judul, satu kalimat pendek, isi, lalu tombol di bawah.
 private struct StepScaffold<Content: View, Actions: View>: View {
-    var step: String?
+    var progress: (Int, Int)?
     let title: String
-    let message: String
+    var message: String?
     @ViewBuilder var content: Content
     @ViewBuilder var actions: Actions
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 20) {
-                VStack(alignment: .leading, spacing: 10) {
-                    if let step {
-                        Text(step).font(.subheadline.weight(.semibold)).foregroundStyle(Brand.teal)
+            VStack(alignment: .leading, spacing: 24) {
+                VStack(alignment: .leading, spacing: 12) {
+                    if let progress {
+                        StepProgress(current: progress.0, total: progress.1)
+                            .padding(.bottom, 4)
                     }
                     Text(title).font(Brand.display(.largeTitle)).foregroundStyle(Brand.ink)
                         .fixedSize(horizontal: false, vertical: true)
                         .accessibilityAddTraits(.isHeader)
-                    Text(message).font(.body).foregroundStyle(Brand.ink2)
-                        .fixedSize(horizontal: false, vertical: true)
+                    if let message {
+                        Text(message).font(.body).foregroundStyle(Brand.ink2)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
                 }
                 content
             }
@@ -104,7 +107,7 @@ private struct WelcomeStep: View {
                         .font(Brand.display(.title))
                         .foregroundStyle(Brand.ink)
                         .multilineTextAlignment(.center)
-                    Text("Rambu Puck mendengarkan telepon yang memakai loudspeaker, lalu memberi tahu keluarga saat ada tanda penipuan.")
+                    Text("Puck di punggung HP ikut mendengar telepon. Ada tanda penipuan, keluarga langsung tahu.")
                         .font(.body)
                         .foregroundStyle(Brand.ink2)
                         .multilineTextAlignment(.center)
@@ -162,7 +165,7 @@ private struct NameField: View {
 
 private struct DemoPrefillNote: View {
     var body: some View {
-        Label("Sudah diisi contoh untuk demo. Boleh diganti.", systemImage: "info.circle")
+        Label("Contoh untuk demo, boleh diganti", systemImage: "pencil")
             .font(.footnote)
             .foregroundStyle(Brand.ink3)
     }
@@ -176,9 +179,9 @@ private struct ParentProfileStep: View {
 
     var body: some View {
         StepScaffold(
-            step: "Langkah 1 dari 4",
+            progress: (1, 4),
             title: "Siapa nama Anda?",
-            message: "Nama ini yang dilihat keluarga saat Rambu memberi tahu mereka."
+            message: "Nama ini muncul di HP keluarga."
         ) {
             NameField(title: "Nama panggilan", text: $name, prompt: "Contoh: Ibu Ratna")
             DemoPrefillNote()
@@ -205,15 +208,14 @@ private struct GuardianProfileStep: View {
 
     var body: some View {
         StepScaffold(
-            step: "Untuk pengawas · langkah 2 dari 2",
-            title: "Perkenalkan diri Anda",
-            message: "\(model.parent.name) akan melihat nama ini sebelum mengizinkan Anda."
+            progress: (2, 2),
+            title: "Siapa Anda?",
+            message: "\(model.parent.name) melihat nama ini sebelum mengizinkan."
         ) {
             NameField(title: "Nama Anda", text: $name, prompt: "Contoh: Sinta")
 
             VStack(alignment: .leading, spacing: 8) {
-                Text("Hubungan dengan \(model.parent.name)")
-                    .font(.subheadline.weight(.semibold)).foregroundStyle(Brand.ink2)
+                Text("Hubungan").font(.subheadline.weight(.semibold)).foregroundStyle(Brand.ink2)
                 HStack(spacing: 8) {
                     ForEach(relations, id: \.self) { option in
                         Button { relation = option } label: {
@@ -259,9 +261,9 @@ private struct PairPuckStep: View {
 
     var body: some View {
         StepScaffold(
-            step: "Langkah 2 dari 4",
-            title: "Pasang Rambu Puck",
-            message: "Tempelkan puck di punggung HP, lalu tekan tombol di sisinya sampai lampunya berkedip."
+            progress: (2, 4),
+            title: "Pasang puck",
+            message: "Tempel di punggung HP, lalu tekan tombolnya sampai lampu berkedip."
         ) {
             VStack(spacing: 16) {
                 ZStack {
@@ -275,10 +277,10 @@ private struct PairPuckStep: View {
                 if let found, phase == .found {
                     HStack(spacing: 14) {
                         Image(systemName: "checkmark.circle.fill").font(.title2).foregroundStyle(Brand.safe)
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text("\(found.name) ditemukan").font(.headline).foregroundStyle(Brand.ink)
-                            Text("\(found.serial) · baterai \(found.battery)%").font(.subheadline).foregroundStyle(Brand.ink2)
-                        }
+                        Text("\(found.name) ditemukan").font(.headline).foregroundStyle(Brand.ink)
+                        Spacer(minLength: 0)
+                        Label("\(found.battery)%", systemImage: found.batterySymbol)
+                            .font(.subheadline.weight(.semibold)).foregroundStyle(Brand.ink2)
                     }
                     .card()
                     .transition(.scale(scale: 0.95).combined(with: .opacity))
@@ -291,7 +293,7 @@ private struct PairPuckStep: View {
                     .primaryAction()
             case .searching:
                 Button {} label: {
-                    HStack(spacing: 10) { ProgressView(); Text("Mencari puck di dekat Anda…") }
+                    HStack(spacing: 10) { ProgressView(); Text("Mencari…") }
                         .font(.headline).frame(maxWidth: .infinity, minHeight: 32)
                 }
                 .secondaryAction()
@@ -340,45 +342,49 @@ private struct ConsentStep: View {
     @Environment(AppModel.self) private var model
     @State private var agreed = false
 
-    private let points: [(String, String)] = [
-        ("speaker.wave.3.fill", "Puck hanya mendengar suara dari loudspeaker. Telepon yang ditempel di telinga tidak terdengar."),
-        ("text.quote", "Kalau ada tanda penipuan, pengawas Anda hanya menerima kalimat yang mencurigakan, bukan seluruh percakapan."),
-        ("hand.raised.fill", "Anda tetap yang memutuskan. Rambu tidak bisa dan tidak akan menutup telepon Anda."),
+    private let points: [(symbol: String, title: String, detail: String)] = [
+        ("speaker.wave.3.fill", "Hanya dari loudspeaker", "Telepon di telinga tidak terdengar."),
+        ("text.quote", "Hanya kalimat mencurigakan", "Itu saja yang dikirim ke keluarga."),
+        ("bell.badge.fill", "Peringatan lewat notifikasi", "Muncul di atas layar saat menelepon."),
+        ("hand.raised.fill", "Anda yang memutuskan", "Rambu tidak menutup telepon Anda."),
     ]
 
     var body: some View {
-        StepScaffold(
-            step: "Langkah 3 dari 4",
-            title: "Sebelum Rambu mendengarkan",
-            message: "Tiga hal yang berlaku sejak awal."
-        ) {
-            VStack(alignment: .leading, spacing: 0) {
-                ForEach(points.indices, id: \.self) { index in
-                    HStack(alignment: .top, spacing: 14) {
-                        Image(systemName: points[index].0)
-                            .font(.title3)
-                            .foregroundStyle(Brand.teal)
-                            .frame(width: 44, height: 44)
-                            .background(Brand.tealSoft, in: .rect(cornerRadius: 13, style: .continuous))
-                        Text(points[index].1)
-                            .font(.body)
-                            .foregroundStyle(Brand.ink)
-                            .fixedSize(horizontal: false, vertical: true)
+        StepScaffold(progress: (3, 4), title: "Sebelum mulai") {
+            VStack(spacing: 12) {
+                ForEach(points, id: \.title) { point in
+                    HStack(spacing: 16) {
+                        Image(systemName: point.symbol)
+                            .font(.title2)
+                            .foregroundStyle(.white)
+                            .frame(width: 56, height: 56)
+                            .background(Brand.hero, in: .rect(cornerRadius: 18, style: .continuous))
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(point.title).font(.headline).foregroundStyle(Brand.ink)
+                            Text(point.detail).font(.subheadline).foregroundStyle(Brand.ink2)
+                        }
+                        .fixedSize(horizontal: false, vertical: true)
+                        Spacer(minLength: 0)
                     }
-                    .padding(.vertical, 12)
-                    if index < points.count - 1 { Divider() }
+                    .card(padding: 14)
+                    .accessibilityElement(children: .combine)
                 }
             }
-            .card()
 
             Toggle(isOn: $agreed) {
-                Text("Saya mengerti dan setuju").font(.body.weight(.semibold)).foregroundStyle(Brand.ink)
+                Text("Saya setuju").font(.body.weight(.semibold)).foregroundStyle(Brand.ink)
             }
             .toggleStyle(.switch)
             .tint(Brand.teal)
-            .card()
+            .padding(.horizontal, 4)
         } actions: {
-            Button { model.onboardingStep = .invite } label: { WideLabel(title: "Setuju dan lanjut") }
+            Button {
+                // Peringatan datang lewat push, jadi izin notifikasi diminta di sini.
+                Task {
+                    await model.requestNotifications()
+                    model.onboardingStep = .invite
+                }
+            } label: { WideLabel(title: "Lanjut") }
                 .primaryAction()
                 .disabled(!agreed)
         }
@@ -394,9 +400,9 @@ private struct InviteGuardiansStep: View {
 
     var body: some View {
         StepScaffold(
-            step: "Langkah 4 dari 4",
+            progress: (4, 4),
             title: "Hubungkan pengawas",
-            message: "Minta anak Anda membuka aplikasi Rambu dan memasukkan kode ini. Anda bisa punya lebih dari satu pengawas."
+            message: "Minta anak memasukkan kode ini di aplikasi Rambu."
         ) {
             VStack(alignment: .leading, spacing: 10) {
                 DigitBoxes(digits: "482913")
@@ -409,7 +415,7 @@ private struct InviteGuardiansStep: View {
                 if requests.isEmpty {
                     HStack(spacing: 12) {
                         ProgressView()
-                        Text("Menunggu pengawas memasukkan kode…").font(.subheadline).foregroundStyle(Brand.ink2)
+                        Text("Menunggu…").font(.subheadline).foregroundStyle(Brand.ink2)
                     }
                     .card()
                 } else {
@@ -423,26 +429,25 @@ private struct InviteGuardiansStep: View {
                 }
             }
         } actions: {
-            Button { model.completeOnboarding(as: .ratna) } label: {
-                WideLabel(title: approved.isEmpty ? "Izinkan minimal satu pengawas" : "Selesai")
-            }
-            .primaryAction()
-            .disabled(approved.isEmpty)
+            Button { model.completeOnboarding(as: .ratna) } label: { WideLabel(title: "Selesai") }
+                .primaryAction()
+                .disabled(approved.isEmpty)
         }
         .task { await simulateRequests() }
     }
 
     private func requestRow(_ person: Person) -> some View {
-        HStack(spacing: 12) {
+        let isApproved = approved.contains(person.id)
+        return HStack(spacing: 12) {
             Avatar(person: person, size: 44)
             VStack(alignment: .leading, spacing: 2) {
                 Text(person.name).font(.headline).foregroundStyle(Brand.ink)
-                Text(approved.contains(person.id) ? "\(person.relation) · terhubung" : "\(person.relation) · ingin menjaga Anda")
+                Text(isApproved ? "Terhubung" : person.relation)
                     .font(.subheadline)
-                    .foregroundStyle(approved.contains(person.id) ? Brand.safeInk : Brand.ink2)
+                    .foregroundStyle(isApproved ? Brand.safeInk : Brand.ink2)
             }
             Spacer()
-            if approved.contains(person.id) {
+            if isApproved {
                 Image(systemName: "checkmark.circle.fill").font(.title2).foregroundStyle(Brand.safe)
                     .accessibilityLabel("Terhubung")
             } else {
@@ -474,9 +479,9 @@ private struct EnterCodeStep: View {
 
     var body: some View {
         StepScaffold(
-            step: "Untuk pengawas · langkah 1 dari 2",
-            title: "Masukkan kode dari orang tua Anda",
-            message: "Kode 6 angka ada di aplikasi Rambu milik orang tua Anda."
+            progress: (1, 2),
+            title: "Masukkan kode",
+            message: "6 angka dari aplikasi Rambu orang tua Anda."
         ) {
             ZStack {
                 TextField("", text: $code)
@@ -492,8 +497,9 @@ private struct EnterCodeStep: View {
                     .contentShape(.rect)
                     .onTapGesture { focused = true }
             }
-            Text("Kode contoh untuk demo: 482 913")
-                .font(.subheadline).foregroundStyle(Brand.ink3)
+            Button("Isi kode demo 482 913", systemImage: "wand.and.stars") { code = "482913" }
+                .font(.subheadline.weight(.semibold))
+                .tint(Brand.teal)
         } actions: {
             Button { model.onboardingStep = .guardianProfile } label: { WideLabel(title: "Lanjut") }
                 .primaryAction()
@@ -511,11 +517,10 @@ private struct GuardianWaitingStep: View {
         let me = model.person(for: .sinta)
         let partner = model.person(for: .richard)
         StepScaffold(
-            step: "Untuk pengawas",
-            title: connected ? "Terhubung dengan \(model.parent.name)" : "Menunggu izin",
+            title: connected ? "Terhubung" : "Menunggu izin",
             message: connected
-                ? "Anda menjaga \(model.parent.name) bersama \(partner.name). Jawaban pertama yang masuk yang berlaku, jadi cukup salah satu dari kalian."
-                : "\(model.parent.name) perlu mengizinkan permintaan Anda di HP-nya."
+                ? "Anda menjaga \(model.parent.name) bersama \(partner.name). Cukup satu yang menjawab."
+                : "\(model.parent.name) perlu mengizinkan di HP-nya."
         ) {
             VStack(spacing: 18) {
                 HStack(spacing: 14) {
@@ -524,6 +529,7 @@ private struct GuardianWaitingStep: View {
                         .font(.title2.weight(.semibold))
                         .foregroundStyle(connected ? Brand.safe : Brand.ink3)
                         .symbolEffect(.pulse, isActive: !connected)
+                        .contentTransition(.symbolEffect(.replace))
                     Avatar(person: model.parent, size: 64)
                 }
                 .frame(maxWidth: .infinity)
