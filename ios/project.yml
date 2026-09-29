@@ -32,6 +32,10 @@ targets:
           - UIInterfaceOrientationPortrait
         NSSupportsLiveActivities: true
         NSBluetoothAlwaysUsageDescription: Rambu memakai Bluetooth untuk terhubung ke Rambu Puck di punggung HP Anda.
+        CFBundleURLTypes:
+          - CFBundleURLName: id.rambu.puck.undangan
+            CFBundleURLSchemes:
+              - rambu
         ITSAppUsesNonExemptEncryption: false
     settings:
       base:

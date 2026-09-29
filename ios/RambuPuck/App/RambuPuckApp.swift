@@ -16,6 +16,7 @@ struct RambuPuckApp: App {
 
 struct RootView: View {
     @Environment(AppModel.self) private var model
+    @Environment(\.scenePhase) private var scenePhase
 
     var body: some View {
         @Bindable var model = model
@@ -29,6 +30,14 @@ struct RootView: View {
         .sheet(isPresented: $model.showDemoSheet) {
             DemoSheet()
                 .presentationDetents([.medium, .large])
+        }
+        .sheet(isPresented: $model.showProfile) {
+            ProfileView()
+        }
+        .onOpenURL { model.handleIncoming($0) }
+        .onChange(of: scenePhase) { _, phase in
+            // Izin notifikasi bisa berubah dari Pengaturan iOS.
+            if phase == .active { Task { await model.refreshNotificationStatus() } }
         }
     }
 
@@ -48,8 +57,10 @@ struct RootView: View {
 ///
 ///     RAMBU_PERSONA=ratna|sinta|richard     peran awal
 ///     RAMBU_SKIP_ONBOARDING=1               langsung ke beranda
-///     RAMBU_FAST=1                          potongan audio tiap 0,7 detik, bukan 5 detik
+///     RAMBU_FAST=1                          potongan audio tiap 0,7 detik, eskalasi 8 detik
 ///     RAMBU_SCENE=<adegan>[:<skenario>]     buka adegan tertentu (lihat apply)
+///
+/// Tanpa RAMBU_SCENE, app memakai data yang tersimpan di HP.
 @MainActor
 enum DemoLaunch {
     static func makeModel() -> AppModel {
@@ -57,6 +68,7 @@ enum DemoLaunch {
         let isTesting = env["XCTestConfigurationFilePath"] != nil
         let fast = env["RAMBU_FAST"] == "1"
         let scene = env["RAMBU_SCENE"]
+        let usesStore = !isTesting && scene == nil && env["RAMBU_SKIP_ONBOARDING"] == nil
 
         let model = AppModel(
             persona: Persona(rawValue: env["RAMBU_PERSONA"] ?? "") ?? .ratna,
@@ -66,8 +78,13 @@ enum DemoLaunch {
                 initialDelay: fast ? .milliseconds(300) : .milliseconds(1200)
             ),
             liveActivities: !isTesting,
-            notifications: !isTesting
+            notifications: !isTesting,
+            speech: !isTesting && scene == nil,
+            store: usesStore ? .standard : nil,
+            escalationDelay: fast ? .seconds(8) : .seconds(45),
+            speakerCheckDelay: fast ? .seconds(1.5) : .seconds(3)
         )
+        if scene != nil { model.hidesNotificationIssue = true }
         if let scene, !isTesting { apply(scene, to: model) }
         return model
     }
@@ -84,10 +101,28 @@ enum DemoLaunch {
             model.parentTab = .history
         case "puck":
             model.parentTab = .puck
+        case "profile":
+            model.showProfile = true
+        case "guardian-profile":
+            model.switchPersona(.sinta)
+            model.showProfile = true
+        case "issues":
+            model.simulateOffline = true
+            model.puck.isConnected = false
+            model.hidesNotificationIssue = false
         case "guardian-home":
             model.switchPersona(.sinta)
         case "call":
             model.startCall(scenario)
+        case "speaker-off":
+            model.speakerOffNextCall = true
+            model.startCall(scenario)
+        case "call-status":
+            let task = model.startCall(scenario)
+            Task {
+                await task.value
+                model.showCallStatus = true
+            }
         case "call-decided":
             let task = model.startCall(scenario)
             Task {

@@ -4,6 +4,7 @@ import SwiftUI
 /// jadi Rambu hanya hadir lewat push dari atas dan Live Activity, seperti di HP asli.
 struct CallScreen: View {
     @Environment(AppModel.self) private var model
+    @State private var showDemo = false
 
     var body: some View {
         if let session = model.session {
@@ -18,8 +19,11 @@ struct CallScreen: View {
                             .padding(.horizontal, 12).padding(.vertical, 7)
                             .glassEffect(.regular, in: .capsule)
                         Spacer()
-                        DemoButton()
-                            .buttonStyle(.glass)
+                        Button { showDemo = true } label: {
+                            Label("Demo", systemImage: "person.2.fill").font(.subheadline.weight(.semibold))
+                        }
+                        .buttonStyle(.glass)
+                        .accessibilityLabel("Mode demo, ganti peran")
                     }
                     .padding(.horizontal, 16)
 
@@ -28,12 +32,17 @@ struct CallScreen: View {
 
                     Spacer(minLength: 16)
 
-                    CallControls { model.endCall() }
+                    CallControls(speakerOn: session.speakerOn,
+                                 onSpeaker: { model.turnOnSpeaker() },
+                                 onEnd: { model.endCall() })
                         .padding(.bottom, 20)
                 }
 
                 ToastOverlay()
                     .padding(.top, 2)
+            }
+            .sheet(isPresented: $showDemo) {
+                DemoSheet().presentationDetents([.medium, .large])
             }
         } else {
             Color.black.ignoresSafeArea()
@@ -87,36 +96,33 @@ private struct CallerHeader: View {
     }
 }
 
-/// Tombol ala layar telepon iOS. Hanya "Akhiri" yang berfungsi di simulasi;
-/// loudspeaker ditampilkan menyala karena puck hanya mendengar dari speaker.
+/// Tombol ala layar telepon iOS. Speaker bisa dinyalakan (puck hanya mendengar dari speaker),
+/// Akhiri menutup telepon; tombol lain hanya tampilan.
 private struct CallControls: View {
+    let speakerOn: Bool
+    let onSpeaker: () -> Void
     let onEnd: () -> Void
 
-    private let items: [(String, String, Bool)] = [
-        ("Speaker", "speaker.wave.3.fill", true),
-        ("FaceTime", "video.fill", false),
-        ("Bisukan", "mic.slash.fill", false),
-        ("Tambah", "person.badge.plus", false),
-        ("Papan tombol", "circle.grid.3x3.fill", false),
-        ("Lainnya", "ellipsis", false),
+    private let others: [(String, String)] = [
+        ("FaceTime", "video.fill"),
+        ("Bisukan", "mic.slash.fill"),
+        ("Tambah", "person.badge.plus"),
+        ("Papan tombol", "circle.grid.3x3.fill"),
+        ("Lainnya", "ellipsis"),
     ]
 
     var body: some View {
         VStack(spacing: 22) {
             GlassEffectContainer(spacing: 20) {
                 LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 18), count: 3), spacing: 18) {
-                    ForEach(items, id: \.0) { item in
-                        VStack(spacing: 6) {
-                            Image(systemName: item.1)
-                                .font(.title2)
-                                .foregroundStyle(item.2 ? Color.black : .white)
-                                .frame(width: 72, height: 72)
-                                .background(item.2 ? AnyShapeStyle(.white) : AnyShapeStyle(.clear), in: .circle)
-                                .glassEffect(item.2 ? .identity : .regular, in: .circle)
-                            Text(item.0).font(.caption).foregroundStyle(.white.opacity(0.9))
-                        }
-                        .accessibilityElement(children: .combine)
-                        .accessibilityLabel(item.2 ? "\(item.0), menyala" : "\(item.0), tidak aktif di simulasi")
+                    Button(action: onSpeaker) {
+                        control("Speaker", "speaker.wave.3.fill", on: speakerOn)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel(speakerOn ? "Speaker, menyala" : "Speaker, mati. Ketuk untuk menyalakan")
+                    ForEach(others, id: \.0) { item in
+                        control(item.0, item.1, on: false)
+                            .accessibilityLabel("\(item.0), tidak aktif di simulasi")
                     }
                 }
                 .padding(.horizontal, 36)
@@ -132,5 +138,19 @@ private struct CallControls: View {
             .buttonStyle(.plain)
             .accessibilityLabel("Akhiri panggilan")
         }
+        .sensoryFeedback(.selection, trigger: speakerOn)
+    }
+
+    private func control(_ title: String, _ symbol: String, on: Bool) -> some View {
+        VStack(spacing: 6) {
+            Image(systemName: symbol)
+                .font(.title2)
+                .foregroundStyle(on ? Color.black : .white)
+                .frame(width: 72, height: 72)
+                .background(on ? AnyShapeStyle(.white) : AnyShapeStyle(.clear), in: .circle)
+                .glassEffect(on ? .identity : .regular, in: .circle)
+            Text(title).font(.caption).foregroundStyle(.white.opacity(0.9))
+        }
+        .accessibilityElement(children: .combine)
     }
 }

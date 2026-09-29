@@ -153,6 +153,8 @@ struct CallSession: Identifiable, Sendable {
     var signals: [SignalKind] = []
     var level: RiskLevel = .safe
     var isListening = true
+    /// Puck hanya mendengar dari loudspeaker. Kalau mati, Rambu belum bisa menilai apa pun.
+    var speakerOn = true
 
     var headline: String { signals.last?.parentHeadline ?? "Rambu mendengarkan" }
 }
@@ -166,7 +168,7 @@ enum Verdict: String, Codable, Hashable, Sendable {
     var pastTitle: String { self == .scam ? "penipuan" : "aman" }
 }
 
-struct GuardianDecision: Hashable, Sendable {
+struct GuardianDecision: Hashable, Codable, Sendable {
     let by: Person
     let verdict: Verdict
     let at: Date
@@ -199,7 +201,7 @@ struct FamilyAlert: Identifiable, Hashable, Sendable {
     }
 }
 
-struct CallRecord: Identifiable, Hashable, Sendable {
+struct CallRecord: Identifiable, Hashable, Codable, Sendable {
     let id: UUID
     let title: String
     let callerDetail: String
@@ -214,7 +216,7 @@ struct CallRecord: Identifiable, Hashable, Sendable {
 
 // MARK: - Puck
 
-struct PuckState: Hashable, Sendable {
+struct PuckState: Hashable, Codable, Sendable {
     var isPaired: Bool
     var isConnected: Bool
     var battery: Int
@@ -246,9 +248,58 @@ enum GuardianTab: Hashable { case home, history }
 
 enum OnboardingStep: String, Hashable, Sendable {
     // Jalur orang tua
-    case welcome, parentProfile, pairPuck, consent, invite
+    case welcome, tutorial, parentProfile, pairPuck, consent, invite, practiceCall
     // Jalur pengawas
-    case enterCode, guardianProfile, waiting
+    case enterCode, guardianProfile, practiceAlert, waiting
+}
+
+// MARK: - Gangguan
+
+/// Hal yang membuat Rambu tidak bisa bekerja penuh. Tampil sebagai banner di beranda.
+enum SystemIssue: String, Identifiable, CaseIterable, Sendable {
+    case notificationsOff, offline, bluetoothOff, puckDisconnected, puckLowBattery
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .notificationsOff: "Notifikasi mati"
+        case .offline: "Tidak ada internet"
+        case .bluetoothOff: "Bluetooth mati"
+        case .puckDisconnected: "Puck terputus"
+        case .puckLowBattery: "Baterai puck lemah"
+        }
+    }
+
+    var detail: String {
+        switch self {
+        case .notificationsOff: "Peringatan tidak akan muncul."
+        case .offline: "Pengawas belum bisa dikabari."
+        case .bluetoothOff: "Rambu tidak bisa mendengar."
+        case .puckDisconnected: "Dekatkan puck ke HP."
+        case .puckLowBattery: "Isi daya sebelum habis."
+        }
+    }
+
+    var symbol: String {
+        switch self {
+        case .notificationsOff: "bell.slash.fill"
+        case .offline: "wifi.slash"
+        case .bluetoothOff: "antenna.radiowaves.left.and.right.slash"
+        case .puckDisconnected: "circle.slash"
+        case .puckLowBattery: "battery.25percent"
+        }
+    }
+
+    /// Label tombol, kalau masalahnya bisa dibereskan dari sini.
+    var action: String? {
+        switch self {
+        case .notificationsOff: "Nyalakan"
+        case .bluetoothOff: "Pengaturan"
+        case .puckDisconnected: "Sambungkan"
+        case .offline, .puckLowBattery: nil
+        }
+    }
 }
 
 /// Isi push Rambu. Dikirim sebagai notifikasi sistem, atau tampil sebagai tiruan banner
@@ -291,5 +342,39 @@ enum Fmt {
     static func offset(_ seconds: TimeInterval) -> String {
         let total = Int(seconds)
         return String(format: "%d:%02d", total / 60, total % 60)
+    }
+}
+
+// MARK: - Ringkasan kejadian
+
+extension CallRecord {
+    /// Ringkasan singkat untuk riwayat. Di produk nyata teks ini dibuat backend
+    /// (watsonx Orchestrate) dari transkrip dan keputusan. Prototipe menyusunnya dari data yang sama.
+    var incidentSummary: String {
+        let actions = signals.map(\.summaryPhrase)
+        let listed = actions.formatted(.list(type: .and).locale(Fmt.locale))
+        let what = actions.isEmpty ? "Tidak ada tanda penipuan." : "Penelepon \(listed)."
+        let outcome: String
+        if let decision {
+            outcome = decision.verdict == .scam
+                ? "\(decision.by.name) menandai penipuan pukul \(Fmt.clock(decision.at))."
+                : "\(decision.by.name) menandai aman pukul \(Fmt.clock(decision.at))."
+        } else {
+            outcome = "Belum ada pengawas yang menjawab."
+        }
+        return "\(channel.label) \(Fmt.duration(duration)) dari \(callerDetail). \(what) \(outcome)"
+    }
+}
+
+extension SignalKind {
+    /// Frasa kerja untuk kalimat ringkasan, misalnya "Penelepon mengaku dari lembaga".
+    var summaryPhrase: String {
+        switch self {
+        case .impersonation: "mengaku dari lembaga"
+        case .urgency: "mendesak"
+        case .secretCode: "meminta kode OTP atau PIN"
+        case .transfer: "meminta transfer uang"
+        case .remoteApp: "menyuruh pasang aplikasi"
+        }
     }
 }

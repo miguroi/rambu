@@ -37,7 +37,7 @@ struct HistoryList: View {
         .background(Brand.canvas)
         .navigationTitle("Riwayat")
         .navigationDestination(for: UUID.self) { CallDetail(recordID: $0) }
-        .toolbar { ToolbarItem(placement: .topBarTrailing) { DemoButton() } }
+        .toolbar { ToolbarItem(placement: .topBarTrailing) { ProfileButton() } }
     }
 }
 
@@ -99,6 +99,8 @@ struct CallDetail: View {
                             .labelStyle(CompactLabelStyle())
                     }
 
+                    SummaryCard(record: record)
+
                     if let decision = record.decision {
                         HStack(spacing: 12) {
                             Avatar(person: decision.by, size: 40)
@@ -109,6 +111,11 @@ struct CallDetail: View {
                             }
                         }
                         .card()
+                    }
+
+                    if record.decision?.verdict == .safe {
+                        Label("Ditandai aman. Dipakai untuk memperbaiki deteksi Rambu.", systemImage: "arrow.triangle.2.circlepath")
+                            .font(.footnote).foregroundStyle(Brand.ink3)
                     }
 
                     if record.signals.isEmpty {
@@ -247,6 +254,20 @@ struct DemoSheet: View {
                     }
                 }
 
+                Section {
+                    Toggle("Loudspeaker mati di telepon berikutnya", isOn: Bindable(model).speakerOffNextCall)
+                    Toggle("Internet putus", isOn: Bindable(model).simulateOffline)
+                    Toggle("Bluetooth menyala", isOn: Bindable(model).bluetoothOn)
+                    Toggle("Puck tersambung", isOn: Binding(get: { model.puck.isConnected }, set: { model.puck.isConnected = $0 }))
+                    Toggle("Baterai puck lemah", isOn: Binding(get: { model.puck.battery <= 20 },
+                                                               set: { model.puck.battery = $0 ? 14 : 82 }))
+                } header: {
+                    Text("Simulasi gangguan")
+                } footer: {
+                    Text("Untuk melihat banner di beranda dan pengingat loudspeaker.")
+                }
+                .tint(Brand.teal)
+
                 if !model.persona.isParent, let alert = model.alerts.first(where: { $0.decision == nil }) {
                     let other = model.otherGuardians(than: model.currentPerson).first ?? .richard
                     Section {
@@ -315,9 +336,7 @@ struct ToastOverlay: View {
     }
 
     private func open(_ toast: Toast) {
-        model.toast = nil
-        guard !model.persona.isParent, let id = toast.alertID else { return }
-        model.openAlert(id)
+        model.openToast(toast)
     }
 }
 
@@ -328,5 +347,24 @@ struct CompactLabelStyle: LabelStyle {
             configuration.icon.font(.footnote)
             configuration.title
         }
+    }
+}
+
+/// Ringkasan kejadian dalam satu paragraf. Nyata: dibuat backend (watsonx Orchestrate).
+private struct SummaryCard: View {
+    let record: CallRecord
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Label("Ringkasan", systemImage: "text.alignleft")
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(Brand.teal)
+            Text(record.incidentSummary)
+                .font(.body)
+                .foregroundStyle(Brand.ink)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .card()
+        .accessibilityElement(children: .combine)
     }
 }

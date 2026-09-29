@@ -50,7 +50,7 @@ struct PuckScreen: View {
             .scrollContentBackground(.hidden)
             .background(Brand.canvas)
             .navigationTitle("Rambu Puck")
-            .toolbar { ToolbarItem(placement: .topBarTrailing) { DemoButton() } }
+            .toolbar { ToolbarItem(placement: .topBarTrailing) { ProfileButton() } }
             .confirmationDialog("Lepaskan puck?", isPresented: $confirmUnpair, titleVisibility: .visible) {
                 Button("Lepaskan", role: .destructive) { model.resetDemo() }
             } message: {
