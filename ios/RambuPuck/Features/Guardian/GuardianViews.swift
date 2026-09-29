@@ -28,20 +28,13 @@ struct GuardianHome: View {
                     if let alert = model.featuredAlert {
                         NavigationLink(value: alert.id) { AlertHeroCard(alert: alert) }
                             .buttonStyle(.plain)
+                    } else {
+                        QuietState()
                     }
 
                     VStack(alignment: .leading, spacing: 10) {
                         SectionHeader(title: "Yang Anda jaga")
                         ProtectedParentCard()
-                    }
-
-                    VStack(alignment: .leading, spacing: 10) {
-                        SectionHeader(title: "Menjaga bersama")
-                        CoGuardianCard()
-                    }
-
-                    if model.featuredAlert == nil {
-                        QuietState()
                     }
                 }
                 .padding(.horizontal, 20)
@@ -61,111 +54,125 @@ private struct AlertHeroCard: View {
     @Environment(AppModel.self) private var model
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            HStack(spacing: 10) {
-                LevelIcon(level: alert.level, size: 26)
-                Text(alert.level.title.uppercased())
-                    .font(.caption.weight(.heavy)).tracking(1)
-                    .foregroundStyle(alert.level.ink)
-                Spacer()
-                if !alert.callEnded {
-                    HStack(spacing: 4) {
-                        Circle().fill(Brand.danger).frame(width: 7, height: 7)
-                        Text(alert.startedAt, style: .timer).monospacedDigit()
+        VStack(alignment: .leading, spacing: 0) {
+            LevelBand(level: alert.level, callEnded: alert.callEnded, startedAt: alert.startedAt)
+
+            VStack(alignment: .leading, spacing: 14) {
+                HStack(alignment: .top, spacing: 8) {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(alert.title)
+                            .font(Brand.display(.title2))
+                            .foregroundStyle(Brand.ink)
+                            .fixedSize(horizontal: false, vertical: true)
+                        Label(alert.callerDetail, systemImage: alert.channel.symbol)
+                            .font(.subheadline).foregroundStyle(Brand.ink2)
                     }
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(Brand.ink2)
+                    Spacer(minLength: 0)
+                    MascotView(pose: alert.level.mascotPose, sign: alert.level)
+                        .frame(width: 70)
                 }
-            }
 
-            Text(alert.title)
-                .font(Brand.display(.title2))
+                FlowLayout(spacing: 6) {
+                    ForEach(alert.signals, id: \.self) { SignalChip(kind: $0, level: alert.level, onTint: true) }
+                }
+
+                HStack {
+                    if let decision = alert.decision {
+                        Label("\(decision.by == model.currentPerson ? "Anda" : decision.by.name): \(decision.verdict.pastTitle)",
+                              systemImage: decision.verdict == .scam ? "hand.raised.fill" : "checkmark.circle.fill")
+                    } else {
+                        Text("Lihat dan putuskan")
+                    }
+                    Spacer()
+                    Image(systemName: "chevron.right").foregroundStyle(Brand.ink3)
+                }
+                .font(.headline)
                 .foregroundStyle(Brand.ink)
-                .fixedSize(horizontal: false, vertical: true)
-
-            Text("\(alert.channel.label) · \(alert.callerDetail)")
-                .font(.subheadline).foregroundStyle(Brand.ink2)
-
-            VStack(alignment: .leading, spacing: 6) {
-                ForEach(alert.signals.prefix(3), id: \.self) { kind in
-                    Label(kind.title, systemImage: kind.symbol)
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(alert.level.ink)
-                }
             }
-
-            HStack {
-                if let decision = alert.decision {
-                    Label("\(decision.by == model.currentPerson ? "Anda" : decision.by.name) menandai \(decision.verdict.pastTitle)",
-                          systemImage: decision.verdict == .scam ? "hand.raised.fill" : "checkmark.circle.fill")
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(Brand.ink)
-                } else {
-                    Text("Lihat kalimatnya dan putuskan")
-                        .font(.subheadline.weight(.semibold)).foregroundStyle(Brand.ink)
-                }
-                Spacer()
-                Image(systemName: "chevron.right").font(.subheadline.weight(.bold)).foregroundStyle(Brand.ink3)
-            }
-            .padding(.top, 2)
+            .padding(20)
         }
-        .padding(20)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(alert.level.soft, in: .rect(cornerRadius: 28, style: .continuous))
-        .overlay {
-            RoundedRectangle(cornerRadius: 28, style: .continuous)
-                .strokeBorder(alert.level.tint.opacity(0.45), lineWidth: 1.5)
-        }
+        .background(alert.level.soft)
+        .clipShape(.rect(cornerRadius: 28, style: .continuous))
+        .shadow(color: alert.level.tint.opacity(0.25), radius: 16, y: 8)
         .accessibilityElement(children: .combine)
         .accessibilityHint("Buka peringatan")
     }
 }
 
+/// Pita berwarna penuh di atas kartu: kuning untuk Waspada, merah untuk Bahaya.
+private struct LevelBand: View {
+    let level: RiskLevel
+    let callEnded: Bool
+    let startedAt: Date
+
+    var body: some View {
+        HStack(spacing: 8) {
+            Image(systemName: level.symbol)
+            Text(level.title)
+            Spacer()
+            if callEnded {
+                Label("Selesai", systemImage: "phone.down.fill").font(.subheadline.weight(.semibold))
+            } else {
+                HStack(spacing: 5) {
+                    Circle().fill(level.glyph).frame(width: 7, height: 7)
+                    Text(startedAt, style: .timer).monospacedDigit()
+                }
+                .font(.subheadline.weight(.semibold))
+                .accessibilityLabel("Panggilan masih berlangsung")
+            }
+        }
+        .font(.headline)
+        .foregroundStyle(level.glyph)
+        .padding(.horizontal, 20)
+        .padding(.vertical, 12)
+        .frame(maxWidth: .infinity)
+        .background(level.tint)
+    }
+}
+
+/// Orang tua yang dijaga plus rekan pengawas, dalam satu kartu.
 private struct ProtectedParentCard: View {
     @Environment(AppModel.self) private var model
 
     var body: some View {
-        HStack(spacing: 14) {
-            Avatar(person: model.parent, size: 52)
-            VStack(alignment: .leading, spacing: 4) {
-                Text(model.parent.name).font(.headline).foregroundStyle(Brand.ink)
-                if model.session != nil {
-                    Label {
-                        Text("Sedang menelepon")
-                    } icon: {
-                        Image(systemName: "waveform")
-                            .symbolEffect(.variableColor.iterative, isActive: true)
-                    }
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(Brand.teal)
-                } else {
-                    Text("Tidak sedang menelepon").font(.subheadline).foregroundStyle(Brand.ink2)
-                }
-                Label("Puck \(model.puck.battery)% · \(model.puck.isConnected ? "terhubung" : "terputus")",
-                      systemImage: model.puck.batterySymbol)
-                    .font(.caption)
-                    .foregroundStyle(Brand.ink3)
-            }
-            Spacer(minLength: 0)
-        }
-        .card()
-        .accessibilityElement(children: .combine)
-    }
-}
-
-private struct CoGuardianCard: View {
-    @Environment(AppModel.self) private var model
-
-    var body: some View {
         let others = model.otherGuardians(than: model.currentPerson)
-        HStack(alignment: .top, spacing: 14) {
-            AvatarStack(people: [model.currentPerson] + others, size: 40)
-            VStack(alignment: .leading, spacing: 4) {
-                Text("Anda dan \(others.map(\.name).formatted(.list(type: .and).locale(Fmt.locale)))")
-                    .font(.headline).foregroundStyle(Brand.ink)
-                Text("Semua menerima peringatan yang sama. Jawaban pertama yang masuk yang berlaku, jadi cukup satu orang.")
-                    .font(.subheadline).foregroundStyle(Brand.ink2)
-                    .fixedSize(horizontal: false, vertical: true)
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(spacing: 14) {
+                Avatar(person: model.parent, size: 52)
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(model.parent.name).font(.headline).foregroundStyle(Brand.ink)
+                    if model.session != nil {
+                        Label {
+                            Text("Sedang menelepon")
+                        } icon: {
+                            Image(systemName: "waveform")
+                                .symbolEffect(.variableColor.iterative, isActive: true)
+                        }
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(Brand.teal)
+                    } else {
+                        Text("Tidak menelepon").font(.subheadline).foregroundStyle(Brand.ink2)
+                    }
+                }
+                Spacer(minLength: 0)
+                Label("\(model.puck.battery)%", systemImage: model.puck.batterySymbol)
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(Brand.ink3)
+                    .accessibilityLabel("Baterai puck \(model.puck.battery) persen")
+            }
+
+            Divider()
+
+            HStack(spacing: 10) {
+                AvatarStack(people: [model.currentPerson] + others, size: 34)
+                VStack(alignment: .leading, spacing: 1) {
+                    Text("Bersama \(others.map(\.name).formatted(.list(type: .and).locale(Fmt.locale)))")
+                        .font(.subheadline.weight(.semibold)).foregroundStyle(Brand.ink)
+                    Text("Cukup satu yang menjawab")
+                        .font(.footnote).foregroundStyle(Brand.ink2)
+                }
+                Spacer(minLength: 0)
             }
         }
         .card()
@@ -174,19 +181,22 @@ private struct CoGuardianCard: View {
 }
 
 private struct QuietState: View {
-    @Environment(AppModel.self) private var model
-
     var body: some View {
-        VStack(spacing: 10) {
-            MascotView(pose: .rest).frame(height: 120)
-            Text("Tidak ada yang perlu diputuskan")
-                .font(Brand.display(.headline)).foregroundStyle(Brand.ink)
-            Text("Anda akan diberi tahu kalau Rambu menemukan tanda penipuan di telepon \(model.parent.name).")
-                .font(.subheadline).foregroundStyle(Brand.ink2).multilineTextAlignment(.center)
-                .fixedSize(horizontal: false, vertical: true)
+        HStack(spacing: 16) {
+            MascotBuddy(sign: .safe, greeting: "Aman terkendali")
+                .frame(width: 84)
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Semua tenang")
+                    .font(Brand.display(.title3)).foregroundStyle(Brand.ink)
+                Text("Anda dikabari kalau ada tanda penipuan.")
+                    .font(.subheadline).foregroundStyle(Brand.ink2)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            Spacer(minLength: 0)
         }
-        .frame(maxWidth: .infinity)
-        .padding(.top, 12)
+        .padding(18)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Brand.safeSoft, in: .rect(cornerRadius: 28, style: .continuous))
     }
 }
 
@@ -202,25 +212,16 @@ struct AlertDetail: View {
                 VStack(alignment: .leading, spacing: 24) {
                     AlertHeader(alert: alert)
 
-                    VStack(alignment: .leading, spacing: 12) {
-                        SectionHeader(title: "Tanda yang terdeteksi")
-                        VStack(alignment: .leading, spacing: 14) {
-                            ForEach(alert.signals, id: \.self) { SignalRow(kind: $0, level: alert.level) }
-                        }
-                        .card()
-                    }
-
-                    VStack(alignment: .leading, spacing: 12) {
-                        SectionHeader(title: "Kata-kata penelepon", trailing: "\(alert.evidence.count) kalimat")
+                    VStack(alignment: .leading, spacing: 14) {
+                        SectionHeader(title: "Kata penelepon")
                         ForEach(alert.evidence) { EvidenceCard(line: $0, level: alert.level) }
-                        Label("Hanya kalimat yang memicu peringatan yang dikirim. Percakapan lengkap tetap di HP \(alert.parent.name).",
-                              systemImage: "lock.fill")
+                        Label("Hanya kalimat ini yang dikirim", systemImage: "lock.fill")
                             .font(.footnote).foregroundStyle(Brand.ink3)
-                            .fixedSize(horizontal: false, vertical: true)
+                            .padding(.leading, 40)
                     }
 
                     VStack(alignment: .leading, spacing: 12) {
-                        SectionHeader(title: "Penerima peringatan")
+                        SectionHeader(title: "Penerima")
                         RecipientsCard(alert: alert)
                     }
                 }
@@ -243,39 +244,32 @@ private struct AlertHeader: View {
     let alert: FamilyAlert
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack(spacing: 10) {
-                LevelIcon(level: alert.level, size: 34)
-                Text(alert.level.title)
-                    .font(Brand.display(.title3))
-                    .foregroundStyle(alert.level.ink)
-            }
-            Text(alert.title)
-                .font(Brand.display(.largeTitle))
-                .foregroundStyle(Brand.ink)
-                .fixedSize(horizontal: false, vertical: true)
-                .accessibilityAddTraits(.isHeader)
-            HStack(spacing: 6) {
-                Image(systemName: alert.channel.symbol)
-                Text("\(alert.channel.label) · \(alert.callerDetail)")
-            }
-            .font(.subheadline).foregroundStyle(Brand.ink2)
-            HStack(spacing: 6) {
-                if alert.callEnded {
-                    Image(systemName: "phone.down.fill")
-                    Text("Panggilan sudah selesai")
-                } else {
-                    Circle().fill(Brand.danger).frame(width: 8, height: 8)
-                    Text("Masih berlangsung ·")
-                    Text(alert.startedAt, style: .timer).monospacedDigit()
+        VStack(alignment: .leading, spacing: 0) {
+            LevelBand(level: alert.level, callEnded: alert.callEnded, startedAt: alert.startedAt)
+            VStack(alignment: .leading, spacing: 14) {
+                HStack(alignment: .top, spacing: 8) {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(alert.title)
+                            .font(Brand.display(.title))
+                            .foregroundStyle(Brand.ink)
+                            .fixedSize(horizontal: false, vertical: true)
+                            .accessibilityAddTraits(.isHeader)
+                        Label(alert.callerDetail, systemImage: alert.channel.symbol)
+                            .font(.subheadline).foregroundStyle(Brand.ink2)
+                    }
+                    Spacer(minLength: 0)
+                    MascotView(pose: alert.level.mascotPose, sign: alert.level)
+                        .frame(width: 76)
+                }
+                FlowLayout(spacing: 6) {
+                    ForEach(alert.signals, id: \.self) { SignalChip(kind: $0, level: alert.level, onTint: true) }
                 }
             }
-            .font(.subheadline.weight(.semibold))
-            .foregroundStyle(Brand.ink)
+            .padding(20)
         }
-        .padding(20)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(alert.level.soft, in: .rect(cornerRadius: 28, style: .continuous))
+        .background(alert.level.soft)
+        .clipShape(.rect(cornerRadius: 28, style: .continuous))
     }
 }
 
@@ -296,6 +290,7 @@ private struct RecipientsCard: View {
                     Spacer()
                     if alert.decision?.by == person {
                         Image(systemName: alert.decision?.verdict == .scam ? "hand.raised.fill" : "checkmark.circle.fill")
+                            .font(.title3)
                             .foregroundStyle(alert.decision?.verdict == .scam ? Brand.danger : Brand.safe)
                             .accessibilityHidden(true)
                     }
@@ -310,17 +305,16 @@ private struct RecipientsCard: View {
 
     private func status(for person: Person) -> String {
         if let decision = alert.decision {
-            if decision.by == person {
-                return "Menandai \(decision.verdict.pastTitle) · \(Fmt.clock(decision.at))"
-            }
-            return "Tidak perlu menjawab lagi"
+            return decision.by == person
+                ? "Menandai \(decision.verdict.pastTitle), \(Fmt.clock(decision.at))"
+                : "Tidak perlu menjawab"
         }
-        return "Menerima peringatan · \(Fmt.clock(alert.raisedAt))"
+        return "Menerima, \(Fmt.clock(alert.raisedAt))"
     }
 }
 
 /// Dua keputusan saja. "Aman" diberi konfirmasi karena menurunkan kewaspadaan orang tua;
-/// "Ini penipuan" langsung terkirim karena setiap detik berarti.
+/// "Penipuan" langsung terkirim karena setiap detik berarti.
 private struct DecisionBar: View {
     let alert: FamilyAlert
     @Environment(AppModel.self) private var model
@@ -333,14 +327,10 @@ private struct DecisionBar: View {
             if let decision = alert.decision {
                 decidedContent(decision)
             } else {
-                Text("Menurut Anda, ini penipuan?")
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(Brand.ink2)
-                    .frame(maxWidth: .infinity, alignment: .leading)
                 HStack(spacing: 10) {
                     Button { confirmSafe = true } label: { WideLabel(title: "Aman", systemImage: "checkmark") }
                         .secondaryAction()
-                    Button { model.decide(.scam, on: alert.id) } label: { WideLabel(title: "Ini penipuan", systemImage: "hand.raised.fill") }
+                    Button { model.decide(.scam, on: alert.id) } label: { WideLabel(title: "Penipuan", systemImage: "hand.raised.fill") }
                         .primaryAction(Brand.danger)
                 }
             }
@@ -349,45 +339,54 @@ private struct DecisionBar: View {
         .padding(.top, 10)
         .padding(.bottom, 6)
         .sensoryFeedback(.success, trigger: alert.decision)
-        .confirmationDialog("Tandai telepon ini aman?", isPresented: $confirmSafe, titleVisibility: .visible) {
+        .confirmationDialog("Tandai aman?", isPresented: $confirmSafe, titleVisibility: .visible) {
             Button("Ya, aman") { model.decide(.safe, on: alert.id) }
         } message: {
-            Text("\(alert.parent.name) akan diberi tahu bahwa Anda menganggap telepon ini aman.")
+            Text("\(alert.parent.name) akan diberi tahu.")
         }
         .alert("Telepon \(alert.parent.name)", isPresented: $callInfo) {
-            Button("Mengerti", role: .cancel) {}
+            Button("Oke", role: .cancel) {}
         } message: {
-            Text("Di HP asli, panggilan Anda masuk sebagai panggilan tunggu di atas telepon yang sedang berlangsung, sehingga \(alert.parent.name) bisa langsung beralih ke Anda. Simulator tidak bisa menelepon.")
+            Text("Di HP asli, telepon Anda masuk sebagai panggilan tunggu, jadi \(alert.parent.name) bisa langsung beralih. Simulator tidak bisa menelepon.")
         }
     }
 
     @ViewBuilder
     private func decidedContent(_ decision: GuardianDecision) -> some View {
         let mine = decision.by == model.currentPerson
+        let scam = decision.verdict == .scam
         HStack(spacing: 12) {
-            Image(systemName: mine ? "paperplane.fill" : "lock.fill")
-                .font(.title3)
-                .foregroundStyle(mine ? Brand.teal : Brand.ink2)
-                .frame(width: 40)
+            Group {
+                if mine {
+                    Image(systemName: "paperplane.fill").foregroundStyle(Brand.teal)
+                } else {
+                    Avatar(person: decision.by, size: 36)
+                }
+            }
+            .font(.title3)
+            .frame(width: 40)
             VStack(alignment: .leading, spacing: 2) {
-                Text(mine ? "Terkirim ke \(alert.parent.name)" : "\(decision.by.name) sudah menjawab lebih dulu")
+                Text(mine ? "Terkirim ke \(alert.parent.name)" : "\(decision.by.name) sudah menjawab")
                     .font(.headline).foregroundStyle(Brand.ink)
-                Text(mine
-                     ? "Anda menandai \(decision.verdict.pastTitle) · \(Fmt.clock(decision.at))"
-                     : "Keputusannya: \(decision.verdict.pastTitle). Tombol dikunci karena jawaban pertama sudah masuk.")
+                Text(mine ? "Anda: \(decision.verdict.pastTitle)" : "\(decision.verdict.pastTitle.capitalized). Cukup satu jawaban.")
                     .font(.subheadline).foregroundStyle(Brand.ink2)
-                    .fixedSize(horizontal: false, vertical: true)
             }
             Spacer(minLength: 0)
+            if !mine {
+                Image(systemName: "lock.fill").foregroundStyle(Brand.ink3).accessibilityLabel("Tombol terkunci")
+            }
         }
+        .padding(12)
+        .background(.white, in: .rect(cornerRadius: 20, style: .continuous))
+        .shadow(color: Brand.ink.opacity(0.08), radius: 12, y: 4)
         .accessibilityElement(children: .combine)
 
         Button {
             let url = URL(string: "tel:+620000000000")!
             openURL(url) { accepted in if !accepted { callInfo = true } }
         } label: {
-            WideLabel(title: "Telepon \(alert.parent.name) sekarang", systemImage: "phone.fill")
+            WideLabel(title: "Telepon \(alert.parent.name)", systemImage: "phone.fill")
         }
-        .primaryAction(decision.verdict == .scam ? Brand.danger : Brand.teal)
+        .primaryAction(scam ? Brand.danger : Brand.teal)
     }
 }

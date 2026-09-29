@@ -7,7 +7,7 @@ extension Scenario {
     static let bankOTP = Scenario(
         id: "bank-otp",
         title: "Mengaku petugas Bank Sentosa",
-        summary: "Petugas bank palsu meminta kode OTP dengan alasan membatalkan transaksi.",
+        summary: "Minta kode OTP untuk membatalkan transaksi.",
         callerName: "Nomor tidak dikenal",
         callerDetail: "+62 812-••••-4417",
         channel: .cellular,
@@ -34,7 +34,7 @@ extension Scenario {
     static let accidentTransfer = Scenario(
         id: "kecelakaan-transfer",
         title: "Kabar anak kecelakaan",
-        summary: "Mengaku perawat, mengabarkan kecelakaan, lalu meminta transfer biaya operasi.",
+        summary: "Kabar kecelakaan, lalu minta biaya operasi.",
         callerName: "Nomor tidak dikenal",
         callerDetail: "+62 857-••••-2290",
         channel: .whatsapp,
@@ -61,7 +61,7 @@ extension Scenario {
     static let courierApp = Scenario(
         id: "kurir-aplikasi",
         title: "Kurir menyuruh buka file",
-        summary: "Mengaku kurir, lalu menyuruh membuka file dan memasang aplikasi untuk cek resi.",
+        summary: "Menyuruh buka file dan pasang aplikasi.",
         callerName: "Nomor tidak dikenal",
         callerDetail: "+62 896-••••-1043",
         channel: .whatsapp,
@@ -83,7 +83,7 @@ extension Scenario {
     static let neighbourSafe = Scenario(
         id: "tetangga-aman",
         title: "Telepon dari Bu Wati",
-        summary: "Tetangga mengabarkan jadwal arisan. Tidak ada tanda penipuan.",
+        summary: "Tetangga mengabarkan jadwal arisan.",
         callerName: "Bu Wati",
         callerDetail: "Kontak tersimpan",
         channel: .cellular,
@@ -119,21 +119,9 @@ extension Scenario {
 }
 
 extension CallRecord {
-    /// Riwayat awal supaya layar riwayat tidak kosong saat demo pertama.
+    /// Riwayat awal supaya layar riwayat tidak kosong saat demo pertama. Hanya telepon berisiko yang disimpan.
     static func seed(now: Date = .now, decider: Person = .richard) -> [CallRecord] {
         [
-            CallRecord(
-                id: UUID(),
-                title: "Telepon dari Bu Wati",
-                callerDetail: "Kontak tersimpan",
-                channel: .cellular,
-                startedAt: now.addingTimeInterval(-26 * 3600),
-                duration: 184,
-                level: .safe,
-                signals: [],
-                evidence: [],
-                decision: nil
-            ),
             CallRecord(
                 id: UUID(),
                 title: "Hadiah undian dari nomor asing",

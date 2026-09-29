@@ -65,7 +65,8 @@ enum DemoLaunch {
                 interval: fast ? .milliseconds(700) : .seconds(5),
                 initialDelay: fast ? .milliseconds(300) : .milliseconds(1200)
             ),
-            liveActivities: !isTesting
+            liveActivities: !isTesting,
+            notifications: !isTesting
         )
         if let scene, !isTesting { apply(scene, to: model) }
         return model

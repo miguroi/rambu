@@ -30,6 +30,7 @@ final class AppModel {
     @ObservationIgnored private let analysis: any CallAnalysisSource
     @ObservationIgnored private let relay: any FamilyRelay
     @ObservationIgnored private let liveActivity: CallLiveActivity
+    @ObservationIgnored private let notifier: RambuNotifier
     @ObservationIgnored private var listenTask: Task<Void, Never>?
 
     init(
@@ -38,6 +39,7 @@ final class AppModel {
         analysis: any CallAnalysisSource = ScenarioAnalysis(),
         relay: (any FamilyRelay)? = nil,
         liveActivities: Bool = true,
+        notifications: Bool = true,
         now: Date = .now
     ) {
         self.persona = persona
@@ -47,7 +49,9 @@ final class AppModel {
         self.analysis = analysis
         self.relay = relay ?? LocalFamilyRelay()
         self.liveActivity = CallLiveActivity(enabled: liveActivities)
+        self.notifier = RambuNotifier(enabled: notifications)
         self.relay.onEvent = { [weak self] event in self?.handle(event) }
+        self.notifier.onOpen = { [weak self] id in self?.openFromPush(id) }
     }
 
     var currentPerson: Person { person(for: persona) }
@@ -84,6 +88,44 @@ final class AppModel {
 
     func otherGuardians(than person: Person) -> [Person] {
         guardians.filter { $0 != person }
+    }
+
+    // MARK: Push
+
+    func requestNotifications() async {
+        await notifier.requestAuthorization()
+    }
+
+    /// Push sistem kalau diizinkan, tiruan banner di dalam app kalau belum.
+    private func present(_ push: Toast) {
+        if notifier.isAuthorized {
+            notifier.post(push)
+        } else {
+            toast = push
+        }
+    }
+
+    private func openFromPush(_ id: UUID?) {
+        toast = nil
+        guard !persona.isParent, let id else { return }
+        openAlert(id)
+    }
+
+    private var guardianNames: String {
+        guardians.map(\.name).formatted(.list(type: .and).locale(Fmt.locale))
+    }
+
+    private func parentWarning(for session: CallSession) -> Toast {
+        let danger = session.level == .danger
+        return Toast(
+            id: "\(session.id)-\(session.level.rawValue)",
+            title: danger ? "Bahaya: terindikasi penipuan" : "Waspada: telepon mencurigakan",
+            body: danger
+                ? "Hati-hati. Jangan transfer atau sebut kode. Sudah dikirim ke \(guardianNames)."
+                : "\(session.headline). Jangan beri data dulu. Sudah dikirim ke \(guardianNames).",
+            level: session.level,
+            alertID: session.id
+        )
     }
 
     // MARK: Onboarding & demo
@@ -135,12 +177,10 @@ final class AppModel {
         let session = CallSession(id: UUID(), scenario: scenario, startedAt: .now)
         self.session = session
         persona = .ratna
+        toast = nil
         isCallScreenPresented = true
-
-        liveActivity.start(
-            attributes: RambuCallAttributes(parentName: parent.name, channel: scenario.channel.short, startedAt: session.startedAt),
-            state: activityState(for: session)
-        )
+        // Telepon yang aman tidak memunculkan apa pun. Live Activity dan push baru muncul
+        // begitu ada tanda penipuan (lihat ingest).
 
         let context = CallContext(id: session.id, channel: scenario.channel, startedAt: session.startedAt, scenario: scenario)
         let stream = analysis.assessments(for: context)
@@ -166,11 +206,23 @@ final class AppModel {
         current.level = max(current.level, chunk.level)
         session = current
 
-        liveActivity.update(activityState(for: current))
-
         guard current.level.relaysToGuardians else { return }
+
+        if liveActivity.isActive {
+            liveActivity.update(activityState(for: current))
+        } else {
+            liveActivity.start(
+                attributes: RambuCallAttributes(parentName: parent.name, channel: current.scenario.channel.short,
+                                                startedAt: current.startedAt),
+                state: activityState(for: current)
+            )
+        }
+
         if current.level > previous || chunk.line.isFlagged {
             relay.publish(makeAlert(from: current))
+        }
+        if current.level > previous, persona.isParent {
+            present(parentWarning(for: current))
         }
     }
 
@@ -197,19 +249,22 @@ final class AppModel {
         listenTask = nil
 
         let alert = alerts.first { $0.id == session.id }
-        let record = CallRecord(
-            id: session.id,
-            title: session.scenario.title,
-            callerDetail: session.scenario.callerDetail,
-            channel: session.scenario.channel,
-            startedAt: session.startedAt,
-            duration: Date.now.timeIntervalSince(session.startedAt),
-            level: session.level,
-            signals: session.signals,
-            evidence: session.heard.filter { $0.speaker == .caller && $0.isFlagged },
-            decision: alert?.decision
-        )
-        history.insert(record, at: 0)
+        // Riwayat hanya menyimpan telepon Waspada dan Bahaya.
+        if session.level > .safe {
+            let record = CallRecord(
+                id: session.id,
+                title: session.scenario.title,
+                callerDetail: session.scenario.callerDetail,
+                channel: session.scenario.channel,
+                startedAt: session.startedAt,
+                duration: Date.now.timeIntervalSince(session.startedAt),
+                level: session.level,
+                signals: session.signals,
+                evidence: session.heard.filter { $0.speaker == .caller && $0.isFlagged },
+                decision: alert?.decision
+            )
+            history.insert(record, at: 0)
+        }
         if let index = alerts.firstIndex(where: { $0.id == session.id }) {
             alerts[index].callEnded = true
         }
@@ -257,7 +312,11 @@ final class AppModel {
             } else {
                 alerts.insert(alert, at: 0)
             }
-            if isNew, !persona.isParent { toast = .alert(alert.id) }
+            if isNew, !persona.isParent {
+                present(Toast(id: "alert-\(alert.id)", title: "\(alert.level.title): \(alert.title)",
+                              body: "Ketuk untuk melihat kalimatnya dan memutuskan.",
+                              level: alert.level, alertID: alert.id))
+            }
 
         case .decided(let alertID, let decision):
             if let index = alerts.firstIndex(where: { $0.id == alertID }) {
@@ -269,8 +328,17 @@ final class AppModel {
             if let session, session.id == alertID {
                 liveActivity.update(activityState(for: session))
             }
-            if decision.by != currentPerson, !(persona.isParent && isCallScreenPresented) {
-                toast = .decision(alertID, decision)
+            if decision.by != currentPerson {
+                let scam = decision.verdict == .scam
+                present(Toast(
+                    id: "decision-\(alertID)",
+                    title: scam ? "\(decision.by.name): ini penipuan" : "\(decision.by.name): telepon aman",
+                    body: persona.isParent
+                        ? (scam ? "Tutup telepon sekarang." : "Tetap jangan beri kode atau transfer.")
+                        : "Sudah dikirim ke \(parent.name).",
+                    level: scam ? .danger : .safe,
+                    alertID: alertID
+                ))
             }
         }
     }
@@ -286,3 +354,4 @@ final class AppModel {
         )
     }
 }
+

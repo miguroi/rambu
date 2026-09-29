@@ -19,7 +19,7 @@ enum Persona: String, CaseIterable, Identifiable, Codable, Sendable {
     }
 
     var isParent: Bool { self == .ratna }
-    var roleLabel: String { isParent ? "Orang tua · dilindungi" : "Pengawas" }
+    var roleLabel: String { isParent ? "Orang tua" : "Pengawas" }
 }
 
 struct Person: Identifiable, Hashable, Codable, Sendable {
@@ -73,17 +73,6 @@ enum SignalKind: String, Codable, CaseIterable, Hashable, Sendable {
         case .secretCode: "Penelepon meminta kode rahasia"
         case .transfer: "Penelepon meminta transfer"
         case .remoteApp: "Penelepon menyuruh pasang aplikasi"
-        }
-    }
-
-    /// Penjelasan untuk membantu pengawas menilai sendiri.
-    var hint: String {
-        switch self {
-        case .impersonation: "Bank, rumah sakit, dan kurir tidak meminta data lewat telepon."
-        case .urgency: "Desakan dipakai supaya korban tidak sempat berpikir atau bertanya."
-        case .secretCode: "Kode OTP dan PIN tidak boleh diberikan ke siapa pun, termasuk petugas bank."
-        case .transfer: "Penelepon meminta uang dikirim saat itu juga."
-        case .remoteApp: "File atau aplikasi kiriman bisa mengambil alih HP dan membaca kode OTP."
         }
     }
 
@@ -206,7 +195,7 @@ struct FamilyAlert: Identifiable, Hashable, Sendable {
     var callEnded = false
 
     var title: String {
-        level == .danger ? "\(parent.name) mungkin sedang ditipu" : "Telepon \(parent.name) perlu dicek"
+        level == .danger ? "\(parent.name) mungkin sedang ditipu" : "Telepon \(parent.name) mencurigakan"
     }
 }
 
@@ -262,16 +251,15 @@ enum OnboardingStep: String, Hashable, Sendable {
     case enterCode, guardianProfile, waiting
 }
 
-enum Toast: Identifiable, Equatable {
-    case alert(UUID)
-    case decision(UUID, GuardianDecision)
-
-    var id: String {
-        switch self {
-        case .alert(let id): "alert-\(id)"
-        case .decision(let id, let d): "decision-\(id)-\(d.by.id)"
-        }
-    }
+/// Isi push Rambu. Dikirim sebagai notifikasi sistem, atau tampil sebagai tiruan banner
+/// di dalam app kalau izin notifikasi belum ada.
+struct Toast: Identifiable, Equatable {
+    let id: String
+    let title: String
+    let body: String
+    /// Menentukan warna dan papan yang dipegang maskot.
+    let level: RiskLevel
+    let alertID: UUID?
 }
 
 // MARK: - Format tanggal berbahasa Indonesia
@@ -289,7 +277,7 @@ enum Fmt {
         if let yesterday = calendar.date(byAdding: .day, value: -1, to: now), calendar.isDate(date, inSameDayAs: yesterday) {
             return "Kemarin, \(clock(date))"
         }
-        return date.formatted(Date.FormatStyle(date: .abbreviated, time: .shortened).locale(locale))
+        return date.formatted(.dateTime.day().month(.abbreviated).hour().minute().locale(locale))
     }
 
     static func duration(_ seconds: TimeInterval) -> String {

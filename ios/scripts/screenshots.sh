@@ -17,27 +17,29 @@ xcrun simctl bootstatus "$UDID" -b >/dev/null
 xcrun simctl install "$UDID" "$APP"
 xcrun simctl status_bar "$UDID" override --time "09:41" --batteryState charged --batteryLevel 100 --cellularBars 4 --wifiBars 3
 mkdir -p "$OUT"
-rm -f "$OUT"/*.png
+find "$OUT" -name "*.png" ! -name "*lock-screen*" -delete
 
 # nama | adegan | tunggu (detik) | kecepatan (fast/normal)
 shots=(
   "01-onboarding-sambutan|onboarding:welcome|2|fast"
-  "02-onboarding-pasang-puck|onboarding:pairPuck|2|fast"
-  "03-onboarding-persetujuan|onboarding:consent|2|fast"
-  "04-onboarding-undang-pengawas|onboarding:invite|5|fast"
-  "05-onboarding-kode-pengawas|onboarding:enterCode|2|fast"
-  "06-beranda-orang-tua|home|2|fast"
-  "07-riwayat|history|2|fast"
-  "08-puck|puck|2|fast"
-  "09-telepon-mendengarkan|call:tetangga-aman|3|fast"
-  "10-telepon-perlu-dicek|call:kurir-aplikasi|3|normal"
-  "11-telepon-bahaya|call:bank-otp|6|fast"
-  "12-telepon-keputusan-penipuan|call-decided:bank-otp|7|fast"
-  "13-pengawas-beranda-peringatan|guardian-alert-home:bank-otp|7|fast"
-  "14-pengawas-peringatan|alert:bank-otp|7|fast"
-  "15-pengawas-terkunci|alert-locked:kecelakaan-transfer|7|fast"
-  "16-pengawas-terkirim|alert-mine:kecelakaan-transfer|7|fast"
-  "17-pengawas-tenang|guardian-home|2|fast"
+  "02-onboarding-nama|onboarding:parentProfile|2|fast"
+  "03-onboarding-pasang-puck|onboarding:pairPuck|2|fast"
+  "04-onboarding-persetujuan|onboarding:consent|2|fast"
+  "05-onboarding-undang-pengawas|onboarding:invite|5|fast"
+  "06-onboarding-kode-pengawas|onboarding:enterCode|2|fast"
+  "07-onboarding-nama-pengawas|onboarding:guardianProfile|2|fast"
+  "08-beranda-orang-tua|home|2|fast"
+  "09-riwayat|history|2|fast"
+  "10-puck|puck|2|fast"
+  "11-telepon-aman-tanpa-notif|call:tetangga-aman|3|fast"
+  "12-telepon-perlu-dicek|call:kurir-aplikasi|3|normal"
+  "13-telepon-bahaya|call:bank-otp|6|fast"
+  "14-telepon-keputusan-penipuan|call-decided:bank-otp|7|fast"
+  "15-pengawas-beranda-peringatan|guardian-alert-home:bank-otp|7|fast"
+  "16-pengawas-peringatan|alert:bank-otp|7|fast"
+  "17-pengawas-terkunci|alert-locked:kecelakaan-transfer|7|fast"
+  "18-pengawas-terkirim|alert-mine:kecelakaan-transfer|7|fast"
+  "19-pengawas-tenang|guardian-home|2|fast"
 )
 
 for entry in "${shots[@]}"; do
