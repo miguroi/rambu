@@ -117,7 +117,7 @@ ios/
 
 Foto asli dari Pexels (lisensi Pexels, bebas dipakai termasuk komersial):
 
-- `PhotoWelcome`: ibu dan anak di teras rumah, Bandung. Foto oleh Tuti Isnawati.
+- `PhotoWelcome`: ibu usia sekitar 40 menelepon dengan cemas di rumah. Foto oleh RDNE Stock project.
 - `PhotoGuardian`: perempuan melihat HP. Foto oleh Tia Rahayu.
 
 Slot yang menunggu gambar (tampil ilustrasi cadangan selama asetnya belum ada). Tambahkan sebagai image set dengan nama persis ini di `Assets.xcassets`:

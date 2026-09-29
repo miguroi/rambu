@@ -101,16 +101,17 @@ private struct WelcomeStep: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 0) {
-                // Foto asli: ibu dan anak di Bandung (Tuti Isnawati, Pexels).
-                Image("PhotoWelcome")
-                    .resizable()
-                    .scaledToFill()
+                // Foto asli: ibu menelepon dengan cemas di rumah (RDNE Stock project, Pexels).
+                Color.clear
                     .frame(height: 470)
                     .frame(maxWidth: .infinity)
+                    .overlay(alignment: .top) {
+                        Image("PhotoWelcome").resizable().scaledToFill()
+                    }
                     .clipped()
                     .overlay(alignment: .top) {
-                        LinearGradient(colors: [Brand.canvas.opacity(0.85), .clear], startPoint: .top, endPoint: .bottom)
-                            .frame(height: 130)
+                        LinearGradient(colors: [Brand.canvas.opacity(0.6), .clear], startPoint: .top, endPoint: .bottom)
+                            .frame(height: 110)
                     }
                     .overlay(alignment: .bottom) {
                         LinearGradient(colors: [.clear, Brand.canvas], startPoint: .top, endPoint: .bottom)
@@ -136,7 +137,7 @@ private struct WelcomeStep: View {
                                 .transition(.move(edge: .top).combined(with: .opacity))
                         }
                     }
-                    .accessibilityLabel("Seorang ibu dan anaknya duduk di teras rumah")
+                    .accessibilityLabel("Seorang ibu menelepon dengan raut cemas di rumah")
 
                 VStack(alignment: .leading, spacing: 10) {
                     Text("Kenali tanda, hindari tipu daya.")
