@@ -40,13 +40,14 @@ struct HistoryList: View {
 struct HistoryRow: View {
     let record: CallRecord
     let forGuardian: Bool
+    @Environment(AppModel.self) private var model
 
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
             LevelIcon(level: record.level, size: 26)
                 .frame(width: 34)
             VStack(alignment: .leading, spacing: 3) {
-                Text(forGuardian ? "\(Person.ratna.name) · \(record.title)" : record.title)
+                Text(forGuardian ? "\(model.parent.name) · \(record.title)" : record.title)
                     .font(.headline).foregroundStyle(Brand.ink)
                     .fixedSize(horizontal: false, vertical: true)
                 Text("\(Fmt.day(record.startedAt)) · \(record.channel.short) · \(Fmt.duration(record.duration))")
@@ -210,9 +211,9 @@ struct DemoSheet: View {
                             dismiss()
                         } label: {
                             HStack(spacing: 12) {
-                                Avatar(person: persona.person, size: 40)
+                                Avatar(person: model.person(for: persona), size: 40)
                                 VStack(alignment: .leading, spacing: 2) {
-                                    Text(persona.person.name).font(.headline).foregroundStyle(Brand.ink)
+                                    Text(model.person(for: persona).name).font(.headline).foregroundStyle(Brand.ink)
                                     Text(persona.roleLabel).font(.subheadline).foregroundStyle(Brand.ink2)
                                 }
                                 Spacer()

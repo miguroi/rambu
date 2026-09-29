@@ -12,7 +12,8 @@ final class AppModel {
     var onboardingStep: OnboardingStep = .welcome
     var puck: PuckState
 
-    let parent = Person.ratna
+    /// Diisi saat onboarding. Nilai awalnya data contoh supaya demo langsung jalan.
+    var parent: Person = .ratna
     var guardians: [Person] = Person.guardians
 
     var session: CallSession?
@@ -49,7 +50,26 @@ final class AppModel {
         self.relay.onEvent = { [weak self] event in self?.handle(event) }
     }
 
-    var currentPerson: Person { persona.person }
+    var currentPerson: Person { person(for: persona) }
+
+    /// Orang yang diwakili sebuah peran demo, memakai nama yang diisi saat onboarding.
+    func person(for persona: Persona) -> Person {
+        switch persona {
+        case .ratna: parent
+        case .sinta: guardians.first ?? .sinta
+        case .richard: guardians.dropFirst().first ?? .richard
+        }
+    }
+
+    func renameParent(_ name: String) {
+        parent = parent.renamed(name)
+    }
+
+    func renameGuardian(_ persona: Persona, name: String, relation: String) {
+        let index = persona == .richard ? 1 : 0
+        guard guardians.indices.contains(index) else { return }
+        guardians[index] = guardians[index].renamed(name, relation: relation)
+    }
 
     /// Peringatan untuk panggilan yang sedang berjalan.
     var activeAlert: FamilyAlert? {
@@ -71,6 +91,7 @@ final class AppModel {
     func completeOnboarding(as persona: Persona) {
         self.persona = persona
         puck = .demo
+        history = CallRecord.seed(decider: person(for: .richard))
         onboardingComplete = true
         onboardingStep = .welcome
     }
@@ -95,6 +116,8 @@ final class AppModel {
         parentTab = .home
         guardianTab = .home
         persona = .ratna
+        parent = .ratna
+        guardians = Person.guardians
         puck = .unpaired
         onboardingComplete = false
         onboardingStep = .welcome
@@ -104,7 +127,8 @@ final class AppModel {
 
     /// Memulai panggilan simulasi. Mengembalikan task pendengar supaya tes bisa menunggunya.
     @discardableResult
-    func startCall(_ scenario: Scenario) -> Task<Void, Never> {
+    func startCall(_ template: Scenario) -> Task<Void, Never> {
+        let scenario = template.personalized(parentName: parent.name)
         listenTask?.cancel()
         if let old = session { liveActivity.end(state: activityState(for: old), dismissImmediately: true) }
 

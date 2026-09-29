@@ -9,7 +9,8 @@ enum Persona: String, CaseIterable, Identifiable, Codable, Sendable {
 
     var id: String { rawValue }
 
-    var person: Person {
+    /// Data contoh sebelum nama diisi saat onboarding. Nama sebenarnya ada di AppModel.
+    var defaultPerson: Person {
         switch self {
         case .ratna: .ratna
         case .sinta: .sinta
@@ -36,6 +37,15 @@ extension Person {
     static let sinta = Person(id: "sinta", name: "Sinta", initial: "S", relation: "Anak", colorHex: 0x1E6E9E)
     static let richard = Person(id: "richard", name: "Richard", initial: "R", relation: "Anak", colorHex: 0x6347A8)
     static let guardians: [Person] = [.sinta, .richard]
+
+    /// Nama baru dengan warna dan id yang sama. Inisial diambil dari kata terakhir,
+    /// jadi "Ibu Ratna" menjadi R, bukan I.
+    func renamed(_ newName: String, relation newRelation: String? = nil) -> Person {
+        let trimmed = newName.trimmingCharacters(in: .whitespacesAndNewlines)
+        let name = trimmed.isEmpty ? self.name : trimmed
+        let initial = name.split(separator: " ").last?.first.map { String($0).uppercased() } ?? self.initial
+        return Person(id: id, name: name, initial: initial, relation: newRelation ?? relation, colorHex: colorHex)
+    }
 }
 
 // MARK: - Tanda penipuan
@@ -118,7 +128,7 @@ enum CallChannel: String, Codable, Hashable, Sendable {
 enum Speaker: String, Codable, Hashable, Sendable {
     case caller, parent
 
-    var label: String { self == .caller ? "Penelepon" : Person.ratna.name }
+    var label: String { self == .caller ? "Penelepon" : "Orang tua" }
 }
 
 /// Satu potongan transkrip ±5 detik.
@@ -246,7 +256,10 @@ enum ParentTab: Hashable { case home, history, puck }
 enum GuardianTab: Hashable { case home, history }
 
 enum OnboardingStep: String, Hashable, Sendable {
-    case welcome, pairPuck, consent, invite, enterCode, waiting
+    // Jalur orang tua
+    case welcome, parentProfile, pairPuck, consent, invite
+    // Jalur pengawas
+    case enterCode, guardianProfile, waiting
 }
 
 enum Toast: Identifiable, Equatable {

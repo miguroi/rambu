@@ -100,11 +100,27 @@ extension Scenario {
     )
 
     static let all: [Scenario] = [.bankOTP, .accidentTransfer, .courierApp, .neighbourSafe]
+
+    /// Mengganti nama contoh di transkrip dengan nama orang tua yang diisi saat onboarding.
+    func personalized(parentName: String) -> Scenario {
+        let sample = Person.ratna.name
+        guard parentName != sample else { return self }
+        let swap = { (s: String) in
+            s.replacingOccurrences(of: sample, with: parentName)
+             .replacingOccurrences(of: "Bu Ratna", with: parentName)
+        }
+        let lines = lines.map {
+            TranscriptLine(id: $0.id, offset: $0.offset, speaker: $0.speaker,
+                           text: swap($0.text), flagged: $0.flagged.map(swap), signals: $0.signals)
+        }
+        return Scenario(id: id, title: title, summary: summary, callerName: callerName,
+                        callerDetail: callerDetail, channel: channel, lines: lines)
+    }
 }
 
 extension CallRecord {
     /// Riwayat awal supaya layar riwayat tidak kosong saat demo pertama.
-    static func seed(now: Date = .now) -> [CallRecord] {
+    static func seed(now: Date = .now, decider: Person = .richard) -> [CallRecord] {
         [
             CallRecord(
                 id: UUID(),
@@ -135,7 +151,7 @@ extension CallRecord {
                                    text: "Hadiahnya bisa dicairkan setelah Ibu transfer biaya pajak lima ratus ribu.",
                                    flagged: ["transfer biaya pajak"], signals: [.transfer]),
                 ],
-                decision: GuardianDecision(by: .richard, verdict: .scam, at: now.addingTimeInterval(-3 * 86400 - 5340))
+                decision: GuardianDecision(by: decider, verdict: .scam, at: now.addingTimeInterval(-3 * 86400 - 5340))
             ),
         ]
     }
