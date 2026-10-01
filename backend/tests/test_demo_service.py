@@ -168,6 +168,29 @@ def test_transcription_failure_is_terminal_sanitized_and_removes_temporary_file(
     service.close()
 
 
+def test_empty_transcription_is_a_terminal_failure(tmp_path) -> None:
+    audio = write_test_wav(tmp_path / "silent.wav", seconds=1)
+    transcriber = SequentialTranscriber(["   "])
+    analyzer = EvidenceAnalyzer()
+    service = DemoService(
+        {"tetangga-aman": Scenario("tetangga-aman", "Aman", "", audio, "low")},
+        transcriber,
+        analyzer,
+        delay_seconds=0,
+    )
+
+    failed = wait_for_completion(service, service.start("tetangga-aman").id)
+
+    assert failed.status == "error"
+    assert failed.progress == 0
+    assert failed.assessment is None
+    assert failed.error is not None
+    assert failed.error.code == "transcription_failed"
+    assert analyzer.inputs == []
+    assert all(not path.exists() for path in transcriber.paths)
+    service.close()
+
+
 def test_analysis_failure_clears_stale_assessment_and_stops_later_chunks(tmp_path) -> None:
     audio = write_test_wav(tmp_path / "call.wav", seconds=11)
     transcriber = SequentialTranscriber(["Saya dari bank.", "Segera jawab.", "Berikan kode."])

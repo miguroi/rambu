@@ -135,8 +135,18 @@ class DemoService:
                         ),
                     )
                     return
+                text = text.strip()
                 if text:
                     transcript_parts.append(text)
+                if index == len(chunks) and not transcript_parts:
+                    self._fail(
+                        session_id,
+                        DemoFailure(
+                            code="transcription_failed",
+                            message="Transkripsi audio tidak menghasilkan teks.",
+                        ),
+                    )
+                    return
                 masked_transcript = mask_sensitive_text(" ".join(transcript_parts))
                 assessment = None
                 if masked_transcript:
