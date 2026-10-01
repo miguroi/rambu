@@ -154,9 +154,24 @@ final class CallViewModel {
         let stream = analysis.assessments(for: context)
         let sessionID = session.id
         let task = Task { [weak self] in
-            for await chunk in stream {
-                guard !Task.isCancelled else { return }
-                self?.ingest(chunk, sessionID: sessionID)
+            do {
+                for try await chunk in stream {
+                    guard !Task.isCancelled else { return }
+                    self?.ingest(chunk, sessionID: sessionID)
+                }
+            } catch is CancellationError {
+                return
+            } catch {
+                guard var current = self?.state.session, current.id == sessionID else { return }
+                current.isListening = false
+                self?.state.session = current
+                self?.profile.present(Toast(
+                    id: "analysis-error-\(sessionID)",
+                    title: "Analisis gagal",
+                    body: error.localizedDescription,
+                    level: .review,
+                    alertID: nil
+                ))
             }
         }
         listenTask = task

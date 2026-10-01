@@ -28,7 +28,7 @@ struct ChunkAssessment: Sendable {
 /// Sumber penilaian risiko selama panggilan.
 /// Nyata: audio puck → POST /transcribe (backend/) → analisis Langflow → ChunkAssessment.
 protocol CallAnalysisSource: Sendable {
-    func assessments(for call: CallContext) -> AsyncStream<ChunkAssessment>
+    func assessments(for call: CallContext) -> AsyncThrowingStream<ChunkAssessment, Error>
 }
 
 /// Saluran keluarga: menyebarkan peringatan ke semua pengawas dan menerima keputusan.
@@ -59,11 +59,11 @@ struct ScenarioAnalysis: CallAnalysisSource {
     var interval: Duration = .seconds(5)
     var initialDelay: Duration = .milliseconds(1200)
 
-    func assessments(for call: CallContext) -> AsyncStream<ChunkAssessment> {
+    func assessments(for call: CallContext) -> AsyncThrowingStream<ChunkAssessment, Error> {
         let lines = call.scenario?.lines ?? []
         let interval = interval
         let initialDelay = initialDelay
-        return AsyncStream { continuation in
+        return AsyncThrowingStream { continuation in
             let task = Task {
                 var seen = Set<SignalKind>()
                 var level = RiskLevel.safe
