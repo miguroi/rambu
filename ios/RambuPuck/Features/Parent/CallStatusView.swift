@@ -91,6 +91,11 @@ struct CallStatusView: View {
                 title = scam ? "Tutup telepon sekarang" : "Aman, kata \(decision.by.name)"
                 detail = scam ? "\(decision.by.name) yakin ini penipuan." : "Tetap jangan beri kode atau transfer."
                 guardianNote = "\(decision.by.name) sudah menjawab."
+            } else if let failure = session.analysisFailure {
+                level = .review
+                title = failure.title
+                detail = failure.detail
+                guardianNote = "Analisis berhenti dan tidak menghasilkan penilaian aman."
             } else if unanswered {
                 level = session.level
                 title = "Belum ada jawaban"
@@ -103,8 +108,23 @@ struct CallStatusView: View {
                 guardianNote = "Pengawas sudah diberi tahu, menunggu jawaban."
             } else {
                 level = .safe
-                title = session.speakerOn ? "Rambu ikut mendengar" : "Nyalakan loudspeaker"
-                detail = session.speakerOn ? "Belum ada tanda penipuan." : "Rambu belum bisa mendengar."
+                switch session.protectionStatus {
+                case .waitingForPuck:
+                    title = "Menunggu Rambu Puck"
+                    detail = "Audio belum dianalisis."
+                case .listening where !session.speakerOn:
+                    title = "Nyalakan loudspeaker"
+                    detail = "Rambu Puck belum bisa mendengar percakapan."
+                case .listening:
+                    title = "Rambu sedang mendengarkan"
+                    detail = "Audio dari Puck sedang dianalisis."
+                case .completed:
+                    title = "Analisis selesai"
+                    detail = "Tidak ada tanda penipuan yang terdeteksi."
+                case .noSpeech:
+                    title = "Tidak ada audio yang dianalisis"
+                    detail = "Rambu Puck tidak menerima percakapan yang dapat ditranskripsi."
+                }
                 guardianNote = "Pengawas dikabari kalau ada tanda penipuan."
             }
         }

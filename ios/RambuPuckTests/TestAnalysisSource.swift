@@ -74,10 +74,12 @@ final class RecordingCallAnalysisSession: CallAnalysisSession, @unchecked Sendab
     private let assessmentContinuation: AsyncThrowingStream<ChunkAssessment, Error>.Continuation
     private let statusContinuation: AsyncStream<ProtectionStatus>.Continuation
     private let lock = NSLock()
+    private let finishStatus: ProtectionStatus?
     private var finished = false
     private var cancelled = false
 
-    init() {
+    init(finishStatus: ProtectionStatus? = nil) {
+        self.finishStatus = finishStatus
         var capturedAssessment: AsyncThrowingStream<ChunkAssessment, Error>.Continuation!
         assessments = AsyncThrowingStream { capturedAssessment = $0 }
         assessmentContinuation = capturedAssessment
@@ -95,6 +97,7 @@ final class RecordingCallAnalysisSession: CallAnalysisSession, @unchecked Sendab
 
     func finish() async throws {
         lock.withLock { finished = true }
+        if let finishStatus { statusContinuation.yield(finishStatus) }
         assessmentContinuation.finish()
         statusContinuation.finish()
     }
@@ -108,14 +111,19 @@ final class RecordingCallAnalysisSession: CallAnalysisSession, @unchecked Sendab
 
 final class RecordingCallAnalysisSource: CallAnalysisSource, @unchecked Sendable {
     private let lock = NSLock()
+    private let finishStatus: ProtectionStatus?
     private var contexts: [CallContext] = []
     private var sessions: [RecordingCallAnalysisSession] = []
 
     var startCount: Int { lock.withLock { contexts.count } }
     var latestSession: RecordingCallAnalysisSession? { lock.withLock { sessions.last } }
 
+    init(finishStatus: ProtectionStatus? = nil) {
+        self.finishStatus = finishStatus
+    }
+
     func start(for call: CallContext) async throws -> any CallAnalysisSession {
-        let session = RecordingCallAnalysisSession()
+        let session = RecordingCallAnalysisSession(finishStatus: finishStatus)
         lock.withLock {
             contexts.append(call)
             sessions.append(session)

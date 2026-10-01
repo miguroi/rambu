@@ -1,6 +1,23 @@
 import Foundation
 import Observation
 
+enum ProtectionPresentation: Equatable, Sendable {
+    case setupRequired
+    case monitoring
+    case waitingForPuck
+    case listening
+    case finishing
+    case failed(AnalysisFailure)
+    case completed(RiskLevel)
+    case noSpeech
+}
+
+struct RecentProtection: Equatable, Sendable {
+    let sessionID: UUID
+    var level: RiskLevel
+    var presentation: ProtectionPresentation
+}
+
 /// Satu sumber kebenaran yang diamati seluruh fitur Rambu.
 /// Objek ini hanya menyimpan state dan nilai turunan; efek samping tetap milik ViewModel.
 @MainActor
@@ -16,6 +33,7 @@ final class AppState {
     var extraParents: [Person] = []
 
     var session: CallSession?
+    var recentProtection: RecentProtection?
     var isCallScreenPresented = false
     var alerts: [FamilyAlert] = []
     var history: [CallRecord]
@@ -43,14 +61,17 @@ final class AppState {
     var bluetoothOn = true
     var speakerOffNextCall = false
     var hidesNotificationIssue = false
+    let allowsDemoControls: Bool
 
     init(
         persona: Persona = .ratna,
         onboardingComplete: Bool = false,
+        allowsDemoControls: Bool = false,
         now: Date = .now
     ) {
         self.persona = persona
         self.onboardingComplete = onboardingComplete
+        self.allowsDemoControls = allowsDemoControls
         puck = onboardingComplete ? .demo : .unpaired
         history = CallRecord.seed(now: now)
     }
@@ -66,6 +87,22 @@ final class AppState {
     }
 
     var protectedParents: [Person] { [parent] + extraParents }
+
+    var protectionPresentation: ProtectionPresentation {
+        if let observed = session { return presentation(for: observed) }
+        if let recentProtection { return recentProtection.presentation }
+        return pilotConnected && pilotRole == "parent" ? .monitoring : .setupRequired
+    }
+
+    private func presentation(for observed: CallSession) -> ProtectionPresentation {
+        if let failure = observed.analysisFailure { return .failed(failure) }
+        switch observed.protectionStatus {
+        case .waitingForPuck: return .waitingForPuck
+        case .listening: return .listening
+        case .completed: return .completed(observed.level)
+        case .noSpeech: return .noSpeech
+        }
+    }
 
     var activeAlert: FamilyAlert? {
         guard let id = session?.id else { return nil }

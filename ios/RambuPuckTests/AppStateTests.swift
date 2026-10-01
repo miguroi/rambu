@@ -61,4 +61,43 @@ struct AppStateTests {
 
         #expect(state.savedState == saved)
     }
+
+    @Test("Protection presentation represents every production session state")
+    func protectionPresentationStates() {
+        let state = AppState(persona: .ratna, onboardingComplete: true)
+        #expect(state.allowsDemoControls == false)
+        #expect(state.protectionPresentation == .setupRequired)
+
+        state.pilotConnected = true
+        state.pilotRole = "parent"
+        #expect(state.protectionPresentation == .monitoring)
+
+        var session = CallSession(id: UUID(), metadata: .production, startedAt: .now)
+        state.session = session
+        #expect(state.protectionPresentation == .waitingForPuck)
+
+        session.protectionStatus = .listening
+        state.session = session
+        #expect(state.protectionPresentation == .listening)
+
+        let failure = AnalysisFailure(
+            code: "analysis_timeout",
+            title: "Analisis panggilan gagal",
+            detail: "Langflow tidak merespons.",
+            at: .now
+        )
+        session.analysisFailure = failure
+        state.session = session
+        #expect(state.protectionPresentation == .failed(failure))
+
+        session.analysisFailure = nil
+        session.protectionStatus = .completed
+        session.level = .review
+        state.session = session
+        #expect(state.protectionPresentation == .completed(.review))
+
+        session.protectionStatus = .noSpeech
+        state.session = session
+        #expect(state.protectionPresentation == .noSpeech)
+    }
 }

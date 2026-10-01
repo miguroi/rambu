@@ -1,6 +1,6 @@
 # Rambu Puck · iOS
 
-Aplikasi iPhone untuk Rambu Puck, PopSocket bermikrofon yang mendengarkan telepon loudspeaker orang tua lalu meneruskan tanda penipuan ke keluarga. Alur satu HP tetap memakai data sintetis. Mode **Pilot dua HP** menghubungkan HP orang tua dan pengawas melalui backend nyata; puck/BLE masih simulasi sampai spesifikasi hardware tersedia.
+Aplikasi iPhone untuk Rambu Puck, perangkat eksternal bermikrofon yang mendengarkan telepon loudspeaker orang tua lalu meneruskan tanda penipuan ke keluarga. Runtime normal memakai CallKit dan sesi proteksi backend nyata. Sampai hardware tersedia, executable macOS di `tools/rambu-puck-agent` menjadi puck sementara dan menangkap audio melalui mikrofon Mac.
 
 Kebutuhan produk ada di [`docs/prd/rambu-puck.prd.md`](../docs/prd/rambu-puck.prd.md).
 
@@ -24,22 +24,21 @@ Setelah mengubah `project.yml`:
 brew install xcodegen && cd ios && xcodegen generate
 ```
 
-## Alur demo
+## Alur runtime normal
 
-Satu HP menjalankan ketiga peran lewat **Mode demo** (ketuk avatar di kanan atas, lalu Mode demo di Profil): Ibu Ratna sebagai orang tua, Sinta dan Richard sebagai pengawas. Di produk nyata tiap orang memakai HP sendiri.
+1. Jalankan Langflow dan backend seperti di README root.
+2. Pasang app pada iPhone fisik, selesaikan onboarding orang tua, lalu buka **Profil → Pilot keluarga**.
+3. Isi `http://ALAMAT_IP_MAC:8000` dan buat keluarga. Gunakan kode undangan enam angka yang aktif untuk memasangkan agent Mac.
+4. Jalankan agent dalam mode `listen` dan dekatkan Mac ke loudspeaker iPhone.
+5. Biarkan Rambu berjalan, lalu tempatkan atau terima panggilan nyata. Dashboard bergerak dari memantau panggilan, menunggu Puck, mendengarkan, sampai hasil akhir atau kegagalan eksplisit.
 
-1. Onboarding orang tua: tutorial tiga kartu bersuara, nama, pasang puck, persetujuan (sekaligus izin notifikasi), undangan lewat WhatsApp, lalu latihan mengetuk push.
-2. Onboarding pengawas: kode (atau tautan undangan), nama dan hubungan, lalu latihan memutuskan satu contoh peringatan.
-3. Di beranda orang tua, ketuk **Coba simulasi telepon**. Layar telepon polos seperti app Telepon atau WhatsApp. Rambu hanya muncul lewat push dari atas dan Live Activity. Telepon aman tidak memunculkan apa pun.
-4. Ketuk push untuk membuka **Status telepon**: satu instruksi besar, jawaban pengawas, dan tombol telepon anak.
-5. Ganti peran ke Sinta, buka peringatan, lalu tekan **Penipuan**. Richard melihat tombolnya terkunci. Ibu Ratna menerima push "Sinta: ini penipuan. Tutup telepon sekarang."
-6. Kalau tidak ada yang menjawab dalam 45 detik (8 detik dengan `RAMBU_FAST=1`), orang tua menerima push "Belum ada jawaban. Jangan lakukan tindakan apa pun dulu."
+CallKit hanya memberi status panggilan. Ia tidak memberi akses ke audio panggilan dan tidak menjamin app yang sudah dihentikan akan diluncurkan ketika panggilan masuk. Audio hanya dianalisis jika Mac/puck benar-benar mendengarnya secara akustik dari loudspeaker.
 
-Di Mode demo ada **Simulasi gangguan**: loudspeaker mati di telepon berikutnya, internet putus, Bluetooth mati, puck terputus, dan baterai lemah.
+Skenario sintetis dan Mode demo tetap dikompilasi khusus untuk test/screenshot dengan `RAMBU_SCENE`; kontrol tersebut tidak ditampilkan pada runtime normal.
 
 Data demo tersimpan lokal di `Application Support/Rambu/state.json`. Mode pilot memakai identitas perangkat acak di Keychain dan menyimpan keluarga, peringatan, serta keputusan di SQLite backend.
 
-## Pilot dua HP
+## Puck Mac dan dua iPhone opsional
 
 1. Jalankan backend agar terlihat dari Wi-Fi:
 
@@ -49,10 +48,11 @@ Data demo tersimpan lokal di `Application Support/Rambu/state.json`. Mode pilot 
    uv run uvicorn rambu_api.app:app --host 0.0.0.0 --port 8000 --env-file .env
    ```
 
-2. Pasang app di dua iPhone dengan development team yang sama. Selesaikan onboarding sebagai orang tua di satu HP dan pengawas di HP lain.
-3. Di kedua HP buka **Profil → Pilot dua HP** dan isi `http://ALAMAT_IP_MAC:8000`.
-4. Orang tua menekan **Buat kode**; pengawas memasukkan kode enam angka tersebut.
-5. Di HP orang tua jalankan simulasi telepon. Peringatan muncul di HP pengawas dan keputusan dikirim kembali ke orang tua.
+2. Pasang app di iPhone orang tua. iPhone pengawas bersifat opsional dan hanya diperlukan untuk alur peringatan keluarga.
+3. Di setiap iPhone buka **Profil → Pilot keluarga** dan isi `http://ALAMAT_IP_MAC:8000`.
+4. Orang tua membuat kode. Kode yang sama dapat dipakai pengawas untuk bergabung dan agent Mac untuk `pair`.
+5. Ekspor `RAMBU_SERVER_URL` dan token hasil pairing sebagai `RAMBU_PUCK_TOKEN`, lalu jalankan `swift run --package-path tools/rambu-puck-agent rambu-puck-agent listen` dari root repo.
+6. Saat panggilan nyata tersambung, HP orang tua membuat sesi; agent menemukannya, merekam mikrofon, dan mengirim WAV berurutan. Peringatan risiko muncul di HP pengawas dan keputusan kembali ke orang tua.
 
 Sinkronisasi foreground memakai polling ringan 1,5 detik. Saat kredensial APNs tersedia, server juga mengirim notifikasi saat app berada di latar belakang. Petunjuk lengkap ada di [`docs/PILOT.md`](../docs/PILOT.md).
 
@@ -62,7 +62,7 @@ Semua ada di `RambuPuck/Services/Services.swift`. UI hanya mengenal protokol ini
 
 | Protokol | Tugas | Simulasi sekarang | Implementasi nyata |
 |---|---|---|---|
-| `CallAnalysisSource` | Mengalirkan `ChunkAssessment` per potongan audio ±5 detik | `ScenarioAnalysis` memutar skenario di `Models/Scenarios.swift` | Audio puck → `POST /api/analyze-chunk` → analisis Langflow |
+| `CallAnalysisSource` | Memiliki siklus start/finish/cancel dan mengalirkan status serta assessment | `ScenarioAnalysis` hanya untuk test/screenshot | `ProtectionCallAnalysisSource` → `/api/protection/sessions/*` |
 | `FamilyRelay` | Menyebar `FamilyAlert` ke semua pengawas dan menerima `GuardianDecision` | `LocalFamilyRelay` untuk demo; `PilotSync` untuk dua HP | Backend SQLite + APNs; keputusan pertama dikunci atomik. |
 | `PuckLink` | Menemukan dan menghubungkan puck | `SimulatedPuckLink` | CoreBluetooth, menunggu spesifikasi GATT dari tim hardware |
 
@@ -98,10 +98,10 @@ Kalau tidak ada baris yang berubah, balas `409` dengan keputusan yang sudah ada.
 
 ## Yang disimulasikan dan yang belum ada
 
-- **Layar telepon** adalah tiruan. Di iPhone asli layar telepon milik iOS, dan Rambu tampil lewat Live Activity serta notifikasi.
+- **Layar telepon** hanya fixture screenshot. Di iPhone asli layar telepon milik iOS; runtime normal tidak membukanya.
 - **Memutus telepon orang tua tidak mungkin di iOS.** Aplikasi pihak ketiga tidak bisa mengakhiri panggilan seluler maupun WhatsApp. Gantinya, setelah keputusan "Ini penipuan", pengawas bisa menekan **Telepon Ibu Ratna sekarang**. Kalau operator mengaktifkan panggilan tunggu, panggilan itu muncul di atas telepon penipu dan orang tua bisa langsung beralih. Perlu diuji di HP asli.
 - **Live Activity** masih diperbarui lokal. APNs standar sudah tersedia untuk peringatan dan keputusan; token/push Live Activity belum dihubungkan.
-- Belum ada: BLE nyata, `CXCallObserver`, panggilan penyelamat VoIP, Universal Link produksi, dan akun pengguna penuh. Pilot memakai kredensial perangkat acak, bukan kata sandi.
+- Sudah ada `CXCallObserver`, sesi proteksi produksi, dan agent puck macOS. Belum ada BLE/hardware puck nyata, jaminan peluncuran app saat terminated, panggilan penyelamat VoIP, Universal Link produksi, atau akun pengguna penuh. Pilot memakai kredensial perangkat acak, bukan kata sandi.
 
 ## Struktur
 

@@ -98,8 +98,10 @@ struct ProfileView: View {
                 }
 
                 Section {
-                    Button { openDemo() } label: {
-                        Label("Mode demo", systemImage: "person.2.badge.gearshape.fill")
+                    if model.allowsDemoControls {
+                        Button { openDemo() } label: {
+                            Label("Mode demo", systemImage: "person.2.badge.gearshape.fill")
+                        }
                     }
                     Button("Keluar dan mulai ulang", role: .destructive) { confirmReset = true }
                 } footer: {
@@ -190,8 +192,7 @@ struct ProfileView: View {
         }
     }
 
-    /// Profil dan Mode demo sama-sama sheet di RootView, jadi Profil ditutup dulu
-    /// sebelum Mode demo dibuka.
+    /// Hanya dipakai fixture screenshot. Profil ditutup sebelum sheet fixture dibuka.
     private func openDemo() {
         saveName()
         model.showProfile = false

@@ -19,6 +19,7 @@ final class AppViewModel {
     init(
         persona: Persona = .ratna,
         onboardingComplete: Bool = false,
+        allowsDemoControls: Bool = false,
         analysis: any CallAnalysisSource,
         relay: (any FamilyRelay)? = nil,
         liveActivities: Bool = true,
@@ -32,7 +33,12 @@ final class AppViewModel {
         speakerCheckDelay: Duration = .seconds(3),
         now: Date = .now
     ) {
-        let state = AppState(persona: persona, onboardingComplete: onboardingComplete, now: now)
+        let state = AppState(
+            persona: persona,
+            onboardingComplete: onboardingComplete,
+            allowsDemoControls: allowsDemoControls,
+            now: now
+        )
         if let saved = store?.load() { state.restore(saved) }
 
         let notifier = RambuNotifier(enabled: notifications)
@@ -149,6 +155,7 @@ final class AppViewModel {
     func resetDemo() {
         call.cancel()
         state.isCallScreenPresented = false
+        state.recentProtection = nil
         state.showCallStatus = false
         state.showProfile = false
         state.alerts = []

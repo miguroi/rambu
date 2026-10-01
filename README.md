@@ -1,24 +1,27 @@
 # Rambu
 
-Rambu is a digital prototype of a future external call-safety device. It replays a synthetic Indonesian call, transcribes five-second audio chunks locally, masks sensitive numbers, and sends only the masked transcript to Langflow for risk analysis.
+Rambu is a working prototype of an external call-safety system. The iPhone observes call state through CallKit, a separately authenticated Mac acts as the temporary Rambu Puck and hears the loudspeaker acoustically, and the backend transcribes ordered audio chunks, masks sensitive numbers, and sends only masked cumulative text to Langflow for risk analysis.
 
 The prototype deliberately has no runtime analysis fallback. If configuration, transcription, Langflow, the model provider, transport, or response validation fails, the browser and iOS app show a failure instead of manufacturing a risk result.
 
-This prototype does **not** capture a live phone call. Testing on one Android 13 phone found that third-party microphone input was unavailable during the tested cellular and WhatsApp calls.
+The iPhone app does **not** capture cellular or WhatsApp audio. CallKit only reports call state. The Mac/physical puck must be close enough to hear the conversation from the phone loudspeaker, and the app must already be running because public iOS APIs do not guarantee launching a terminated third-party app for a cellular call.
 
-## What the demo shows
+## Production prototype flow
 
 ```text
-Synthetic WAV -> faster-whisper -> masked transcript -> Langflow + OpenRouter -> warning
+iPhone CallKit -> protection session -> Mac/puck microphone -> faster-whisper -> masked transcript -> Langflow + OpenRouter -> warning
 ```
 
-- Four fictional scenarios: bank OTP, emergency transfer, malicious courier app, and a safe neighbour call.
-- Incremental Indonesian transcription.
+- Real CallKit state detection while the iOS app is running.
+- Ordered external-microphone WAV chunks from the temporary Mac puck.
+- Incremental Indonesian transcription and cumulative analysis.
 - Strict `low`, `needs_review`, or `high_risk` assessments.
 - Validated signals, transcript-backed evidence, explanation, and recommended action.
-- A browser dashboard and SwiftUI app that both consume the backend result.
+- A SwiftUI app that creates and polls authoritative protection sessions.
 - Optional two-iPhone family-alert synchronization.
-- Raw audio stays local and temporary chunks are deleted.
+- Raw audio is processed in memory and is not persisted by the backend.
+
+Synthetic scenarios and `/api/demo/*` remain available only to automated browser and screenshot fixtures; normal iOS runtime cannot call them.
 
 ## Requirements
 
@@ -48,7 +51,14 @@ Do not commit `backend/.env`. The backend refuses to start if any value is absen
 
 ## Run the browser prototype
 
-Start Langflow on port `7861`, then run:
+Install and start the repository-compatible Langflow version on port `7861`:
+
+```bash
+uv tool install 'langflow>=1.12,<1.13'
+langflow run --host 127.0.0.1 --port 7861
+```
+
+Then run the backend:
 
 ```bash
 uv sync --project backend
@@ -56,7 +66,7 @@ uv run --project backend uvicorn rambu_api.app:app \
   --host 0.0.0.0 --port 8000 --env-file backend/.env
 ```
 
-Open <http://127.0.0.1:8000>. The first transcription may download the Whisper `small` model.
+Open <http://127.0.0.1:8000>. The first transcription may download the Whisper `small` model. This browser surface is a fixture; use the flow below for the external-audio prototype.
 
 The canonical scenarios are:
 
@@ -67,7 +77,7 @@ The canonical scenarios are:
 | `kurir-aplikasi` | `high_risk` |
 | `tetangga-aman` | `low` |
 
-## Run the iOS prototype
+## Run the external-puck prototype
 
 Generate the Xcode project and open it:
 
@@ -77,13 +87,29 @@ xcodegen generate
 open RambuPuck.xcodeproj
 ```
 
-The simulator uses `http://127.0.0.1:8000`. A physical iPhone cannot use the Mac's loopback address: connect both devices to the same network, enter `http://<MAC-LAN-IP>:8000` under **Profile -> Pilot dua HP**, create or join the pilot so the address is saved, then relaunch the app. One iPhone is enough for call analysis; two are needed only to demonstrate the parent/guardian synchronization flow.
+Use a physical iPhone. Connect the iPhone and Mac to the same network, enter `http://<MAC-LAN-IP>:8000` under **Profile → Pilot keluarga**, and create the family as the parent. The app stores the returned parent credential in Keychain. One iPhone is enough for call analysis; a second is needed only to receive guardian alerts and submit decisions.
 
-The app always obtains call assessments from the backend. It does not use the scripted scenario text to calculate a risk result.
+Use the current six-digit family invitation to pair the Mac as the temporary puck. The pairing command prints the puck token once; keep it in the shell environment and never add it to `.env` or Git:
+
+```bash
+export RAMBU_SERVER_URL='http://<MAC-LAN-IP>:8000'
+export RAMBU_PUCK_TOKEN="$(swift run --package-path tools/rambu-puck-agent \
+  rambu-puck-agent pair --code 123456 --name 'Mac puck')"
+swift run --package-path tools/rambu-puck-agent rambu-puck-agent listen
+```
+
+Keep the Mac near the iPhone speaker. With Rambu open on the parent iPhone, place or receive a real call and turn on the phone loudspeaker. Verify this progression on the parent dashboard:
+
+1. `Rambu siap mendeteksi panggilan`
+2. `Panggilan terdeteksi · menunggu Puck`
+3. `Rambu sedang mendengarkan`
+4. `Analisis selesai`, `Tidak ada audio yang dianalisis`, or an explicit failure
+
+The app always obtains normal-runtime assessments from `/api/protection/*`. There is no risk-analysis fallback and no route from the normal composition to scripted scenarios.
 
 ## Explicit failures
 
-Backend demo sessions use stable codes such as `transcription_failed`, `analysis_http`, `analysis_timeout`, `analysis_connection`, `analysis_invalid_json`, `analysis_invalid_response`, `analysis_failed`, and `processing_failed`. The iOS transport can additionally surface `invalid_server_url`, `invalid_scenario`, `transport`, `http_<status>`, `decoding`, and `schema`.
+Protection sessions use stable codes such as `transcription_failed`, `analysis_http`, `analysis_timeout`, `analysis_connection`, `analysis_invalid_json`, `analysis_invalid_response`, `analysis_failed`, and `processing_failed`. The iOS transport can additionally surface `invalid_server_url`, `missing_parent_token`, `transport`, `http_<status>`, `decoding`, and `schema`.
 
 A failed session has `status: "error"`, no assessment, and a structured `error`. The browser clears any stale assessment. The iOS app stops listening, shows the failure, and does not save the failed call to history. Retry starts a new backend session.
 

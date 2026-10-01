@@ -105,6 +105,7 @@ enum DemoLaunch {
         let app = AppViewModel(
             persona: Persona(rawValue: env["RAMBU_PERSONA"] ?? "") ?? .ratna,
             onboardingComplete: env["RAMBU_SKIP_ONBOARDING"] == "1" || (scene != nil && !(scene!.hasPrefix("onboarding"))),
+            allowsDemoControls: scene != nil,
             analysis: scene == nil
                 ? productionAnalysis(connection: connection)
                 : analysisSource(serverURL: serverURL),

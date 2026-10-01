@@ -51,6 +51,7 @@ final class CallViewModel {
         if let old = state.session {
             liveActivity.end(state: activityState(for: old), dismissImmediately: true)
         }
+        state.recentProtection = nil
 
         var session = CallSession(id: UUID(), scenario: scenario, startedAt: .now)
         session.speakerOn = !state.speakerOffNextCall
@@ -82,6 +83,7 @@ final class CallViewModel {
         if let old = state.session {
             liveActivity.end(state: activityState(for: old), dismissImmediately: true)
         }
+        state.recentProtection = nil
         let session = CallSession(
             id: id,
             metadata: .production,
@@ -108,9 +110,23 @@ final class CallViewModel {
 
     func end() {
         guard let session = state.session else { return }
+        state.recentProtection = RecentProtection(
+            sessionID: session.id,
+            level: session.level,
+            presentation: .finishing
+        )
         let remote = analysisSession
         analysisSession = nil
-        cancelTasks()
+        escalationTask?.cancel()
+        speakerTask?.cancel()
+        escalationTask = nil
+        speakerTask = nil
+        if remote == nil {
+            listenTask?.cancel()
+            statusTask?.cancel()
+            listenTask = nil
+            statusTask = nil
+        }
         if let remote {
             Task { [weak self] in
                 do {
@@ -169,6 +185,7 @@ final class CallViewModel {
             liveActivity.end(state: activityState(for: session), dismissImmediately: true)
         }
         state.session = nil
+        state.recentProtection = nil
     }
 
     private func cancelTasks() {
@@ -242,14 +259,26 @@ final class CallViewModel {
     }
 
     private func updateProtectionStatus(_ status: ProtectionStatus, sessionID: UUID) {
-        guard var current = state.session, current.id == sessionID else { return }
-        current.protectionStatus = status
-        current.isListening = status == .listening || status == .waitingForPuck
-        state.session = current
+        if var current = state.session, current.id == sessionID {
+            current.protectionStatus = status
+            current.isListening = status == .listening || status == .waitingForPuck
+            state.session = current
+        } else if var recent = state.recentProtection, recent.sessionID == sessionID {
+            switch status {
+            case .waitingForPuck, .listening:
+                recent.presentation = .finishing
+            case .completed:
+                recent.presentation = .completed(recent.level)
+            case .noSpeech:
+                recent.presentation = .noSpeech
+            }
+            state.recentProtection = recent
+        }
     }
 
     private func presentLifecycleFailure(_ error: Error, sessionID: UUID?) {
         let failure = analysisFailure(from: error)
+        record(failure, sessionID: sessionID)
         profile.present(Toast(
             id: "analysis-lifecycle-\(sessionID?.uuidString ?? UUID().uuidString)",
             title: failure.title,
@@ -260,8 +289,11 @@ final class CallViewModel {
     }
 
     private func handleAnalysisFailure(_ error: Error, sessionID: UUID) {
-        guard var current = state.session, current.id == sessionID else { return }
         let failure = analysisFailure(from: error)
+        guard var current = state.session, current.id == sessionID else {
+            record(failure, sessionID: sessionID)
+            return
+        }
         current.isListening = false
         current.analysisFailure = failure
         state.session = current
@@ -277,6 +309,18 @@ final class CallViewModel {
             level: .review,
             alertID: nil
         ))
+    }
+
+    private func record(_ failure: AnalysisFailure, sessionID: UUID?) {
+        guard let sessionID else { return }
+        if var current = state.session, current.id == sessionID {
+            current.analysisFailure = failure
+            current.isListening = false
+            state.session = current
+        } else if var recent = state.recentProtection, recent.sessionID == sessionID {
+            recent.presentation = .failed(failure)
+            state.recentProtection = recent
+        }
     }
 
     private func analysisFailure(from error: Error) -> AnalysisFailure {

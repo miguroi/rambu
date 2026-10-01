@@ -70,7 +70,7 @@ struct AvatarStack: View {
     }
 }
 
-/// Avatar di kanan atas: membuka Profil. Mode demo ada di dalam Profil.
+/// Avatar di kanan atas membuka Profil.
 struct ProfileButton: View {
     @Environment(AppState.self) private var model
 

@@ -29,7 +29,6 @@ struct ParentRoot: View {
 
 struct ParentHome: View {
     @Environment(AppState.self) private var model
-    @State private var showScenarios = false
 
     var body: some View {
         NavigationStack {
@@ -37,7 +36,7 @@ struct ParentHome: View {
                 VStack(alignment: .leading, spacing: 22) {
                     IssueList()
                     ProtectionHero()
-                    DemoCallCard { showScenarios = true }
+                    ProtectionStatusCard()
 
                     VStack(alignment: .leading, spacing: 10) {
                         SectionHeader(title: "Ragu? Telepon dulu")
@@ -63,7 +62,6 @@ struct ParentHome: View {
             .navigationTitle("Halo, \(model.parent.name)")
             .navigationDestination(for: UUID.self) { CallDetail(recordID: $0) }
             .toolbar { ToolbarItem(placement: .topBarTrailing) { ProfileButton() } }
-            .sheet(isPresented: $showScenarios) { ScenarioPicker() }
             .animation(.smooth, value: model.issues)
         }
     }
@@ -119,26 +117,50 @@ private struct ProtectionHero: View {
     }
 }
 
-private struct DemoCallCard: View {
-    let action: () -> Void
+private struct ProtectionStatusCard: View {
+    @Environment(AppState.self) private var model
 
     var body: some View {
-        Button(action: action) {
-            HStack(spacing: 14) {
-                Image(systemName: "phone.badge.waveform.fill")
-                    .font(.title3)
-                    .foregroundStyle(Brand.teal)
-                    .frame(width: 48, height: 48)
-                    .background(Brand.tealSoft, in: .rect(cornerRadius: 14, style: .continuous))
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Coba simulasi telepon").font(.headline).foregroundStyle(Brand.ink)
-                    Text("4 contoh percakapan").font(.subheadline).foregroundStyle(Brand.ink2)
-                }
-                Spacer(minLength: 0)
-                Image(systemName: "chevron.right").font(.subheadline.weight(.bold)).foregroundStyle(Brand.ink3)
+        let content = content(for: model.protectionPresentation)
+        HStack(spacing: 14) {
+            Image(systemName: content.symbol)
+                .font(.title3)
+                .foregroundStyle(Brand.teal)
+                .frame(width: 48, height: 48)
+                .background(Brand.tealSoft, in: .rect(cornerRadius: 14, style: .continuous))
+            VStack(alignment: .leading, spacing: 2) {
+                Text(content.title).font(.headline).foregroundStyle(Brand.ink)
+                Text(content.detail)
+                    .font(.subheadline)
+                    .foregroundStyle(Brand.ink2)
+                    .fixedSize(horizontal: false, vertical: true)
             }
-            .card(padding: 14)
+            Spacer(minLength: 0)
         }
-        .buttonStyle(.plain)
+        .card(padding: 14)
+        .accessibilityElement(children: .combine)
+    }
+
+    private func content(
+        for status: ProtectionPresentation
+    ) -> (symbol: String, title: String, detail: String) {
+        switch status {
+        case .setupRequired:
+            ("link.badge.plus", "Hubungkan akun orang tua", "Atur server Rambu di Profil sebelum menerima panggilan.")
+        case .monitoring:
+            ("phone.badge.waveform.fill", "Rambu siap mendeteksi panggilan", "Menunggu panggilan tersambung di iPhone ini.")
+        case .waitingForPuck:
+            ("waveform.badge.magnifyingglass", "Panggilan terdeteksi · menunggu Puck", "Audio belum dianalisis.")
+        case .listening:
+            ("waveform", "Rambu sedang mendengarkan", "Audio dari Rambu Puck sedang dianalisis.")
+        case .finishing:
+            ("hourglass", "Menyelesaikan analisis", "Menunggu hasil akhir dari Rambu Puck.")
+        case .failed(let failure):
+            ("exclamationmark.triangle.fill", failure.title, failure.detail)
+        case .completed(let level):
+            ("checkmark.circle.fill", "Analisis selesai", level == .safe ? "Tidak ada tanda penipuan yang terdeteksi." : "Peringatan dan bukti sudah dikirim ke pengawas.")
+        case .noSpeech:
+            ("waveform.slash", "Tidak ada audio yang dianalisis", "Rambu Puck tidak menerima percakapan yang dapat ditranskripsi.")
+        }
     }
 }

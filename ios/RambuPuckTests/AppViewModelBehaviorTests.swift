@@ -240,7 +240,7 @@ struct AppViewModelBehaviorTests {
     @Test("CallKit starts one configured parent session and ends the matching session")
     func callKitCoordinatesProtection() async throws {
         let monitor = FakeCallActivityMonitor()
-        let analysis = RecordingCallAnalysisSource()
+        let analysis = RecordingCallAnalysisSource(finishStatus: .noSpeech)
         let model = AppViewModel(
             persona: .ratna,
             onboardingComplete: true,
@@ -271,7 +271,11 @@ struct AppViewModelBehaviorTests {
         #expect(model.state.session?.id == id)
 
         monitor.send(CallActivityEvent(id: id, state: .ended, at: .now))
-        try await waitUntil { model.state.session == nil && remote.didFinish }
+        try await waitUntil {
+            model.state.session == nil
+                && remote.didFinish
+                && model.state.protectionPresentation == .noSpeech
+        }
     }
 
     @Test("CallKit refuses an unconfigured parent with a visible error")
