@@ -135,6 +135,13 @@ struct Scenario: Identifiable, Hashable, Sendable {
     var expectedLevel: RiskLevel { RiskRules.level(for: Set(lines.flatMap(\.signals))) }
 }
 
+struct AnalysisFailure: Equatable, Sendable {
+    let code: String
+    let title: String
+    let detail: String
+    let at: Date
+}
+
 /// Panggilan yang sedang berlangsung di HP orang tua.
 struct CallSession: Identifiable, Sendable {
     let id: UUID
@@ -144,6 +151,7 @@ struct CallSession: Identifiable, Sendable {
     var signals: [SignalKind] = []
     var level: RiskLevel = .safe
     var isListening = true
+    var analysisFailure: AnalysisFailure?
     /// Puck hanya mendengar dari loudspeaker. Kalau mati, Rambu belum bisa menilai apa pun.
     var speakerOn = true
 

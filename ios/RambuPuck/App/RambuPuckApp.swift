@@ -82,25 +82,30 @@ enum DemoLaunch {
         let fast = env["RAMBU_FAST"] == "1"
         let scene = env["RAMBU_SCENE"]
         let usesStore = !isTesting && scene == nil && env["RAMBU_SKIP_ONBOARDING"] == nil
+        let pilotSync = isTesting ? nil : PilotSync()
+        let serverURL = pilotSync?.serverURL
+            ?? UserDefaults.standard.string(forKey: "pilotServerURL")
+            ?? "http://127.0.0.1:8000"
 
         let app = AppViewModel(
             persona: Persona(rawValue: env["RAMBU_PERSONA"] ?? "") ?? .ratna,
             onboardingComplete: env["RAMBU_SKIP_ONBOARDING"] == "1" || (scene != nil && !(scene!.hasPrefix("onboarding"))),
-            analysis: ScenarioAnalysis(
-                interval: fast ? .milliseconds(700) : .seconds(5),
-                initialDelay: fast ? .milliseconds(300) : .milliseconds(1200)
-            ),
+            analysis: analysisSource(serverURL: serverURL),
             liveActivities: !isTesting,
             notifications: !isTesting,
             speech: !isTesting && scene == nil,
             store: usesStore ? .standard : nil,
-            pilot: isTesting ? nil : PilotSync(),
+            pilot: pilotSync,
             escalationDelay: fast ? .seconds(8) : .seconds(45),
             speakerCheckDelay: fast ? .seconds(1.5) : .seconds(3)
         )
         if scene != nil { app.state.hidesNotificationIssue = true }
         if let scene, !isTesting { apply(scene, to: app) }
         return app
+    }
+
+    static func analysisSource(serverURL: String) -> any CallAnalysisSource {
+        BackendCallAnalysisSource(serverURL: serverURL)
     }
 
     private static func apply(_ scene: String, to app: AppViewModel) {

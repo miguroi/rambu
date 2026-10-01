@@ -26,3 +26,24 @@ struct ScenarioAnalysis: CallAnalysisSource {
         }
     }
 }
+
+final class CountingFailureSource: CallAnalysisSource, @unchecked Sendable {
+    private let lock = NSLock()
+    private var count = 0
+    private let error: BackendAnalysisError
+
+    init(error: BackendAnalysisError) {
+        self.error = error
+    }
+
+    var invocationCount: Int {
+        lock.withLock { count }
+    }
+
+    func assessments(for call: CallContext) -> AsyncThrowingStream<ChunkAssessment, Error> {
+        lock.withLock { count += 1 }
+        return AsyncThrowingStream { continuation in
+            continuation.finish(throwing: error)
+        }
+    }
+}

@@ -86,7 +86,7 @@ final class CallViewModel {
         cancelTasks()
 
         let alert = state.alerts.first { $0.id == session.id }
-        if session.level > .safe {
+        if session.level > .safe, session.analysisFailure == nil {
             state.history.insert(CallRecord(
                 id: session.id,
                 title: session.scenario.title,
@@ -162,20 +162,54 @@ final class CallViewModel {
             } catch is CancellationError {
                 return
             } catch {
-                guard var current = self?.state.session, current.id == sessionID else { return }
-                current.isListening = false
-                self?.state.session = current
-                self?.profile.present(Toast(
-                    id: "analysis-error-\(sessionID)",
-                    title: "Analisis gagal",
-                    body: error.localizedDescription,
-                    level: .review,
-                    alertID: nil
-                ))
+                self?.handleAnalysisFailure(error, sessionID: sessionID)
             }
         }
         listenTask = task
         return task
+    }
+
+    private func handleAnalysisFailure(_ error: Error, sessionID: UUID) {
+        guard var current = state.session, current.id == sessionID else { return }
+        let failure = analysisFailure(from: error)
+        current.isListening = false
+        current.analysisFailure = failure
+        state.session = current
+        escalationTask?.cancel()
+        escalationTask = nil
+        if liveActivity.isActive {
+            liveActivity.update(activityState(for: current))
+        }
+        profile.present(Toast(
+            id: "analysis-error-\(sessionID)",
+            title: failure.title,
+            body: failure.detail,
+            level: .review,
+            alertID: nil
+        ))
+    }
+
+    private func analysisFailure(from error: Error) -> AnalysisFailure {
+        guard let backend = error as? BackendAnalysisError else {
+            return AnalysisFailure(
+                code: "analysis_failed",
+                title: "Analisis panggilan gagal",
+                detail: "Rambu tidak dapat menyelesaikan analisis panggilan ini.",
+                at: .now
+            )
+        }
+        let detail: String
+        if case .http(let status, let message) = backend {
+            detail = "\(message) (HTTP \(status))."
+        } else {
+            detail = backend.detail
+        }
+        return AnalysisFailure(
+            code: backend.code,
+            title: "Analisis panggilan gagal",
+            detail: detail,
+            at: .now
+        )
     }
 
     private func ingest(_ chunk: ChunkAssessment, sessionID: UUID) {

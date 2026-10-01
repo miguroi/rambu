@@ -138,7 +138,13 @@ struct AppViewModelBehaviorTests {
         await first.call.start(.bankOTP).value
         first.call.end()
 
-        let second = AppViewModel(liveActivities: false, notifications: false, speech: false, store: store)
+        let second = AppViewModel(
+            analysis: ScenarioAnalysis(interval: .zero, initialDelay: .zero),
+            liveActivities: false,
+            notifications: false,
+            speech: false,
+            store: store
+        )
         #expect(second.state.onboardingComplete)
         #expect(second.state.parent.name == "Bu Sri")
         #expect(second.state.history.first?.level == .danger)
@@ -195,7 +201,12 @@ struct AppViewModelBehaviorTests {
         #expect(InviteLink.code(from: InviteLink.url(code: "715204")) == "715204")
         #expect(InviteLink.code(from: URL(string: "rambu://gabung?kode=12")!) == nil)
 
-        let model = AppViewModel(liveActivities: false, notifications: false, speech: false)
+        let model = AppViewModel(
+            analysis: ScenarioAnalysis(interval: .zero, initialDelay: .zero),
+            liveActivities: false,
+            notifications: false,
+            speech: false
+        )
         model.handleIncoming(URL(string: "rambu://gabung?kode=482913")!)
         #expect(model.state.onboardingStep == .enterCode)
         #expect(model.state.pendingInviteCode == "482913")

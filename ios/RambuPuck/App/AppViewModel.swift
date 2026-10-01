@@ -16,7 +16,7 @@ final class AppViewModel {
     init(
         persona: Persona = .ratna,
         onboardingComplete: Bool = false,
-        analysis: any CallAnalysisSource = ScenarioAnalysis(),
+        analysis: any CallAnalysisSource,
         relay: (any FamilyRelay)? = nil,
         liveActivities: Bool = true,
         notifications: Bool = true,
