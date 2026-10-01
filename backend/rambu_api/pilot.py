@@ -479,6 +479,64 @@ class PilotStore:
             ).fetchone()
         return self._protection_snapshot(row)
 
+    def inspect_protection_chunk(
+        self,
+        token: str,
+        session_id: str,
+        *,
+        sequence: int,
+        digest: str,
+    ) -> tuple[ProtectionSessionSnapshot, bool]:
+        puck = self.authenticate_puck(token)
+        with self._lock:
+            row = self._connection.execute(
+                "SELECT * FROM protection_sessions WHERE id = ?", (session_id,)
+            ).fetchone()
+        if row is None:
+            raise MissingProtectionSessionError("Sesi perlindungan tidak ditemukan.")
+        if row["family_id"] != puck["family_id"] or row["puck_id"] != puck["id"]:
+            raise AuthorizationError("Sesi perlindungan berasal dari keluarga lain.")
+        if sequence == row["last_sequence"]:
+            if digest != row["last_digest"]:
+                raise ChunkSequenceConflict("Unggahan ulang memiliki audio berbeda.")
+            return self._protection_snapshot(row), True
+        if sequence != row["next_sequence"]:
+            raise ChunkSequenceConflict("Nomor urutan chunk tidak sesuai.")
+        if row["status"] != "listening":
+            raise ActiveProtectionSessionConflict("Sesi perlindungan tidak sedang mendengar.")
+        return self._protection_snapshot(row), False
+
+    def fail_protection_session(
+        self, token: str, session_id: str, failure: ProtectionFailure
+    ) -> ProtectionSessionSnapshot:
+        puck = self.authenticate_puck(token)
+        with self._lock:
+            row = self._connection.execute(
+                "SELECT * FROM protection_sessions WHERE id = ?", (session_id,)
+            ).fetchone()
+            if row is None:
+                raise MissingProtectionSessionError("Sesi perlindungan tidak ditemukan.")
+            if row["family_id"] != puck["family_id"] or row["puck_id"] != puck["id"]:
+                raise AuthorizationError("Sesi perlindungan berasal dari keluarga lain.")
+            with self._connection:
+                self._connection.execute(
+                    """
+                    UPDATE protection_sessions
+                    SET status = 'error', outcome = NULL, assessment_json = NULL,
+                        failure_json = ?, ended_at = ?, revision = revision + 1
+                    WHERE id = ?
+                    """,
+                    (
+                        json.dumps(failure.model_dump(mode="json"), ensure_ascii=False),
+                        _iso(_now()),
+                        session_id,
+                    ),
+                )
+            updated = self._connection.execute(
+                "SELECT * FROM protection_sessions WHERE id = ?", (session_id,)
+            ).fetchone()
+        return self._protection_snapshot(updated)
+
     def request_protection_end(
         self, token: str, session_id: str
     ) -> ProtectionSessionSnapshot:
