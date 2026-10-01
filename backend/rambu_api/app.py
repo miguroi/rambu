@@ -13,6 +13,7 @@ from .demo import DemoService, default_scenarios, delay_from_environment
 from .langflow_client import LangflowClient, LangflowFailure
 from .apns import PushSender, push_sender_from_environment
 from .models import (
+    CreateProtectionSessionRequest,
     CreateFamilyRequest,
     ChunkAnalysisResponse,
     DemoFailure,
@@ -25,16 +26,24 @@ from .models import (
     PilotInvite,
     PilotProfile,
     PilotSession,
+    PairPuckRequest,
+    PairPuckResponse,
+    ProtectionFailure,
+    ProtectionSessionSnapshot,
     PushTokenRequest,
 )
 from .pilot import (
+    ActiveProtectionSessionConflict,
     AuthenticationError,
     AuthorizationError,
+    ChunkSequenceConflict,
     DecisionConflict,
     InviteError,
     MissingAlertError,
+    MissingProtectionSessionError,
     PilotStore,
 )
+from .protection import MAXIMUM_CHUNK_BYTES, ProtectionService
 from .transcription import FasterWhisperTranscriber
 
 
@@ -68,22 +77,29 @@ def _default_pilot_store() -> PilotStore:
 def create_app(
     service: DemoServiceContract | None = None,
     pilot_store: PilotStore | None = None,
+    protection_service: ProtectionService | None = None,
     push_sender: PushSender | None = None,
     settings: LangflowSettings | None = None,
 ) -> FastAPI:
     demo_service = service
+    protection = protection_service
     pilots = pilot_store or (PilotStore(":memory:") if service is not None else _default_pilot_store())
     pushes = push_sender or push_sender_from_environment()
     push_environment = os.getenv("APNS_ENVIRONMENT", "sandbox")
 
     @asynccontextmanager
     async def lifespan(_: FastAPI):
-        nonlocal demo_service
+        nonlocal demo_service, protection
         try:
             if demo_service is None:
                 configuration = settings or LangflowSettings.from_environment(os.environ)
                 demo_service = _default_service(configuration)
                 demo_service.probe()
+                protection = ProtectionService(
+                    pilots,
+                    demo_service.transcriber,
+                    demo_service.analyzer,
+                )
             yield
         finally:
             if demo_service is not None:
@@ -104,6 +120,11 @@ def create_app(
         if demo_service is None:
             raise RuntimeError("Demo service is unavailable before application startup.")
         return demo_service
+
+    def protections() -> ProtectionService:
+        if protection is None:
+            raise RuntimeError("Protection service is unavailable before application startup.")
+        return protection
 
     @app.get("/", include_in_schema=False)
     def dashboard() -> FileResponse:
@@ -179,6 +200,152 @@ def create_app(
         if isinstance(error, MissingAlertError):
             return HTTPException(status_code=404, detail=str(error))
         return HTTPException(status_code=500, detail="Layanan pilot gagal.")
+
+    def protection_error(error: Exception) -> HTTPException:
+        if isinstance(error, AuthenticationError):
+            return HTTPException(status_code=401, detail=str(error))
+        if isinstance(error, AuthorizationError):
+            return HTTPException(status_code=403, detail=str(error))
+        if isinstance(error, MissingProtectionSessionError):
+            return HTTPException(status_code=404, detail=str(error))
+        if isinstance(error, (ActiveProtectionSessionConflict, ChunkSequenceConflict)):
+            return HTTPException(status_code=409, detail=str(error))
+        if isinstance(error, (InviteError, ValueError)):
+            return HTTPException(status_code=422, detail=str(error))
+        return HTTPException(status_code=500, detail="Layanan perlindungan gagal.")
+
+    @app.post("/api/pucks/pair", response_model=PairPuckResponse, status_code=201)
+    def pair_puck(value: PairPuckRequest) -> PairPuckResponse:
+        try:
+            return protections().pair_puck(value.code, value.display_name)
+        except Exception as error:
+            raise protection_error(error) from error
+
+    @app.post(
+        "/api/protection/sessions",
+        response_model=ProtectionSessionSnapshot,
+        status_code=201,
+    )
+    def create_protection_session(
+        value: CreateProtectionSessionRequest,
+        authorization: str | None = Header(default=None),
+    ) -> ProtectionSessionSnapshot:
+        try:
+            return protections().create_session(token_from(authorization), value)
+        except HTTPException:
+            raise
+        except Exception as error:
+            raise protection_error(error) from error
+
+    @app.get(
+        "/api/protection/sessions/{session_id}",
+        response_model=ProtectionSessionSnapshot,
+    )
+    def protection_session_status(
+        session_id: str,
+        authorization: str | None = Header(default=None),
+    ) -> ProtectionSessionSnapshot:
+        try:
+            return protections().get_parent_session(token_from(authorization), session_id)
+        except HTTPException:
+            raise
+        except Exception as error:
+            raise protection_error(error) from error
+
+    @app.post(
+        "/api/protection/sessions/{session_id}/end",
+        response_model=ProtectionSessionSnapshot,
+    )
+    def end_protection_session(
+        session_id: str,
+        authorization: str | None = Header(default=None),
+    ) -> ProtectionSessionSnapshot:
+        try:
+            return protections().end_session(token_from(authorization), session_id)
+        except HTTPException:
+            raise
+        except Exception as error:
+            raise protection_error(error) from error
+
+    @app.delete("/api/protection/sessions/{session_id}", status_code=204)
+    def delete_protection_session(
+        session_id: str,
+        authorization: str | None = Header(default=None),
+    ) -> Response:
+        try:
+            protections().cancel_session(token_from(authorization), session_id)
+            return Response(status_code=204)
+        except HTTPException:
+            raise
+        except Exception as error:
+            raise protection_error(error) from error
+
+    @app.get(
+        "/api/pucks/sessions/active",
+        response_model=ProtectionSessionSnapshot,
+    )
+    def active_puck_session(
+        authorization: str | None = Header(default=None),
+    ) -> ProtectionSessionSnapshot:
+        try:
+            return protections().get_active_puck_session(token_from(authorization))
+        except HTTPException:
+            raise
+        except Exception as error:
+            raise protection_error(error) from error
+
+    @app.post(
+        "/api/pucks/sessions/{session_id}/chunks",
+        response_model=ProtectionSessionSnapshot,
+    )
+    def upload_puck_chunk(
+        session_id: str,
+        audio: bytes = Body(media_type="audio/wav"),
+        authorization: str | None = Header(default=None),
+        content_type: str | None = Header(default=None),
+        x_rambu_sequence: str | None = Header(default=None),
+        x_rambu_final: str | None = Header(default=None),
+    ) -> ProtectionSessionSnapshot:
+        if content_type is None or content_type.split(";", 1)[0].strip().lower() != "audio/wav":
+            raise HTTPException(status_code=422, detail="Content-Type harus audio/wav.")
+        if x_rambu_sequence is None or not x_rambu_sequence.isdigit():
+            raise HTTPException(status_code=422, detail="X-Rambu-Sequence harus bilangan bulat.")
+        if x_rambu_final not in {"true", "false"}:
+            raise HTTPException(status_code=422, detail="X-Rambu-Final harus true atau false.")
+        if len(audio) > MAXIMUM_CHUNK_BYTES:
+            raise HTTPException(status_code=413, detail="Potongan audio melebihi batas 1 MB.")
+        try:
+            return protections().process_chunk(
+                token_from(authorization),
+                session_id,
+                int(x_rambu_sequence),
+                x_rambu_final == "true",
+                audio,
+            )
+        except HTTPException:
+            raise
+        except LangflowFailure as error:
+            failure = ProtectionFailure(
+                code=f"analysis_{error.code}",
+                message=error.safe_message,
+            )
+            raise HTTPException(status_code=502, detail=failure.model_dump()) from error
+        except (AuthenticationError, AuthorizationError, MissingProtectionSessionError,
+                ActiveProtectionSessionConflict, ChunkSequenceConflict, ValueError) as error:
+            raise protection_error(error) from error
+        except Exception as error:
+            try:
+                failed = protections().get_puck_session(
+                    token_from(authorization), session_id
+                )
+                failure = failed.failure
+            except Exception:
+                failure = None
+            failure = failure or ProtectionFailure(
+                code="processing_failed",
+                message="Pemrosesan audio gagal.",
+            )
+            raise HTTPException(status_code=502, detail=failure.model_dump()) from error
 
     @app.post("/api/pilot/families", response_model=PilotSession, status_code=201)
     def create_family(value: CreateFamilyRequest) -> PilotSession:

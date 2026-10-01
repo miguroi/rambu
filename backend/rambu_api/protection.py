@@ -56,6 +56,11 @@ class ProtectionService:
     def get_active_puck_session(self, puck_token: str) -> ProtectionSessionSnapshot:
         return self.store.active_protection_session(puck_token)
 
+    def get_puck_session(
+        self, puck_token: str, session_id: str
+    ) -> ProtectionSessionSnapshot:
+        return self.store.get_puck_protection_session(puck_token, session_id)
+
     def process_chunk(
         self,
         puck_token: str,

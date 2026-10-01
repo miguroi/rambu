@@ -406,6 +406,20 @@ class PilotStore:
             ).fetchone()
         return self._protection_snapshot(row)
 
+    def get_puck_protection_session(
+        self, token: str, session_id: str
+    ) -> ProtectionSessionSnapshot:
+        puck = self.authenticate_puck(token)
+        with self._lock:
+            row = self._connection.execute(
+                "SELECT * FROM protection_sessions WHERE id = ?", (session_id,)
+            ).fetchone()
+        if row is None:
+            raise MissingProtectionSessionError("Sesi perlindungan tidak ditemukan.")
+        if row["family_id"] != puck["family_id"] or row["puck_id"] != puck["id"]:
+            raise AuthorizationError("Sesi perlindungan berasal dari keluarga lain.")
+        return self._protection_snapshot(row)
+
     def record_protection_chunk(
         self,
         token: str,
