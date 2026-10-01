@@ -1,64 +1,55 @@
 # Rambu
 
-Rambu is a working prototype of an external call-safety system. The iPhone observes call state through CallKit, a separately authenticated Mac acts as the temporary Rambu Puck and hears the loudspeaker acoustically, and the backend transcribes ordered audio chunks, masks sensitive numbers, and sends only masked cumulative text to Langflow for risk analysis.
+Rambu detects an active iPhone call, records its loudspeaker audio through an external puck, transcribes it, and asks Langflow to assess scam risk. For now, the Mac runs as the temporary puck. Rambu has no analysis fallback: configuration and processing failures are shown as errors.
 
-The prototype deliberately has no runtime analysis fallback. If configuration, transcription, Langflow, the model provider, transport, or response validation fails, the browser and iOS app show a failure instead of manufacturing a risk result.
-
-The iPhone app does **not** capture cellular or WhatsApp audio. CallKit only reports call state. The Mac/physical puck must be close enough to hear the conversation from the phone loudspeaker, and the app must already be running because public iOS APIs do not guarantee launching a terminated third-party app for a cellular call.
-
-## Production prototype flow
-
-```text
-iPhone CallKit -> protection session -> Mac/puck microphone -> faster-whisper -> masked transcript -> Langflow + OpenRouter -> warning
-```
-
-- Real CallKit state detection while the iOS app is running.
-- Ordered external-microphone WAV chunks from the temporary Mac puck.
-- Incremental Indonesian transcription and cumulative analysis.
-- Strict `low`, `needs_review`, or `high_risk` assessments.
-- Validated signals, transcript-backed evidence, explanation, and recommended action.
-- A SwiftUI app that creates and polls authoritative protection sessions.
-- Optional two-iPhone family-alert synchronization.
-- Raw audio is processed in memory and is not persisted by the backend.
-
-Synthetic scenarios and `/api/demo/*` remain available only to automated browser and screenshot fixtures; normal iOS runtime cannot call them.
+The iPhone does not record call audio. Keep Rambu open during the call and place the Mac near the phone's loudspeaker. One iPhone is enough; a second iPhone is only needed for guardian alerts.
 
 ## Requirements
 
-- Python 3.12
-- [uv](https://docs.astral.sh/uv/)
+- macOS with Xcode 26 and XcodeGen
+- A physical iPhone running iOS 26
+- Python 3.12 and `uv`
 - Langflow 1.12.x
-- An OpenRouter API key configured in Langflow
-- Xcode and [XcodeGen](https://github.com/yonaskolb/XcodeGen) for the iOS app
+- OpenRouter and Langflow API keys
+- Mac and iPhone on the same Wi-Fi network
 
-## Required configuration
+Run every command below from the repository root unless stated otherwise.
 
-Import [`langflow/flows/Rambu.json`](langflow/flows/Rambu.json), configure its OpenRouter model, and run it once in the Langflow Playground. Then copy the backend environment template:
+## Run the App
 
-```bash
-cp backend/.env.example backend/.env
-```
-
-Set all three Langflow values in `backend/.env`:
-
-```dotenv
-LANGFLOW_URL=http://127.0.0.1:7861
-LANGFLOW_FLOW_ID=<imported-flow-id>
-LANGFLOW_API_KEY=<langflow-api-key>
-```
-
-Do not commit `backend/.env`. The backend refuses to start if any value is absent or blank. During startup it also sends a safe probe through the real flow; an unreachable service, rejected key, invalid JSON, invalid schema, or non-low probe result aborts startup.
-
-## Run the browser prototype
-
-Install and start the repository-compatible Langflow version on port `7861`:
+### 1. Start Langflow
 
 ```bash
 uv tool install 'langflow>=1.12,<1.13'
 langflow run --host 127.0.0.1 --port 7861
 ```
 
-Then run the backend:
+Open <http://127.0.0.1:7861>, then:
+
+1. Import `langflow/flows/Rambu.json`.
+2. Open the **Language Model** component and add the OpenRouter API key.
+3. Save the flow. Its endpoint name is `rambu`.
+4. Create a Langflow API key under **Settings → API Keys**.
+
+Keep this terminal running.
+
+### 2. Start the Backend
+
+If `backend/.env` does not exist:
+
+```bash
+cp backend/.env.example backend/.env
+```
+
+Set these values in `backend/.env`:
+
+```dotenv
+LANGFLOW_URL=http://127.0.0.1:7861
+LANGFLOW_FLOW_ID=rambu
+LANGFLOW_API_KEY=<your-langflow-api-key>
+```
+
+Start the backend in a new terminal:
 
 ```bash
 uv sync --project backend
@@ -66,20 +57,17 @@ uv run --project backend uvicorn rambu_api.app:app \
   --host 0.0.0.0 --port 8000 --env-file backend/.env
 ```
 
-Open <http://127.0.0.1:8000>. The first transcription may download the Whisper `small` model. This browser surface is a fixture; use the flow below for the external-audio prototype.
+It is ready when <http://127.0.0.1:8000/health> returns `{"status":"ready"}`. Keep this terminal running.
 
-The canonical scenarios are:
+### 3. Run the iPhone App
 
-| ID | Expected risk |
-|---|---|
-| `bank-otp` | `high_risk` |
-| `kecelakaan-transfer` | `high_risk` |
-| `kurir-aplikasi` | `high_risk` |
-| `tetangga-aman` | `low` |
+Find the Mac's Wi-Fi IP address:
 
-## Run the external-puck prototype
+```bash
+ipconfig getifaddr en0
+```
 
-Generate the Xcode project and open it:
+Generate and open the Xcode project:
 
 ```bash
 cd ios
@@ -87,59 +75,45 @@ xcodegen generate
 open RambuPuck.xcodeproj
 ```
 
-Use a physical iPhone. Connect the iPhone and Mac to the same network, enter `http://<MAC-LAN-IP>:8000` under **Profile → Pilot keluarga**, and create the family as the parent. The app stores the returned parent credential in Keychain. One iPhone is enough for call analysis; a second is needed only to receive guardian alerts and submit decisions.
+In Xcode:
 
-Use the current six-digit family invitation to pair the Mac as the temporary puck. The pairing command prints the puck token once; keep it in the shell environment and never add it to `.env` or Git:
+1. Select your development team for both app targets.
+2. Select the connected physical iPhone.
+3. Press **Run**.
+
+In Rambu on the iPhone:
+
+1. Complete onboarding as the parent.
+2. Open **Profile → Pilot keluarga**.
+3. Set the server URL to `http://<MAC-IP>:8000`.
+4. Create the family and note its six-digit invitation code.
+
+### 4. Connect the Puck
+
+Return to the repository root in a new terminal. Replace the IP and invitation code:
 
 ```bash
-export RAMBU_SERVER_URL='http://<MAC-LAN-IP>:8000'
+export RAMBU_SERVER_URL='http://<MAC-IP>:8000'
 export RAMBU_PUCK_TOKEN="$(swift run --package-path tools/rambu-puck-agent \
   rambu-puck-agent pair --code 123456 --name 'Mac puck')"
 swift run --package-path tools/rambu-puck-agent rambu-puck-agent listen
 ```
 
-Keep the Mac near the iPhone speaker. With Rambu open on the parent iPhone, place or receive a real call and turn on the phone loudspeaker. Verify this progression on the parent dashboard:
+Allow microphone access when macOS asks. Keep this terminal running.
 
-1. `Rambu siap mendeteksi panggilan`
-2. `Panggilan terdeteksi · menunggu Puck`
-3. `Rambu sedang mendengarkan`
-4. `Analisis selesai`, `Tidak ada audio yang dianalisis`, or an explicit failure
+### 5. Test a Call
 
-The app always obtains normal-runtime assessments from `/api/protection/*`. There is no risk-analysis fallback and no route from the normal composition to scripted scenarios.
+1. Keep Rambu open on the iPhone.
+2. Place or receive a real call.
+3. Turn on the iPhone loudspeaker and keep the Mac nearby.
+4. Confirm the app progresses from call detected, to listening, to an assessment or an explicit error.
 
-## Explicit failures
+## Troubleshooting
 
-Protection sessions use stable codes such as `transcription_failed`, `analysis_http`, `analysis_timeout`, `analysis_connection`, `analysis_invalid_json`, `analysis_invalid_response`, `analysis_failed`, and `processing_failed`. The iOS transport can additionally surface `invalid_server_url`, `missing_parent_token`, `transport`, `http_<status>`, `decoding`, and `schema`.
-
-A failed session has `status: "error"`, no assessment, and a structured `error`. The browser clears any stale assessment. The iOS app stops listening, shows the failure, and does not save the failed call to history. Retry starts a new backend session.
-
-## Verification
-
-Unit tests use explicit test doubles and do not spend model quota:
-
-```bash
-uv run --project backend pytest backend/tests langflow/tests -q
-cd ios
-xcodegen generate
-xcodebuild -project RambuPuck.xcodeproj -scheme RambuPuck \
-  -destination 'platform=iOS Simulator,name=iPhone 17 Pro' test
-```
-
-The live Langflow contract test is opt-in and fails—not skips—when activated without credentials:
-
-```bash
-RAMBU_RUN_LIVE_LANGFLOW=1 \
-uv run --project backend pytest backend/tests/test_live_langflow.py -q
-```
-
-## Project structure
-
-```text
-backend/    FastAPI, faster-whisper, dashboard, pilot API, and tests
-ios/        SwiftUI MVVM app and tests
-langflow/   prompt, exported Rambu flow, builder, and contract tests
-samples/    fictional scripts and generated WAV fixtures
-docs/       local demo, test, evidence, and IBM Bob records (gitignored)
-```
-
-IBM Bob is a development-time reviewer, not a runtime dependency. A Bob contribution must have a genuine task transcript and accepted diff before it is claimed as complete.
+| Problem | Fix |
+|---|---|
+| `Failed to spawn: langflow` | Run the install command in step 1, then use `langflow run`, not `uv run langflow run`. |
+| Backend exits during startup | Check that Langflow is running, all three `LANGFLOW_*` values are correct, and the imported flow works in Langflow. |
+| iPhone cannot reach the backend | Use the Mac's Wi-Fi IP, not `127.0.0.1`, and keep both devices on the same network. |
+| Call is detected but remains waiting for the puck | Keep the puck `listen` command running and pair it with the current family invitation code. |
+| No call is detected | Use a physical iPhone, keep Rambu open, and grant requested permissions. |
