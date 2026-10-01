@@ -1,5 +1,7 @@
+import pytest
 from fastapi.testclient import TestClient
 
+import rambu_api.app as app_module
 from rambu_api.app import create_app
 from rambu_api.langflow_client import LangflowFailure
 from rambu_api.models import ChunkAnalysisResponse, DemoSnapshot, RiskAssessment
@@ -10,6 +12,7 @@ from .conftest import wav_bytes
 class StubDemoService:
     def __init__(self) -> None:
         self.deleted: list[str] = []
+        self.probes = 0
 
     def start(self, scenario: str) -> DemoSnapshot:
         if scenario in {"missing", "normal", "unclear", "otp"}:
@@ -46,6 +49,9 @@ class StubDemoService:
 
     def close(self) -> None:
         pass
+
+    def probe(self) -> None:
+        self.probes += 1
 
     def analyze_chunk(self, audio: bytes, final: bool) -> ChunkAnalysisResponse:
         return ChunkAnalysisResponse(
@@ -133,3 +139,46 @@ def test_live_chunk_returns_sanitized_typed_dependency_failure() -> None:
         "code": "analysis_timeout",
         "message": "Langflow tidak merespons sebelum batas waktu.",
     }
+
+
+def test_injected_service_bypasses_default_probe() -> None:
+    service = StubDemoService()
+
+    with TestClient(create_app(service=service)) as client:
+        assert client.get("/health").status_code == 200
+
+    assert service.probes == 0
+
+
+def test_default_startup_probes_and_propagates_failure(monkeypatch) -> None:
+    class FailingProbeService(StubDemoService):
+        def probe(self) -> None:
+            self.probes += 1
+            raise LangflowFailure(
+                "connection",
+                "Langflow tidak dapat dihubungi.",
+                "http://langflow/api/v1/run/rambu",
+            )
+
+    service = FailingProbeService()
+    monkeypatch.setattr(app_module, "_default_service", lambda _settings: service)
+    application = create_app(settings=object())
+
+    with pytest.raises(LangflowFailure, match="Langflow tidak dapat dihubungi"):
+        with TestClient(application):
+            pass
+
+    assert service.probes == 1
+
+
+def test_default_startup_rejects_missing_configuration(monkeypatch) -> None:
+    for name in ("LANGFLOW_URL", "LANGFLOW_FLOW_ID", "LANGFLOW_API_KEY"):
+        monkeypatch.delenv(name, raising=False)
+    application = create_app()
+
+    with pytest.raises(Exception) as captured:
+        with TestClient(application):
+            pass
+
+    assert type(captured.value).__name__ == "ConfigurationError"
+    assert str(captured.value) == "LANGFLOW_URL is required"

@@ -8,6 +8,7 @@ from fastapi.responses import JSONResponse
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
+from .config import LangflowSettings
 from .demo import DemoService, default_scenarios, delay_from_environment
 from .langflow_client import LangflowClient, LangflowFailure
 from .apns import PushSender, push_sender_from_environment
@@ -42,17 +43,18 @@ class DemoServiceContract(Protocol):
     def get(self, session_id: str) -> DemoSnapshot: ...
     def delete(self, session_id: str) -> None: ...
     def close(self) -> None: ...
+    def probe(self) -> None: ...
     def analyze_chunk(self, audio: bytes, final: bool) -> ChunkAnalysisResponse: ...
 
 
-def _default_service() -> DemoService:
+def _default_service(settings: LangflowSettings) -> DemoService:
     return DemoService(
         scenarios=default_scenarios(),
         transcriber=FasterWhisperTranscriber(os.getenv("RAMBU_WHISPER_MODEL", "small")),
         analyzer=LangflowClient(
-            os.getenv("LANGFLOW_URL", "http://127.0.0.1:7861"),
-            os.getenv("LANGFLOW_FLOW_ID", "rambu"),
-            os.getenv("LANGFLOW_API_KEY"),
+            settings.url,
+            settings.flow_id,
+            settings.api_key,
         ),
         delay_seconds=delay_from_environment(),
     )
@@ -67,18 +69,27 @@ def create_app(
     service: DemoServiceContract | None = None,
     pilot_store: PilotStore | None = None,
     push_sender: PushSender | None = None,
+    settings: LangflowSettings | None = None,
 ) -> FastAPI:
-    demo_service = service or _default_service()
+    demo_service = service
     pilots = pilot_store or (PilotStore(":memory:") if service is not None else _default_pilot_store())
     pushes = push_sender or push_sender_from_environment()
     push_environment = os.getenv("APNS_ENVIRONMENT", "sandbox")
 
     @asynccontextmanager
     async def lifespan(_: FastAPI):
-        yield
-        demo_service.close()
-        pilots.close()
-        pushes.close()
+        nonlocal demo_service
+        try:
+            if demo_service is None:
+                configuration = settings or LangflowSettings.from_environment(os.environ)
+                demo_service = _default_service(configuration)
+                demo_service.probe()
+            yield
+        finally:
+            if demo_service is not None:
+                demo_service.close()
+            pilots.close()
+            pushes.close()
 
     app = FastAPI(title="Rambu Digital Prototype", version="0.2.0", lifespan=lifespan)
     web_root = Path(__file__).resolve().parents[1] / "web"
@@ -88,6 +99,11 @@ def create_app(
     samples_root = project_root / "samples" / "audio"
     if samples_root.exists():
         app.mount("/samples", StaticFiles(directory=samples_root), name="samples")
+
+    def demos() -> DemoServiceContract:
+        if demo_service is None:
+            raise RuntimeError("Demo service is unavailable before application startup.")
+        return demo_service
 
     @app.get("/", include_in_schema=False)
     def dashboard() -> FileResponse:
@@ -100,7 +116,7 @@ def create_app(
     @app.post("/api/demo/{scenario}", response_model=DemoSnapshot, status_code=201)
     def start_demo(scenario: str) -> DemoSnapshot:
         try:
-            return demo_service.start(scenario)
+            return demos().start(scenario)
         except KeyError as error:
             raise HTTPException(status_code=404, detail="Skenario tidak ditemukan.") from error
         except FileNotFoundError as error:
@@ -109,14 +125,14 @@ def create_app(
     @app.get("/api/demo/{session_id}", response_model=DemoSnapshot)
     def demo_status(session_id: str) -> DemoSnapshot:
         try:
-            return demo_service.get(session_id)
+            return demos().get(session_id)
         except KeyError as error:
             raise HTTPException(status_code=404, detail="Sesi demo tidak ditemukan.") from error
 
     @app.delete("/api/demo/{session_id}", status_code=204)
     def delete_demo(session_id: str) -> Response:
         try:
-            demo_service.delete(session_id)
+            demos().delete(session_id)
         except KeyError as error:
             raise HTTPException(status_code=404, detail="Sesi demo tidak ditemukan.") from error
         return Response(status_code=204)
@@ -132,7 +148,7 @@ def create_app(
         if len(audio) > 1_000_000:
             raise HTTPException(status_code=413, detail="Potongan audio terlalu besar.")
         try:
-            return demo_service.analyze_chunk(audio, final=x_rambu_final == "true")
+            return demos().analyze_chunk(audio, final=x_rambu_final == "true")
         except ValueError as error:
             raise HTTPException(status_code=422, detail=str(error)) from error
         except LangflowFailure as error:

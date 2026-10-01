@@ -32,7 +32,7 @@ class LangflowClient:
         self,
         base_url: str,
         flow_id: str,
-        api_key: str | None = None,
+        api_key: str,
         transport: Transport | None = None,
     ) -> None:
         self.base_url = base_url.rstrip("/")
@@ -42,8 +42,7 @@ class LangflowClient:
 
     def analyze(self, transcript: str, final: bool) -> RiskAssessment:
         headers = {"Content-Type": "application/json"}
-        if self.api_key:
-            headers["x-api-key"] = self.api_key
+        headers["x-api-key"] = self.api_key
         payload = {
             "input_value": json.dumps(
                 {
