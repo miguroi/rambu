@@ -32,6 +32,9 @@ targets:
           - UIInterfaceOrientationPortrait
         NSSupportsLiveActivities: true
         NSBluetoothAlwaysUsageDescription: Rambu memakai Bluetooth untuk terhubung ke Rambu Puck di punggung HP Anda.
+        NSLocalNetworkUsageDescription: Rambu terhubung ke server pilot pada jaringan Wi-Fi yang sama.
+        NSAppTransportSecurity:
+          NSAllowsLocalNetworking: true
         CFBundleURLTypes:
           - CFBundleURLName: id.rambu.puck.undangan
             CFBundleURLSchemes:

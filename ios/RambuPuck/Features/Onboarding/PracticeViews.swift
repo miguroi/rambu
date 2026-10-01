@@ -6,7 +6,9 @@ import SwiftUI
 
 /// Latihan singkat: ada telepon pura-pura, push Rambu turun, orang tua mengetuknya.
 struct PracticeCallStep: View {
-    @Environment(AppModel.self) private var model
+    @Environment(AppState.self) private var model
+    @Environment(OnboardingViewModel.self) private var onboarding
+    @Environment(ProfileViewModel.self) private var profile
     @State private var phase: Phase = .ringing
 
     enum Phase { case ringing, pushed, done }
@@ -58,10 +60,10 @@ struct PracticeCallStep: View {
             }
         } actions: {
             if phase == .done {
-                Button { model.completeOnboarding(as: .ratna) } label: { WideLabel(title: "Selesai") }
+                Button { onboarding.complete(as: .ratna) } label: { WideLabel(title: "Selesai") }
                     .primaryAction()
             } else {
-                Button { model.completeOnboarding(as: .ratna) } label: { WideLabel(title: "Lewati") }
+                Button { onboarding.complete(as: .ratna) } label: { WideLabel(title: "Lewati") }
                     .secondaryAction()
             }
         }
@@ -69,16 +71,16 @@ struct PracticeCallStep: View {
         .sensoryFeedback(.warning, trigger: phase) { _, new in new == .pushed }
         .sensoryFeedback(.success, trigger: phase) { _, new in new == .done }
         .task {
-            model.narrate("Ini telepon pura-pura. Tunggu sebentar.")
+            profile.narrate("Ini telepon pura-pura. Tunggu sebentar.")
             try? await Task.sleep(for: .seconds(2))
             phase = .pushed
-            model.narrate("Ada notifikasi dari Rambu. Ketuk notifikasinya.")
+            profile.narrate("Ada notifikasi dari Rambu. Ketuk notifikasinya.")
         }
     }
 
     private func finish() {
         phase = .done
-        model.narrate("Bagus. Begitu cara Rambu memberi tahu Anda.")
+        profile.narrate("Bagus. Begitu cara Rambu memberi tahu Anda.")
     }
 }
 
@@ -103,7 +105,7 @@ struct TapHint: View {
 
 /// Contoh peringatan untuk dicoba. Pengawas belajar membaca kalimat lalu memilih.
 struct PracticeAlertStep: View {
-    @Environment(AppModel.self) private var model
+    @Environment(AppState.self) private var model
     @State private var answer: Verdict?
 
     private let line = TranscriptLine(id: 0, offset: 20, speaker: .caller,

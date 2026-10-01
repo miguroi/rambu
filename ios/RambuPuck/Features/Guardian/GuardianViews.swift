@@ -3,7 +3,7 @@ import SwiftUI
 // MARK: - Tab dan beranda
 
 struct GuardianRoot: View {
-    @Environment(AppModel.self) private var model
+    @Environment(AppState.self) private var model
 
     var body: some View {
         @Bindable var model = model
@@ -20,7 +20,7 @@ struct GuardianRoot: View {
 }
 
 struct GuardianHome: View {
-    @Environment(AppModel.self) private var model
+    @Environment(AppState.self) private var model
 
     var body: some View {
         @Bindable var model = model
@@ -57,7 +57,7 @@ struct GuardianHome: View {
 
 private struct AlertHeroCard: View {
     let alert: FamilyAlert
-    @Environment(AppModel.self) private var model
+    @Environment(AppState.self) private var model
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -107,7 +107,7 @@ private struct AlertHeroCard: View {
 }
 
 private struct ProtectedParentCard: View {
-    @Environment(AppModel.self) private var model
+    @Environment(AppState.self) private var model
 
     var body: some View {
         let others = model.otherGuardians(than: model.currentPerson)

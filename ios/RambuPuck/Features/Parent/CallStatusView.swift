@@ -3,7 +3,8 @@ import SwiftUI
 /// Layar yang terbuka saat orang tua mengetuk push Rambu di tengah telepon.
 /// Satu instruksi besar, jawaban pengawas, dan tombol menelepon anak.
 struct CallStatusView: View {
-    @Environment(AppModel.self) private var model
+    @Environment(AppState.self) private var model
+    @Environment(ProfileViewModel.self) private var profile
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
@@ -37,7 +38,7 @@ struct CallStatusView: View {
                 if let session = model.session {
                     let status = Status(session: session, alert: model.activeAlert,
                                         unanswered: model.unanswered.contains(session.id))
-                    model.narrate("\(status.title). \(status.detail)")
+                    profile.narrate("\(status.title). \(status.detail)")
                 }
             }
         }

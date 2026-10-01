@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct ParentRoot: View {
-    @Environment(AppModel.self) private var model
+    @Environment(AppState.self) private var model
 
     var body: some View {
         @Bindable var model = model
@@ -28,7 +28,7 @@ struct ParentRoot: View {
 }
 
 struct ParentHome: View {
-    @Environment(AppModel.self) private var model
+    @Environment(AppState.self) private var model
     @State private var showScenarios = false
 
     var body: some View {
@@ -70,7 +70,7 @@ struct ParentHome: View {
 }
 
 private struct ProtectionHero: View {
-    @Environment(AppModel.self) private var model
+    @Environment(AppState.self) private var model
     @Environment(\.dynamicTypeSize) private var typeSize
 
     var body: some View {

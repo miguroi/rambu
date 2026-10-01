@@ -3,7 +3,8 @@ import SwiftUI
 /// Simulasi layar telepon bawaan iPhone atau WhatsApp. Layar ini bukan milik Rambu,
 /// jadi Rambu hanya hadir lewat push dari atas dan Live Activity, seperti di HP asli.
 struct CallScreen: View {
-    @Environment(AppModel.self) private var model
+    @Environment(AppState.self) private var model
+    @Environment(CallViewModel.self) private var call
     @State private var showDemo = false
 
     var body: some View {
@@ -33,8 +34,8 @@ struct CallScreen: View {
                     Spacer(minLength: 16)
 
                     CallControls(speakerOn: session.speakerOn,
-                                 onSpeaker: { model.turnOnSpeaker() },
-                                 onEnd: { model.endCall() })
+                                 onSpeaker: { call.turnOnSpeaker() },
+                                 onEnd: { call.end() })
                         .padding(.bottom, 20)
                 }
 

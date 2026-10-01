@@ -1,7 +1,8 @@
 import SwiftUI
 
 struct PuckScreen: View {
-    @Environment(AppModel.self) private var model
+    @Environment(AppState.self) private var model
+    @Environment(AppViewModel.self) private var app
     @State private var confirmUnpair = false
 
     var body: some View {
@@ -55,7 +56,7 @@ struct PuckScreen: View {
             .navigationTitle("Rambu Puck")
             .toolbar { ToolbarItem(placement: .topBarTrailing) { ProfileButton() } }
             .confirmationDialog("Lepaskan puck?", isPresented: $confirmUnpair, titleVisibility: .visible) {
-                Button("Lepaskan", role: .destructive) { model.resetDemo() }
+                Button("Lepaskan", role: .destructive) { app.resetDemo() }
             } message: {
                 Text("Demo kembali ke awal.")
             }

@@ -3,7 +3,8 @@ import SwiftUI
 // Jalur orang tua: nama, pasang puck, persetujuan, undang pengawas.
 
 struct ParentProfileStep: View {
-    @Environment(AppModel.self) private var model
+    @Environment(AppState.self) private var model
+    @Environment(ProfileViewModel.self) private var profile
     @State private var name = ""
 
     var body: some View {
@@ -16,7 +17,7 @@ struct ParentProfileStep: View {
             DemoPrefillNote()
         } actions: {
             Button {
-                model.renameParent(name)
+                profile.renameParent(name)
                 model.onboardingStep = .pairPuck
             } label: { WideLabel(title: "Lanjut") }
                 .primaryAction()
@@ -27,7 +28,7 @@ struct ParentProfileStep: View {
 }
 
 struct PairPuckStep: View {
-    @Environment(AppModel.self) private var model
+    @Environment(AppState.self) private var model
     @State private var phase: Phase = .idle
     @State private var found: PuckState?
 
@@ -113,7 +114,8 @@ struct SearchRings: View {
 }
 
 struct ConsentStep: View {
-    @Environment(AppModel.self) private var model
+    @Environment(AppState.self) private var model
+    @Environment(ProfileViewModel.self) private var profile
     @State private var asking = false
 
     private let points: [(symbol: String, title: String, detail: String)] = [
@@ -149,7 +151,7 @@ struct ConsentStep: View {
                 // Peringatan datang lewat push, jadi izin notifikasi diminta di sini.
                 asking = true
                 Task {
-                    await model.requestNotifications()
+                    await profile.requestNotifications()
                     asking = false
                     model.onboardingStep = .invite
                 }
@@ -161,7 +163,7 @@ struct ConsentStep: View {
 }
 
 struct InviteGuardiansStep: View {
-    @Environment(AppModel.self) private var model
+    @Environment(AppState.self) private var model
     @State private var requests: [Person] = []
     @State private var approved: Set<String> = []
 

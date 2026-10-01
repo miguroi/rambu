@@ -4,7 +4,7 @@ import SwiftUI
 
 struct HistoryList: View {
     let forGuardian: Bool
-    @Environment(AppModel.self) private var model
+    @Environment(AppState.self) private var model
 
     /// Pengawas hanya melihat panggilan yang pernah diteruskan. Panggilan Aman tetap privat.
     private var records: [CallRecord] {
@@ -44,7 +44,7 @@ struct HistoryList: View {
 struct HistoryRow: View {
     let record: CallRecord
     let forGuardian: Bool
-    @Environment(AppModel.self) private var model
+    @Environment(AppState.self) private var model
 
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
@@ -88,7 +88,7 @@ struct CompactLabelStyle: LabelStyle {
 
 struct CallDetail: View {
     let recordID: UUID
-    @Environment(AppModel.self) private var model
+    @Environment(AppState.self) private var model
 
     var body: some View {
         if let record = model.history.first(where: { $0.id == recordID }) {

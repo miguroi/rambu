@@ -2,7 +2,7 @@ import SwiftUI
 
 /// Tombol cepat menelepon pengawas. Saat ragu di tengah telepon, cukup satu ketukan.
 struct QuickCallGuardians: View {
-    @Environment(AppModel.self) private var model
+    @Environment(AppState.self) private var model
     @Environment(\.openURL) private var openURL
     @State private var callInfo: Person?
 

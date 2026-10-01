@@ -5,7 +5,7 @@ import UserNotifications
 /// jadi peringatan sampai ke orang tua lewat notifikasi di atas layar.
 ///
 /// Di produk nyata isinya datang dari server lewat APNs. Di prototipe, notifikasi lokal
-/// menirukannya. Kalau izin notifikasi belum diberikan, AppModel menampilkan tiruan
+/// menirukannya. Kalau izin notifikasi belum diberikan, ProfileViewModel menampilkan tiruan
 /// banner push di dalam app (lihat PushBanner).
 @MainActor
 final class RambuNotifier: NSObject, UNUserNotificationCenterDelegate {
@@ -20,7 +20,10 @@ final class RambuNotifier: NSObject, UNUserNotificationCenterDelegate {
         super.init()
         guard let center else { return }
         center.delegate = self
-        Task { await refresh() }
+        Task {
+            await refresh()
+            if isAuthorized { UIApplication.shared.registerForRemoteNotifications() }
+        }
     }
 
     func refresh() async {
@@ -33,6 +36,7 @@ final class RambuNotifier: NSObject, UNUserNotificationCenterDelegate {
         guard let center else { return }
         _ = try? await center.requestAuthorization(options: [.alert, .sound, .badge])
         await refresh()
+        if isAuthorized { UIApplication.shared.registerForRemoteNotifications() }
     }
 
     func post(_ toast: Toast) {

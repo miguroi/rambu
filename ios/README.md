@@ -1,6 +1,6 @@
-# Rambu Puck · iOS (frontend)
+# Rambu Puck · iOS
 
-Aplikasi iPhone untuk Rambu Puck, PopSocket bermikrofon yang mendengarkan telepon loudspeaker orang tua lalu meneruskan tanda penipuan ke keluarga. Folder ini berisi frontend saja. Puck, transkripsi, analisis AI, dan pengiriman antarponsel masih simulasi dengan data sintetis, dan dibatasi tiga protokol supaya tim backend bisa menggantinya tanpa menyentuh UI.
+Aplikasi iPhone untuk Rambu Puck, PopSocket bermikrofon yang mendengarkan telepon loudspeaker orang tua lalu meneruskan tanda penipuan ke keluarga. Alur satu HP tetap memakai data sintetis. Mode **Pilot dua HP** menghubungkan HP orang tua dan pengawas melalui backend nyata; puck/BLE masih simulasi sampai spesifikasi hardware tersedia.
 
 Kebutuhan produk ada di [`docs/prd/rambu-puck.prd.md`](../docs/prd/rambu-puck.prd.md).
 
@@ -37,7 +37,24 @@ Satu HP menjalankan ketiga peran lewat **Mode demo** (ketuk avatar di kanan atas
 
 Di Mode demo ada **Simulasi gangguan**: loudspeaker mati di telepon berikutnya, internet putus, Bluetooth mati, puck terputus, dan baterai lemah.
 
-Semua data (nama, pengawas, riwayat, pengaturan) tersimpan lokal di `Application Support/Rambu/state.json`. Tidak ada akun.
+Data demo tersimpan lokal di `Application Support/Rambu/state.json`. Mode pilot memakai identitas perangkat acak di Keychain dan menyimpan keluarga, peringatan, serta keputusan di SQLite backend.
+
+## Pilot dua HP
+
+1. Jalankan backend agar terlihat dari Wi-Fi:
+
+   ```bash
+   cd backend
+   uv sync
+   uv run uvicorn rambu_api.app:app --host 0.0.0.0 --port 8000 --env-file .env
+   ```
+
+2. Pasang app di dua iPhone dengan development team yang sama. Selesaikan onboarding sebagai orang tua di satu HP dan pengawas di HP lain.
+3. Di kedua HP buka **Profil → Pilot dua HP** dan isi `http://ALAMAT_IP_MAC:8000`.
+4. Orang tua menekan **Buat kode**; pengawas memasukkan kode enam angka tersebut.
+5. Di HP orang tua jalankan simulasi telepon. Peringatan muncul di HP pengawas dan keputusan dikirim kembali ke orang tua.
+
+Sinkronisasi foreground memakai polling ringan 1,5 detik. Saat kredensial APNs tersedia, server juga mengirim notifikasi saat app berada di latar belakang. Petunjuk lengkap ada di [`docs/PILOT.md`](../docs/PILOT.md).
 
 ## Batas serah terima ke backend
 
@@ -45,8 +62,8 @@ Semua ada di `RambuPuck/Services/Services.swift`. UI hanya mengenal protokol ini
 
 | Protokol | Tugas | Simulasi sekarang | Implementasi nyata |
 |---|---|---|---|
-| `CallAnalysisSource` | Mengalirkan `ChunkAssessment` per potongan audio ±5 detik | `ScenarioAnalysis` memutar skenario di `Model/Scenarios.swift` | Audio puck → `POST /transcribe` (lihat `backend/`) → analisis Langflow |
-| `FamilyRelay` | Menyebar `FamilyAlert` ke semua pengawas dan menerima `GuardianDecision` | `LocalFamilyRelay` di memori | Server + push. **Wajib** menegakkan aturan keputusan pertama yang berlaku. |
+| `CallAnalysisSource` | Mengalirkan `ChunkAssessment` per potongan audio ±5 detik | `ScenarioAnalysis` memutar skenario di `Models/Scenarios.swift` | Audio puck → `POST /api/analyze-chunk` → analisis Langflow |
+| `FamilyRelay` | Menyebar `FamilyAlert` ke semua pengawas dan menerima `GuardianDecision` | `LocalFamilyRelay` untuk demo; `PilotSync` untuk dua HP | Backend SQLite + APNs; keputusan pertama dikunci atomik. |
 | `PuckLink` | Menemukan dan menghubungkan puck | `SimulatedPuckLink` | CoreBluetooth, menunggu spesifikasi GATT dari tim hardware |
 
 Kontrak data yang diharapkan UI:
@@ -54,7 +71,7 @@ Kontrak data yang diharapkan UI:
 - `ChunkAssessment.level` adalah tingkat **keseluruhan** panggilan dan tidak boleh turun. Nilainya `safe`, `review`, atau `danger`.
 - `ChunkAssessment.signals` hanya berisi tanda di potongan itu: `impersonation`, `urgency`, `secretCode`, `transfer`, `remoteApp`.
 - `TranscriptLine.flagged` berisi frasa persis dari `text` yang akan disorot untuk pengawas.
-- `TranscriptLine.speaker` membedakan penelepon dari orang tua. Pengawas hanya menerima kalimat penelepon yang memicu peringatan (lihat `AppModel.makeAlert`). Ini butuh pemisahan suara dari satu mikrofon puck.
+- `TranscriptLine.speaker` membedakan penelepon dari orang tua. Pengawas hanya menerima kalimat penelepon yang memicu peringatan (lihat `CallViewModel.makeAlert`). Ini butuh pemisahan suara dari satu mikrofon puck.
 - Tingkat Aman tidak pernah dikirim ke pengawas.
 
 ### Aturan jawaban pertama di server
@@ -72,19 +89,19 @@ Kalau tidak ada baris yang berubah, balas `409` dengan keputusan yang sudah ada.
 ### Lainnya untuk backend
 
 - **Ringkasan kejadian** (`CallRecord.incidentSummary`) sekarang disusun lokal dari tanda dan keputusan. Di produk nyata teks ini dibuat watsonx Orchestrate setelah panggilan selesai dan dikirim bersama riwayat.
-- **Umpan balik deteksi**: jawaban "Aman" dari pengawas dilaporkan lewat `DetectionFeedback` sebagai false positive untuk memperbaiki model Langflow. Nyata: `POST /feedback`.
+- **Umpan balik deteksi**: jawaban "Aman" masih dicatat lokal sebagai false positive. Endpoint agregasi model belum dibuat.
 - **Eskalasi tanpa jawaban** berjalan di app untuk prototipe. Di produk nyata sebaiknya timer di server supaya tetap jalan walau HP orang tua sibuk.
 - **Tautan undangan**: `InviteLink` membuat tautan `https://rambu-saku.vercel.app/gabung?kode=482913` (bisa diketuk di WhatsApp). Halaman itu perlu meneruskan ke `rambu://gabung?kode=…` atau dijadikan Universal Link dengan file `apple-app-site-association`. Skema `rambu://` sudah terdaftar di app. Uji dengan `xcrun simctl openurl booted "rambu://gabung?kode=482913"`.
-- **Pengingat loudspeaker**: di awal telepon (`CXCallObserver`), app menyuruh puck mengukur volume ±5 detik. Kalau terlalu pelan, app mengirim push lokal "Nyalakan loudspeaker". iOS tidak memberi tahu ke mana suara telepon app lain diarahkan, jadi pengukuran harus lewat puck. App tetap hidup di background karena mode `bluetooth-central`.
+- **Pengingat loudspeaker** saat ini hanya bagian dari simulasi. `CXCallObserver`, pengukuran volume puck, dan mode background Bluetooth baru dapat diimplementasikan setelah protokol hardware disepakati.
 
-`RiskRules` di `Model/Domain.swift` adalah aturan tiruan (dua tanda berbeda langsung dianggap Bahaya). Backend boleh menggantinya sepenuhnya.
+`RiskRules` di `Models/Domain.swift` adalah aturan tiruan (dua tanda berbeda langsung dianggap Bahaya). Backend boleh menggantinya sepenuhnya.
 
 ## Yang disimulasikan dan yang belum ada
 
 - **Layar telepon** adalah tiruan. Di iPhone asli layar telepon milik iOS, dan Rambu tampil lewat Live Activity serta notifikasi.
 - **Memutus telepon orang tua tidak mungkin di iOS.** Aplikasi pihak ketiga tidak bisa mengakhiri panggilan seluler maupun WhatsApp. Gantinya, setelah keputusan "Ini penipuan", pengawas bisa menekan **Telepon Ibu Ratna sekarang**. Kalau operator mengaktifkan panggilan tunggu, panggilan itu muncul di atas telepon penipu dan orang tua bisa langsung beralih. Perlu diuji di HP asli.
-- **Live Activity** diperbarui secara lokal. Kalau app di latar belakang, pembaruan butuh push APNs dari server. Live Activity dari proses sebelumnya dibersihkan saat app dibuka.
-- Belum ada: BLE nyata, push APNs dari server, panggilan penyelamat VoIP, dan akun. Push di prototipe memakai notifikasi lokal; kalau izin ditolak, tiruan banner muncul di dalam app.
+- **Live Activity** masih diperbarui lokal. APNs standar sudah tersedia untuk peringatan dan keputusan; token/push Live Activity belum dihubungkan.
+- Belum ada: BLE nyata, `CXCallObserver`, panggilan penyelamat VoIP, Universal Link produksi, dan akun pengguna penuh. Pilot memakai kredensial perangkat acak, bukan kata sandi.
 
 ## Struktur
 
@@ -93,10 +110,12 @@ ios/
   project.yml                        konfigurasi XcodeGen (jalankan `xcodegen` setelah menambah file)
   RambuPuck/
     App/RambuPuckApp.swift           titik masuk, RootView, peluncur demo (RAMBU_SCENE)
-    Store/AppModel.swift             satu sumber kebenaran: panggilan, peringatan, keputusan, profil, penyimpanan
-    Model/Domain.swift               tipe domain, aturan risiko tiruan, ringkasan kejadian
-    Model/Scenarios.swift            percakapan sintetis dan riwayat awal
+    App/AppViewModel.swift           composition root dan routing lintas fitur
+    Models/AppState.swift            state observable bersama dan penyimpanan
+    Models/Domain.swift              tipe domain, aturan risiko tiruan, ringkasan kejadian
+    Models/Scenarios.swift           percakapan sintetis dan riwayat awal
     Services/Services.swift          protokol serah terima ke backend + simulasi + Live Activity
+    Services/PilotAPI.swift          API, Keychain, polling, dan sinkronisasi dua HP
     Services/Notifier.swift          push lokal (pengganti APNs di prototipe)
     Services/Support.swift           penyimpanan lokal, narasi suara, internet, tautan undangan, umpan balik
     DesignSystem/
@@ -105,10 +124,10 @@ ios/
       PushBanner.swift               tampilan push Rambu
       Illustrations.swift            ilustrasi puck, maskot interaktif
     Features/
-      Onboarding/                    alur, jalur orang tua, jalur pengawas, tutorial, latihan
-      Parent/                        beranda, layar telepon, Status telepon, Puck
-      Guardian/                      beranda pengawas, detail peringatan
-      Profile/                       profil, undangan, jaga orang tua lain
+      Onboarding/                    alur, tampilan, dan OnboardingViewModel
+      Parent/                        tampilan orang tua dan CallViewModel
+      Guardian/                      tampilan pengawas dan FamilyViewModel
+      Profile/                       profil, pilot, dan ViewModel masing-masing
       Common/                        riwayat, Mode demo, banner gangguan, telepon cepat, tiruan push
   Shared/                            dipakai app dan widget: token merek, maskot, atribut Live Activity
   RambuPuckWidgets/                  Live Activity: Lock Screen + Dynamic Island

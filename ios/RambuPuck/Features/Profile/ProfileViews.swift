@@ -2,7 +2,9 @@ import SwiftUI
 
 /// Profil: cukup nama dan hubungan. Rambu bukan media sosial, jadi tidak ada foto.
 struct ProfileView: View {
-    @Environment(AppModel.self) private var model
+    @Environment(AppState.self) private var model
+    @Environment(AppViewModel.self) private var app
+    @Environment(ProfileViewModel.self) private var profile
     @Environment(\.dismiss) private var dismiss
     @Environment(\.openURL) private var openURL
 
@@ -11,6 +13,7 @@ struct ProfileView: View {
     @State private var showInvite = false
     @State private var showJoin = false
     @State private var showTutorial = false
+    @State private var showPilot = false
     @State private var confirmClear = false
     @State private var confirmReset = false
 
@@ -62,10 +65,25 @@ struct ProfileView: View {
                                 .buttonStyle(.glassProminent).tint(Brand.teal)
                         }
                     }
-                    Toggle(isOn: Binding(get: { model.narrationEnabled }, set: { model.setNarration($0) })) {
+                    Toggle(isOn: Binding(get: { model.narrationEnabled }, set: { profile.setNarration($0) })) {
                         Label("Bacakan peringatan", systemImage: "speaker.wave.2.fill")
                     }
                     .tint(Brand.teal)
+                }
+
+                Section {
+                    Button { showPilot = true } label: {
+                        HStack {
+                            Label("Pilot keluarga", systemImage: "iphone.gen3.radiowaves.left.and.right")
+                            Spacer()
+                            Text(model.pilotConnected ? "Terhubung" : "Belum")
+                                .foregroundStyle(model.pilotConnected ? Brand.safeInk : Brand.ink3)
+                        }
+                    }
+                } header: {
+                    Text("Dua HP")
+                } footer: {
+                    Text("Hubungkan HP orang tua dan pengawas melalui server Rambu.")
                 }
 
                 Section("Bantuan") {
@@ -85,7 +103,7 @@ struct ProfileView: View {
                     }
                     Button("Keluar dan mulai ulang", role: .destructive) { confirmReset = true }
                 } footer: {
-                    Text("Semua data tersimpan di HP ini saja.")
+                    Text(model.pilotConnected ? "Profil disimpan di HP; peringatan pilot disinkronkan lewat server." : "Semua data tersimpan di HP ini saja.")
                 }
             }
             .navigationTitle("Profil")
@@ -104,14 +122,15 @@ struct ProfileView: View {
             }
             .sheet(isPresented: $showInvite) { InviteSheet() }
             .sheet(isPresented: $showJoin) { JoinParentSheet() }
+            .sheet(isPresented: $showPilot) { PilotSetupView() }
             .fullScreenCover(isPresented: $showTutorial) {
                 TutorialCarousel(isParent: model.persona.isParent) { showTutorial = false }
             }
             .confirmationDialog("Hapus semua riwayat?", isPresented: $confirmClear, titleVisibility: .visible) {
-                Button("Hapus", role: .destructive) { model.clearHistory() }
+                Button("Hapus", role: .destructive) { profile.clearHistory() }
             }
             .confirmationDialog("Keluar dan mulai ulang?", isPresented: $confirmReset, titleVisibility: .visible) {
-                Button("Keluar", role: .destructive) { model.resetDemo() }
+                Button("Keluar", role: .destructive) { app.resetDemo() }
             } message: {
                 Text("Nama, pengawas, dan riwayat di HP ini dihapus.")
             }
@@ -124,7 +143,7 @@ struct ProfileView: View {
                 PersonRow(person: person)
                     .swipeActions {
                         if model.guardians.count > 1 {
-                            Button("Hapus", role: .destructive) { model.removeGuardian(person) }
+                            Button("Hapus", role: .destructive) { profile.removeGuardian(person) }
                         }
                     }
             }
@@ -144,7 +163,7 @@ struct ProfileView: View {
                 PersonRow(person: person)
                     .swipeActions {
                         if model.extraParents.contains(person) {
-                            Button("Berhenti", role: .destructive) { model.removeProtectedParent(person) }
+                            Button("Berhenti", role: .destructive) { profile.removeProtectedParent(person) }
                         }
                     }
             }
@@ -156,15 +175,15 @@ struct ProfileView: View {
 
     private func saveName() {
         if model.persona.isParent {
-            model.renameParent(name)
+            profile.renameParent(name)
         } else {
-            model.renameGuardian(model.persona, name: name, relation: relation)
+            profile.renameGuardian(model.persona, name: name, relation: relation)
         }
     }
 
     private func enableNotifications() {
         Task {
-            await model.requestNotifications()
+            await profile.requestNotifications()
             if !model.notificationsAuthorized, let url = URL(string: UIApplication.openNotificationSettingsURLString) {
                 openURL(url)
             }
@@ -203,7 +222,7 @@ private struct PersonRow: View {
 /// Kode undangan plus cara mengirimnya. Tautan https bisa diketuk langsung di WhatsApp.
 struct InviteActions: View {
     let code: String
-    @Environment(AppModel.self) private var model
+    @Environment(AppState.self) private var model
     @State private var copied = false
 
     var body: some View {
@@ -236,6 +255,7 @@ struct InviteActions: View {
 }
 
 private struct InviteSheet: View {
+    @Environment(AppState.self) private var model
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
@@ -244,7 +264,7 @@ private struct InviteSheet: View {
                 VStack(alignment: .leading, spacing: 18) {
                     Text("Kirim tautan ini ke anak Anda. Mereka tinggal mengetuknya.")
                         .font(.body).foregroundStyle(Brand.ink2)
-                    InviteActions(code: "482913")
+                    InviteActions(code: model.pilotInviteCode ?? "482913")
                 }
                 .padding(24)
             }
@@ -263,7 +283,8 @@ private struct InviteSheet: View {
 
 /// Pengawas menambah orang tua lain lewat kode 6 angka.
 private struct JoinParentSheet: View {
-    @Environment(AppModel.self) private var model
+    @Environment(AppState.self) private var model
+    @Environment(ProfileViewModel.self) private var profile
     @Environment(\.dismiss) private var dismiss
     @State private var code = ""
     @State private var added: Person?
@@ -298,7 +319,7 @@ private struct JoinParentSheet: View {
                         .font(.subheadline.weight(.semibold))
                     Spacer()
                     Button {
-                        withAnimation(.smooth) { added = model.addProtectedParent(code: code) }
+                        withAnimation(.smooth) { added = profile.addProtectedParent(code: code) }
                     } label: { WideLabel(title: "Gabung") }
                         .primaryAction()
                         .disabled(code.count < 6)

@@ -6,7 +6,7 @@ import SwiftUI
 
 struct AlertDetail: View {
     let alertID: UUID
-    @Environment(AppModel.self) private var model
+    @Environment(AppState.self) private var model
 
     var body: some View {
         if let alert = model.alerts.first(where: { $0.id == alertID }) {
@@ -77,7 +77,7 @@ private struct AlertHeader: View {
 
 private struct RecipientsCard: View {
     let alert: FamilyAlert
-    @Environment(AppModel.self) private var model
+    @Environment(AppState.self) private var model
 
     var body: some View {
         VStack(spacing: 0) {
@@ -121,7 +121,8 @@ private struct RecipientsCard: View {
 /// "Penipuan" langsung terkirim karena setiap detik berarti.
 private struct DecisionBar: View {
     let alert: FamilyAlert
-    @Environment(AppModel.self) private var model
+    @Environment(AppState.self) private var model
+    @Environment(AppViewModel.self) private var app
     @Environment(\.openURL) private var openURL
     @State private var confirmSafe = false
     @State private var callInfo = false
@@ -134,7 +135,7 @@ private struct DecisionBar: View {
                 HStack(spacing: 10) {
                     Button { confirmSafe = true } label: { WideLabel(title: "Aman", systemImage: "checkmark") }
                         .secondaryAction()
-                    Button { model.decide(.scam, on: alert.id) } label: { WideLabel(title: "Penipuan", systemImage: "hand.raised.fill") }
+                    Button { app.decide(.scam, on: alert.id) } label: { WideLabel(title: "Penipuan", systemImage: "hand.raised.fill") }
                         .primaryAction(Brand.danger)
                 }
             }
@@ -144,7 +145,7 @@ private struct DecisionBar: View {
         .padding(.bottom, 6)
         .sensoryFeedback(.success, trigger: alert.decision)
         .confirmationDialog("Tandai aman?", isPresented: $confirmSafe, titleVisibility: .visible) {
-            Button("Ya, aman") { model.decide(.safe, on: alert.id) }
+            Button("Ya, aman") { app.decide(.safe, on: alert.id) }
         } message: {
             Text("\(alert.parent.name) akan diberi tahu.")
         }

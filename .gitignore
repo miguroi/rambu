@@ -1,16 +1,66 @@
-backend/.venv/
-backend/.pytest_cache/
-backend/**/__pycache__/
-backend/*.egg-info/
+# Local environments and secrets
+.env
+.env.*
+!.env.example
+!.env.*.example
+.venv/
+*.p8
+*.p12
+*.mobileprovision
+*.key
+*.pem
+*.jks
+*.keystore
+Secrets.xcconfig
+*.xcconfig.local
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+*.egg-info/
+.coverage
+.coverage.*
+htmlcov/
+coverage.xml
 backend/dist/
+backend/data/
+
+# JavaScript tooling
+node_modules/
+.npm/
+.pnpm-store/
+.next/
+.vite/
+coverage/
+
+# Android
 android/.gradle/
 android/.idea/
 android/build/
 android/app/build/
 android/local.properties
 *.iml
+
+# Audio fixtures and generated recordings
 *.wav
+!samples/audio/*.wav
+
+# Documentation (temporarily excluded)
+docs/
+
+# macOS and editors
 .DS_Store
+*.log
+*.tmp
+*.swp
+*.swo
+*~
+
+# Apple and Xcode
 ios/build/
-ios/**/xcuserdata/
+DerivedData/
+xcuserdata/
+*.xcuserstate
 *.xcresult
+.build/

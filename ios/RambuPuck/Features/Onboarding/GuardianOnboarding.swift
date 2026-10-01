@@ -3,7 +3,7 @@ import SwiftUI
 // Jalur pengawas: kode, nama dan hubungan, lalu menunggu izin orang tua.
 
 struct EnterCodeStep: View {
-    @Environment(AppModel.self) private var model
+    @Environment(AppState.self) private var model
     @State private var code = ""
     @FocusState private var focused: Bool
 
@@ -47,7 +47,8 @@ struct EnterCodeStep: View {
 }
 
 struct GuardianProfileStep: View {
-    @Environment(AppModel.self) private var model
+    @Environment(AppState.self) private var model
+    @Environment(ProfileViewModel.self) private var profile
     @State private var name = ""
     @State private var relation = "Anak"
 
@@ -81,7 +82,7 @@ struct GuardianProfileStep: View {
             DemoPrefillNote()
         } actions: {
             Button {
-                model.renameGuardian(.sinta, name: name, relation: relation)
+                profile.renameGuardian(.sinta, name: name, relation: relation)
                 model.onboardingStep = .practiceAlert
             } label: { WideLabel(title: "Kirim permintaan") }
                 .primaryAction()
@@ -98,7 +99,8 @@ struct GuardianProfileStep: View {
 }
 
 struct GuardianWaitingStep: View {
-    @Environment(AppModel.self) private var model
+    @Environment(AppState.self) private var model
+    @Environment(OnboardingViewModel.self) private var onboarding
     @State private var connected = false
 
     var body: some View {
@@ -145,7 +147,7 @@ struct GuardianWaitingStep: View {
                 }
                 .accessibilityLabel("Seorang perempuan melihat HP")
         } actions: {
-            Button { model.completeOnboarding(as: .sinta) } label: { WideLabel(title: "Mulai menjaga") }
+            Button { onboarding.complete(as: .sinta) } label: { WideLabel(title: "Mulai menjaga") }
                 .primaryAction()
                 .disabled(!connected)
         }

@@ -3,7 +3,8 @@ import SwiftUI
 /// Tiruan banner push Rambu, dipakai saat izin notifikasi belum diberikan.
 /// Turun dari atas, hilang sendiri, bisa diusap ke atas, dan bisa diketuk.
 struct ToastOverlay: View {
-    @Environment(AppModel.self) private var model
+    @Environment(AppState.self) private var model
+    @Environment(AppViewModel.self) private var app
     @GestureState private var drag: CGFloat = 0
 
     var body: some View {
@@ -29,6 +30,6 @@ struct ToastOverlay: View {
     }
 
     private func open(_ toast: Toast) {
-        model.openToast(toast)
+        app.openToast(toast)
     }
 }

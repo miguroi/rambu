@@ -5,7 +5,8 @@ import SwiftUI
 // MARK: - Pilih skenario
 
 struct ScenarioPicker: View {
-    @Environment(AppModel.self) private var model
+    @Environment(AppState.self) private var model
+    @Environment(CallViewModel.self) private var call
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
@@ -15,7 +16,7 @@ struct ScenarioPicker: View {
                     ForEach(Scenario.all) { scenario in
                         Button {
                             dismiss()
-                            model.startCall(scenario)
+                            call.start(scenario)
                         } label: {
                             ScenarioRow(scenario: scenario)
                         }
@@ -64,7 +65,10 @@ struct ScenarioRow: View {
 // MARK: - Mode demo
 
 struct DemoSheet: View {
-    @Environment(AppModel.self) private var model
+    @Environment(AppState.self) private var model
+    @Environment(AppViewModel.self) private var app
+    @Environment(CallViewModel.self) private var call
+    @Environment(FamilyViewModel.self) private var family
     @Environment(\.dismiss) private var dismiss
     @State private var confirmReset = false
 
@@ -74,7 +78,7 @@ struct DemoSheet: View {
                 Section {
                     ForEach(Persona.allCases) { persona in
                         Button {
-                            model.switchPersona(persona)
+                            app.switchPersona(persona)
                             dismiss()
                         } label: {
                             HStack(spacing: 12) {
@@ -102,7 +106,7 @@ struct DemoSheet: View {
                         ForEach(Scenario.all) { scenario in
                             Button {
                                 dismiss()
-                                model.startCall(scenario)
+                                call.start(scenario)
                             } label: { ScenarioRow(scenario: scenario) }
                             .buttonStyle(.plain)
                         }
@@ -127,7 +131,7 @@ struct DemoSheet: View {
                     let other = model.otherGuardians(than: model.currentPerson).first ?? .richard
                     Section {
                         Button("\(other.name) menjawab lebih dulu") {
-                            model.simulateDecision(by: other, .scam, on: alert.id)
+                            family.simulateDecision(by: other, .scam, on: alert.id)
                             dismiss()
                         }
                     } header: {
@@ -152,7 +156,7 @@ struct DemoSheet: View {
             }
             .confirmationDialog("Ulangi demo dari awal?", isPresented: $confirmReset, titleVisibility: .visible) {
                 Button("Ulangi", role: .destructive) {
-                    model.resetDemo()
+                    app.resetDemo()
                     dismiss()
                 }
             }

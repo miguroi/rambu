@@ -3,7 +3,7 @@ import SwiftUI
 // MARK: - Alur
 
 struct OnboardingFlow: View {
-    @Environment(AppModel.self) private var model
+    @Environment(AppState.self) private var model
 
     var body: some View {
         NavigationStack {
@@ -127,7 +127,7 @@ struct DemoPrefillNote: View {
 }
 
 struct WelcomeStep: View {
-    @Environment(AppModel.self) private var model
+    @Environment(AppState.self) private var model
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var showPush = false
 

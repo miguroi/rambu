@@ -2,12 +2,19 @@ import SwiftUI
 
 @main
 struct RambuPuckApp: App {
-    @State private var model = DemoLaunch.makeModel()
+    @UIApplicationDelegateAdaptor(RambuAppDelegate.self) private var appDelegate
+    @State private var app = DemoLaunch.makeModel()
 
     var body: some Scene {
         WindowGroup {
             RootView()
-                .environment(model)
+                .environment(app)
+                .environment(app.state)
+                .environment(app.onboarding)
+                .environment(app.call)
+                .environment(app.family)
+                .environment(app.profile)
+                .environment(app.pilot)
                 .environment(\.locale, Fmt.locale)
                 .tint(Brand.teal)
         }
@@ -15,7 +22,8 @@ struct RambuPuckApp: App {
 }
 
 struct RootView: View {
-    @Environment(AppModel.self) private var model
+    @Environment(AppState.self) private var model
+    @Environment(AppViewModel.self) private var app
     @Environment(\.scenePhase) private var scenePhase
 
     var body: some View {
@@ -34,10 +42,15 @@ struct RootView: View {
         .sheet(isPresented: $model.showProfile) {
             ProfileView()
         }
-        .onOpenURL { model.handleIncoming($0) }
+        .onOpenURL { app.handleIncoming($0) }
         .onChange(of: scenePhase) { _, phase in
             // Izin notifikasi bisa berubah dari Pengaturan iOS.
-            if phase == .active { Task { await model.refreshNotificationStatus() } }
+            if phase == .active {
+                Task {
+                    await app.profile.refreshNotificationStatus()
+                    await app.pilot.refresh()
+                }
+            }
         }
     }
 
@@ -63,14 +76,14 @@ struct RootView: View {
 /// Tanpa RAMBU_SCENE, app memakai data yang tersimpan di HP.
 @MainActor
 enum DemoLaunch {
-    static func makeModel() -> AppModel {
+    static func makeModel() -> AppViewModel {
         let env = ProcessInfo.processInfo.environment
         let isTesting = env["XCTestConfigurationFilePath"] != nil
         let fast = env["RAMBU_FAST"] == "1"
         let scene = env["RAMBU_SCENE"]
         let usesStore = !isTesting && scene == nil && env["RAMBU_SKIP_ONBOARDING"] == nil
 
-        let model = AppModel(
+        let app = AppViewModel(
             persona: Persona(rawValue: env["RAMBU_PERSONA"] ?? "") ?? .ratna,
             onboardingComplete: env["RAMBU_SKIP_ONBOARDING"] == "1" || (scene != nil && !(scene!.hasPrefix("onboarding"))),
             analysis: ScenarioAnalysis(
@@ -81,15 +94,17 @@ enum DemoLaunch {
             notifications: !isTesting,
             speech: !isTesting && scene == nil,
             store: usesStore ? .standard : nil,
+            pilot: isTesting ? nil : PilotSync(),
             escalationDelay: fast ? .seconds(8) : .seconds(45),
             speakerCheckDelay: fast ? .seconds(1.5) : .seconds(3)
         )
-        if scene != nil { model.hidesNotificationIssue = true }
-        if let scene, !isTesting { apply(scene, to: model) }
-        return model
+        if scene != nil { app.state.hidesNotificationIssue = true }
+        if let scene, !isTesting { apply(scene, to: app) }
+        return app
     }
 
-    private static func apply(_ scene: String, to model: AppModel) {
+    private static func apply(_ scene: String, to app: AppViewModel) {
+        let model = app.state
         let parts = scene.split(separator: ":").map(String.init)
         let key = parts.first ?? ""
         let scenario = Scenario.all.first { $0.id == parts.dropFirst().first } ?? .bankOTP
@@ -104,40 +119,40 @@ enum DemoLaunch {
         case "profile":
             model.showProfile = true
         case "guardian-profile":
-            model.switchPersona(.sinta)
+            app.switchPersona(.sinta)
             model.showProfile = true
         case "issues":
             model.simulateOffline = true
             model.puck.isConnected = false
             model.hidesNotificationIssue = false
         case "guardian-home":
-            model.switchPersona(.sinta)
+            app.switchPersona(.sinta)
         case "call":
-            model.startCall(scenario)
+            app.call.start(scenario)
         case "speaker-off":
             model.speakerOffNextCall = true
-            model.startCall(scenario)
+            app.call.start(scenario)
         case "call-status":
-            let task = model.startCall(scenario)
+            let task = app.call.start(scenario)
             Task {
                 await task.value
                 model.showCallStatus = true
             }
         case "call-decided":
-            let task = model.startCall(scenario)
+            let task = app.call.start(scenario)
             Task {
                 await task.value
-                if let id = model.alerts.first?.id { model.simulateDecision(by: .sinta, .scam, on: id) }
+                if let id = model.alerts.first?.id { app.family.simulateDecision(by: .sinta, .scam, on: id) }
             }
         case "alert", "alert-locked", "alert-mine", "guardian-alert-home":
-            let task = model.startCall(scenario)
+            let task = app.call.start(scenario)
             Task {
                 await task.value
-                model.switchPersona(.sinta)
+                app.switchPersona(.sinta)
                 guard let id = model.alerts.first?.id else { return }
-                if key == "alert-locked" { model.simulateDecision(by: .richard, .scam, on: id) }
-                if key == "alert-mine" { model.decide(.scam, on: id) }
-                if key != "guardian-alert-home" { model.openAlert(id) }
+                if key == "alert-locked" { app.family.simulateDecision(by: .richard, .scam, on: id) }
+                if key == "alert-mine" { app.decide(.scam, on: id) }
+                if key != "guardian-alert-home" { app.family.openAlert(id) }
                 model.toast = nil
             }
         default:

@@ -6,7 +6,8 @@ struct TutorialCarousel: View {
     let isParent: Bool
     let onFinish: () -> Void
 
-    @Environment(AppModel.self) private var model
+    @Environment(AppState.self) private var model
+    @Environment(ProfileViewModel.self) private var profile
     @State private var page = 0
 
     private var cards: [TutorialCard] { isParent ? TutorialCard.parent : TutorialCard.guardian }
@@ -18,7 +19,7 @@ struct TutorialCarousel: View {
                     .font(.body.weight(.semibold))
                 Spacer()
                 Button {
-                    model.setNarration(!model.narrationEnabled)
+                    profile.setNarration(!model.narrationEnabled)
                     if model.narrationEnabled { speak() }
                 } label: {
                     Image(systemName: model.narrationEnabled ? "speaker.wave.2.fill" : "speaker.slash.fill")
@@ -62,12 +63,12 @@ struct TutorialCarousel: View {
         .background(Brand.canvas.ignoresSafeArea())
         .onAppear { speak() }
         .onChange(of: page) { speak() }
-        .onDisappear { model.stopNarration() }
+        .onDisappear { profile.stopNarration() }
     }
 
     private func speak() {
         let card = cards[page]
-        model.narrate("\(card.title). \(card.line)")
+        profile.narrate("\(card.title). \(card.line)")
     }
 
     private func finish() {

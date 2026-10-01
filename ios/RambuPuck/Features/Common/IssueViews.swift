@@ -3,7 +3,8 @@ import SwiftUI
 /// Satu baris peringatan kondisi perangkat, dengan tombol perbaikan kalau ada.
 struct IssueBanner: View {
     let issue: SystemIssue
-    @Environment(AppModel.self) private var model
+    @Environment(AppState.self) private var model
+    @Environment(ProfileViewModel.self) private var profile
     @Environment(\.openURL) private var openURL
     @State private var working = false
 
@@ -40,7 +41,7 @@ struct IssueBanner: View {
         switch issue {
         case .notificationsOff:
             Task {
-                await model.requestNotifications()
+                await profile.requestNotifications()
                 if !model.notificationsAuthorized, let url = URL(string: UIApplication.openNotificationSettingsURLString) {
                     openURL(url)
                 }
@@ -48,7 +49,7 @@ struct IssueBanner: View {
         case .bluetoothOff, .puckDisconnected:
             working = true
             Task {
-                await model.reconnectPuck()
+                await profile.reconnectPuck()
                 working = false
             }
         case .offline, .puckLowBattery:
@@ -59,7 +60,7 @@ struct IssueBanner: View {
 
 /// Semua gangguan yang sedang terjadi, ditumpuk di atas beranda.
 struct IssueList: View {
-    @Environment(AppModel.self) private var model
+    @Environment(AppState.self) private var model
 
     var body: some View {
         if !model.issues.isEmpty {
