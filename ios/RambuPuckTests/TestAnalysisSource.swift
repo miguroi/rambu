@@ -75,11 +75,16 @@ final class RecordingCallAnalysisSession: CallAnalysisSession, @unchecked Sendab
     private let statusContinuation: AsyncStream<ProtectionStatus>.Continuation
     private let lock = NSLock()
     private let finishStatus: ProtectionStatus?
+    private let finishAssessment: ChunkAssessment?
     private var finished = false
     private var cancelled = false
 
-    init(finishStatus: ProtectionStatus? = nil) {
+    init(
+        finishStatus: ProtectionStatus? = nil,
+        finishAssessment: ChunkAssessment? = nil
+    ) {
         self.finishStatus = finishStatus
+        self.finishAssessment = finishAssessment
         var capturedAssessment: AsyncThrowingStream<ChunkAssessment, Error>.Continuation!
         assessments = AsyncThrowingStream { capturedAssessment = $0 }
         assessmentContinuation = capturedAssessment
@@ -98,6 +103,7 @@ final class RecordingCallAnalysisSession: CallAnalysisSession, @unchecked Sendab
     func finish() async throws {
         lock.withLock { finished = true }
         if let finishStatus { statusContinuation.yield(finishStatus) }
+        if let finishAssessment { assessmentContinuation.yield(finishAssessment) }
         assessmentContinuation.finish()
         statusContinuation.finish()
     }
@@ -112,18 +118,26 @@ final class RecordingCallAnalysisSession: CallAnalysisSession, @unchecked Sendab
 final class RecordingCallAnalysisSource: CallAnalysisSource, @unchecked Sendable {
     private let lock = NSLock()
     private let finishStatus: ProtectionStatus?
+    private let finishAssessment: ChunkAssessment?
     private var contexts: [CallContext] = []
     private var sessions: [RecordingCallAnalysisSession] = []
 
     var startCount: Int { lock.withLock { contexts.count } }
     var latestSession: RecordingCallAnalysisSession? { lock.withLock { sessions.last } }
 
-    init(finishStatus: ProtectionStatus? = nil) {
+    init(
+        finishStatus: ProtectionStatus? = nil,
+        finishAssessment: ChunkAssessment? = nil
+    ) {
         self.finishStatus = finishStatus
+        self.finishAssessment = finishAssessment
     }
 
     func start(for call: CallContext) async throws -> any CallAnalysisSession {
-        let session = RecordingCallAnalysisSession(finishStatus: finishStatus)
+        let session = RecordingCallAnalysisSession(
+            finishStatus: finishStatus,
+            finishAssessment: finishAssessment
+        )
         lock.withLock {
             contexts.append(call)
             sessions.append(session)

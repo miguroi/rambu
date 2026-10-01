@@ -302,6 +302,44 @@ struct AppViewModelBehaviorTests {
         #expect(model.state.toast?.title == "Perlindungan panggilan belum siap")
     }
 
+    @Test("The final puck chunk is retained after CallKit reports the call ended")
+    func finalAssessmentAfterCallEndIsRetained() async throws {
+        let monitor = FakeCallActivityMonitor()
+        let line = TranscriptLine(
+            id: 0,
+            offset: 0,
+            speaker: .unknown,
+            text: "Transfer sekarang.",
+            flagged: ["Transfer sekarang."],
+            signals: [.transfer]
+        )
+        let analysis = RecordingCallAnalysisSource(
+            finishStatus: .completed,
+            finishAssessment: ChunkAssessment(line: line, level: .danger, signals: [.transfer])
+        )
+        let model = AppViewModel(
+            persona: .ratna,
+            onboardingComplete: true,
+            analysis: analysis,
+            liveActivities: false,
+            notifications: false,
+            speech: false,
+            callActivity: monitor,
+            isProtectionConfigured: { true }
+        )
+        let id = UUID()
+
+        model.startCallMonitoring()
+        monitor.send(CallActivityEvent(id: id, state: .connected, at: .now))
+        try await waitUntil { analysis.startCount == 1 && model.state.session?.id == id }
+        monitor.send(CallActivityEvent(id: id, state: .ended, at: .now))
+        try await waitUntil {
+            model.state.alerts.first(where: { $0.id == id })?.level == .danger
+                && model.state.history.first(where: { $0.id == id })?.level == .danger
+                && model.state.protectionPresentation == .completed(.danger)
+        }
+    }
+
     @Test("Call monitor failures are visible")
     func callMonitorFailureIsVisible() async throws {
         let monitor = FakeCallActivityMonitor()
