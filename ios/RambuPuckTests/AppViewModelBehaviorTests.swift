@@ -236,4 +236,97 @@ struct AppViewModelBehaviorTests {
         #expect(added?.name == "Pak Hadi")
         #expect(model.state.protectedParents.count == 2)
     }
+
+    @Test("CallKit starts one configured parent session and ends the matching session")
+    func callKitCoordinatesProtection() async throws {
+        let monitor = FakeCallActivityMonitor()
+        let analysis = RecordingCallAnalysisSource()
+        let model = AppViewModel(
+            persona: .ratna,
+            onboardingComplete: true,
+            analysis: analysis,
+            liveActivities: false,
+            notifications: false,
+            speech: false,
+            callActivity: monitor,
+            isProtectionConfigured: { true }
+        )
+        let id = UUID()
+        let connected = CallActivityEvent(id: id, state: .connected, at: .now)
+
+        model.startCallMonitoring()
+        monitor.send(connected)
+        monitor.send(connected)
+        try await waitUntil { analysis.startCount == 1 && model.state.session?.id == id }
+
+        #expect(model.state.toast?.title == "Panggilan terdeteksi")
+        #expect(model.state.toast?.body.contains("belum dianalisis") == true)
+        let remote = try #require(analysis.latestSession)
+        remote.send(.listening)
+        try await waitUntil { model.state.session?.protectionStatus == .listening }
+        #expect(model.state.session?.metadata == .production)
+
+        monitor.send(CallActivityEvent(id: UUID(), state: .ended, at: .now))
+        try await Task.sleep(for: .milliseconds(20))
+        #expect(model.state.session?.id == id)
+
+        monitor.send(CallActivityEvent(id: id, state: .ended, at: .now))
+        try await waitUntil { model.state.session == nil && remote.didFinish }
+    }
+
+    @Test("CallKit refuses an unconfigured parent with a visible error")
+    func callKitRequiresCredentials() async throws {
+        let monitor = FakeCallActivityMonitor()
+        let analysis = RecordingCallAnalysisSource()
+        let model = AppViewModel(
+            persona: .ratna,
+            onboardingComplete: true,
+            analysis: analysis,
+            liveActivities: false,
+            notifications: false,
+            speech: false,
+            callActivity: monitor,
+            isProtectionConfigured: { false }
+        )
+
+        model.startCallMonitoring()
+        monitor.send(CallActivityEvent(id: UUID(), state: .connected, at: .now))
+        try await waitUntil { model.state.toast != nil }
+
+        #expect(analysis.startCount == 0)
+        #expect(model.state.session == nil)
+        #expect(model.state.toast?.title == "Perlindungan panggilan belum siap")
+    }
+
+    @Test("Call monitor failures are visible")
+    func callMonitorFailureIsVisible() async throws {
+        let monitor = FakeCallActivityMonitor()
+        let model = AppViewModel(
+            persona: .ratna,
+            onboardingComplete: true,
+            analysis: RecordingCallAnalysisSource(),
+            liveActivities: false,
+            notifications: false,
+            speech: false,
+            callActivity: monitor,
+            isProtectionConfigured: { true }
+        )
+
+        model.startCallMonitoring()
+        monitor.fail(BackendAnalysisError.transport(detail: "CallKit berhenti."))
+        try await waitUntil { model.state.toast != nil }
+
+        #expect(model.state.toast?.title == "Pemantauan panggilan berhenti")
+        #expect(model.state.toast?.body == "CallKit berhenti.")
+    }
+
+    private func waitUntil(
+        _ condition: @escaping @MainActor () -> Bool
+    ) async throws {
+        for _ in 0..<100 {
+            if condition() { return }
+            try await Task.sleep(for: .milliseconds(10))
+        }
+        Issue.record("Condition was not met before timeout")
+    }
 }

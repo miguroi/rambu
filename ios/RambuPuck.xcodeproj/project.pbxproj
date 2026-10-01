@@ -45,6 +45,7 @@
 		A055F61D163E18E07EFCA272 /* AppViewModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC43E5662306F9A230B35F44 /* AppViewModelTests.swift */; };
 		A609E87338AA956CFD2AAFA6 /* ProtectionCallAnalysisSource.swift in Sources */ = {isa = PBXBuildFile; fileRef = B19434D0FC3F3A794D68ECE3 /* ProtectionCallAnalysisSource.swift */; };
 		A72CE525687EC9A818338C8D /* AppState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 82C73D063566713B5B01E271 /* AppState.swift */; };
+		A816CF64B90C6163C5F0EBAA /* CallActivityMonitorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4E442EBB1B89D5BEFA4B336A /* CallActivityMonitorTests.swift */; };
 		A82B691C1E05301974E55EFB /* RambuPuckWidgets.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 3369AA22200DFAE58EEC64F7 /* RambuPuckWidgets.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		AB064A7B899635EFC2A78A56 /* RambuAppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9789563CF2D3BDD9236709F8 /* RambuAppDelegate.swift */; };
 		AEA4C2444F3A9F021AC710C3 /* GuardianViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 35A862CC980FBCAD88AEECD0 /* GuardianViews.swift */; };
@@ -65,6 +66,7 @@
 		F0C994ACE12B207214E1DC7A /* RiskViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4FF36DB10F8C8951C852BAC4 /* RiskViews.swift */; };
 		F317B9D4BC4504C2FA1A3E59 /* Mascot.swift in Sources */ = {isa = PBXBuildFile; fileRef = EE025E71C0581D1C225224FF /* Mascot.swift */; };
 		F477BD0767AE1AEF493D3715 /* BackendCallAnalysisSourceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B24C0B3C24156603217FFBC /* BackendCallAnalysisSourceTests.swift */; };
+		F8CC84B9F1E1C41AA16EA333 /* CallActivityMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 519F314BDE69004DF091C360 /* CallActivityMonitor.swift */; };
 		FBA42146BA73716407796465 /* ProfileViewModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9578F342B212F7B8FFA9063E /* ProfileViewModelTests.swift */; };
 		FE82FF0316C631667D189263 /* ProtectionAPI.swift in Sources */ = {isa = PBXBuildFile; fileRef = C06AADA1C8FEBDC150FF2568 /* ProtectionAPI.swift */; };
 /* End PBXBuildFile section */
@@ -113,9 +115,11 @@
 		35A862CC980FBCAD88AEECD0 /* GuardianViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GuardianViews.swift; sourceTree = "<group>"; };
 		44B119C571D30C720BA86A00 /* IssueViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IssueViews.swift; sourceTree = "<group>"; };
 		4D879990D8387FAFDCB177D8 /* AppViewModelBehaviorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppViewModelBehaviorTests.swift; sourceTree = "<group>"; };
+		4E442EBB1B89D5BEFA4B336A /* CallActivityMonitorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CallActivityMonitorTests.swift; sourceTree = "<group>"; };
 		4F665B1BCE82624C765384CC /* OnboardingViewModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingViewModelTests.swift; sourceTree = "<group>"; };
 		4FF36DB10F8C8951C852BAC4 /* RiskViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RiskViews.swift; sourceTree = "<group>"; };
 		507E3EC86822C5E1CF0D93FD /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		519F314BDE69004DF091C360 /* CallActivityMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CallActivityMonitor.swift; sourceTree = "<group>"; };
 		5388DEE6DA8A8DCC072B05AF /* ToastOverlay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ToastOverlay.swift; sourceTree = "<group>"; };
 		584D32FC4D1AFB6F3AECB476 /* CallStatusView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CallStatusView.swift; sourceTree = "<group>"; };
 		6197E4EFD4B427356A6CE399 /* PilotViewModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PilotViewModelTests.swift; sourceTree = "<group>"; };
@@ -233,6 +237,7 @@
 				4D879990D8387FAFDCB177D8 /* AppViewModelBehaviorTests.swift */,
 				AC43E5662306F9A230B35F44 /* AppViewModelTests.swift */,
 				9B24C0B3C24156603217FFBC /* BackendCallAnalysisSourceTests.swift */,
+				4E442EBB1B89D5BEFA4B336A /* CallActivityMonitorTests.swift */,
 				19268EF8B8AAFE56CB1E4B54 /* CallViewModelTests.swift */,
 				8195A3D0B1997A51D52BA2CB /* FamilyViewModelTests.swift */,
 				4F665B1BCE82624C765384CC /* OnboardingViewModelTests.swift */,
@@ -248,6 +253,7 @@
 			isa = PBXGroup;
 			children = (
 				6B2D615BE25C1586D42EDBAA /* BackendCallAnalysisSource.swift */,
+				519F314BDE69004DF091C360 /* CallActivityMonitor.swift */,
 				D73DC190DB3434F464EE9AFE /* Notifier.swift */,
 				8FC844283417105CF59A4E3B /* PilotAPI.swift */,
 				C06AADA1C8FEBDC150FF2568 /* ProtectionAPI.swift */,
@@ -487,6 +493,7 @@
 				45C9A03B93E57C41EDFA5EBE /* AppViewModelBehaviorTests.swift in Sources */,
 				A055F61D163E18E07EFCA272 /* AppViewModelTests.swift in Sources */,
 				F477BD0767AE1AEF493D3715 /* BackendCallAnalysisSourceTests.swift in Sources */,
+				A816CF64B90C6163C5F0EBAA /* CallActivityMonitorTests.swift in Sources */,
 				42EEBDACAEE13DBA46D625DF /* CallViewModelTests.swift in Sources */,
 				EAE1E38D28BADCBC6E269B72 /* FamilyViewModelTests.swift in Sources */,
 				99CA9228671A3B125C47FD17 /* OnboardingViewModelTests.swift in Sources */,
@@ -507,6 +514,7 @@
 				54059A3D01E926E13A4F6EE7 /* BackendCallAnalysisSource.swift in Sources */,
 				0FE9538C2A23EC0BADD38011 /* BrandTokens.swift in Sources */,
 				3BAEBDB7399E26DC1AE84FEE /* CallActivityAttributes.swift in Sources */,
+				F8CC84B9F1E1C41AA16EA333 /* CallActivityMonitor.swift in Sources */,
 				530E3EC772DB134178BF0434 /* CallStatusView.swift in Sources */,
 				262EF32CA4811E7E3131ACBA /* CallViewModel.swift in Sources */,
 				9DB85FF86E6CB4DCCCC67546 /* CallViews.swift in Sources */,

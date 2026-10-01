@@ -1,8 +1,12 @@
 import Foundation
 
-struct ProtectionCallAnalysisSource: CallAnalysisSource {
+struct ProtectionConnection: Sendable {
     let serverURL: String
-    let accessToken: @Sendable () -> String?
+    let accessToken: String
+}
+
+struct ProtectionCallAnalysisSource: CallAnalysisSource {
+    let connection: @Sendable () -> ProtectionConnection?
     let session: any HTTPDataSession
     let pollInterval: Duration
 
@@ -12,16 +16,33 @@ struct ProtectionCallAnalysisSource: CallAnalysisSource {
         session: any HTTPDataSession = URLSession.shared,
         pollInterval: Duration = .milliseconds(700)
     ) {
-        self.serverURL = serverURL
-        self.accessToken = accessToken
+        connection = {
+            ProtectionConnection(serverURL: serverURL, accessToken: accessToken() ?? "")
+        }
+        self.session = session
+        self.pollInterval = pollInterval
+    }
+
+    init(
+        connection: @escaping @Sendable () -> ProtectionConnection?,
+        session: any HTTPDataSession = URLSession.shared,
+        pollInterval: Duration = .milliseconds(700)
+    ) {
+        self.connection = connection
         self.session = session
         self.pollInterval = pollInterval
     }
 
     func start(for call: CallContext) async throws -> any CallAnalysisSession {
+        guard let connection = connection() else {
+            throw BackendAnalysisError.session(
+                code: "missing_parent_token",
+                detail: "Hubungkan akun orang tua sebelum memantau panggilan."
+            )
+        }
         let api = try ProtectionAPI(
-            serverURL: serverURL,
-            token: accessToken() ?? "",
+            serverURL: connection.serverURL,
+            token: connection.accessToken,
             session: session
         )
         let initial = try await api.create(call: call)

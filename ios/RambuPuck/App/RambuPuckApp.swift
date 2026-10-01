@@ -42,6 +42,7 @@ struct RootView: View {
         .sheet(isPresented: $model.showProfile) {
             ProfileView()
         }
+        .task { app.startCallMonitoring() }
         .onOpenURL { app.handleIncoming($0) }
         .onChange(of: scenePhase) { _, phase in
             // Izin notifikasi bisa berubah dari Pengaturan iOS.
@@ -82,18 +83,36 @@ enum DemoLaunch {
         let fast = env["RAMBU_FAST"] == "1"
         let scene = env["RAMBU_SCENE"]
         let usesStore = !isTesting && scene == nil && env["RAMBU_SKIP_ONBOARDING"] == nil
-        let pilotSync = isTesting ? nil : PilotSync()
-        let serverURL = pilotSync?.serverURL
-            ?? UserDefaults.standard.string(forKey: "pilotServerURL")
-            ?? "http://127.0.0.1:8000"
+        let credentialStore = PilotCredentialStore()
+        let pilotSync = isTesting ? nil : PilotSync(credentialStore: credentialStore)
+        let serverURL = pilotSync?.serverURL ?? "http://127.0.0.1:8000"
+        let connection: @Sendable () -> ProtectionConnection? = {
+            guard let credentials = credentialStore.load(),
+                  credentials.member.role == "parent",
+                  !credentials.accessToken.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+                  let url = URL(string: credentials.serverURL),
+                  ["http", "https"].contains(url.scheme?.lowercased()),
+                  url.host != nil else { return nil }
+            return ProtectionConnection(
+                serverURL: credentials.serverURL,
+                accessToken: credentials.accessToken
+            )
+        }
+        let monitor: (any CallActivityMonitoring)? = scene == nil && !isTesting
+            ? CallKitActivityMonitor()
+            : nil
 
         let app = AppViewModel(
             persona: Persona(rawValue: env["RAMBU_PERSONA"] ?? "") ?? .ratna,
             onboardingComplete: env["RAMBU_SKIP_ONBOARDING"] == "1" || (scene != nil && !(scene!.hasPrefix("onboarding"))),
-            analysis: analysisSource(serverURL: serverURL),
+            analysis: scene == nil
+                ? productionAnalysis(connection: connection)
+                : analysisSource(serverURL: serverURL),
             liveActivities: !isTesting,
             notifications: !isTesting,
             speech: !isTesting && scene == nil,
+            callActivity: monitor,
+            isProtectionConfigured: { connection() != nil },
             store: usesStore ? .standard : nil,
             pilot: pilotSync,
             escalationDelay: fast ? .seconds(8) : .seconds(45),
@@ -106,6 +125,12 @@ enum DemoLaunch {
 
     static func analysisSource(serverURL: String) -> any CallAnalysisSource {
         BackendCallAnalysisSource(serverURL: serverURL)
+    }
+
+    static func productionAnalysis(
+        connection: @escaping @Sendable () -> ProtectionConnection?
+    ) -> any CallAnalysisSource {
+        ProtectionCallAnalysisSource(connection: connection)
     }
 
     private static func apply(_ scene: String, to app: AppViewModel) {

@@ -1,12 +1,9 @@
 import SwiftUI
 import UserNotifications
 
-/// Push dari Rambu. Telepon terjadi di app Telepon atau WhatsApp, bukan di Rambu,
-/// jadi peringatan sampai ke orang tua lewat notifikasi di atas layar.
-///
-/// Di produk nyata isinya datang dari server lewat APNs. Di prototipe, notifikasi lokal
-/// menirukannya. Kalau izin notifikasi belum diberikan, ProfileViewModel menampilkan tiruan
-/// banner push di dalam app (lihat PushBanner).
+/// Menampilkan status dan peringatan yang dibuat di perangkat ini sebagai notifikasi lokal.
+/// Peringatan lintas perangkat tetap dikirim server melalui APNs. Kalau izin notifikasi belum
+/// diberikan, ProfileViewModel menampilkan pesan yang sama di dalam app.
 @MainActor
 final class RambuNotifier: NSObject, UNUserNotificationCenterDelegate {
     private(set) var isAuthorized = false

@@ -21,12 +21,18 @@ struct AppViewModelTests {
         #expect(app.pilot.state === app.state)
     }
 
-    @Test("Komposisi aplikasi selalu memakai sumber analisis backend")
-    func demoLaunchUsesBackendAnalysis() throws {
-        let source = try #require(
-            DemoLaunch.analysisSource(serverURL: "http://192.168.1.8:8000")
-                as? BackendCallAnalysisSource
-        )
+    @Test("Komposisi normal memakai sesi proteksi produksi")
+    func normalLaunchUsesProtectionAnalysis() {
+        let source = DemoLaunch.productionAnalysis {
+            ProtectionConnection(serverURL: "http://192.168.1.8:8000", accessToken: "parent-token")
+        }
+
+        #expect(source is ProtectionCallAnalysisSource)
+    }
+
+    @Test("Komposisi screenshot tetap memakai sumber fixture deterministik")
+    func screenshotLaunchUsesFixtureAnalysis() throws {
+        let source = try #require(DemoLaunch.analysisSource(serverURL: "http://192.168.1.8:8000") as? BackendCallAnalysisSource)
 
         #expect(source.serverURL == "http://192.168.1.8:8000")
     }

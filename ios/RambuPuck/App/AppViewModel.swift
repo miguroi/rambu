@@ -12,6 +12,9 @@ final class AppViewModel {
     @ObservationIgnored let profile: ProfileViewModel
     @ObservationIgnored let pilot: PilotViewModel
     @ObservationIgnored let feedback: any DetectionFeedback
+    @ObservationIgnored private let callActivity: (any CallActivityMonitoring)?
+    @ObservationIgnored private let isProtectionConfigured: @Sendable () -> Bool
+    @ObservationIgnored private var callActivityTask: Task<Void, Never>?
 
     init(
         persona: Persona = .ratna,
@@ -21,6 +24,8 @@ final class AppViewModel {
         liveActivities: Bool = true,
         notifications: Bool = true,
         speech: Bool = true,
+        callActivity: (any CallActivityMonitoring)? = nil,
+        isProtectionConfigured: @escaping @Sendable () -> Bool = { false },
         store: LocalStore? = nil,
         pilot: PilotSync? = nil,
         escalationDelay: Duration = .seconds(60),
@@ -67,12 +72,68 @@ final class AppViewModel {
         self.pilot = pilotViewModel
         self.call = call
         self.feedback = feedback
+        self.callActivity = callActivity
+        self.isProtectionConfigured = isProtectionConfigured
 
         profile.onNotificationOpen { [weak self] id in self?.openFromPush(id) }
         pilotViewModel.start()
         if notifications {
             profile.startNetworkMonitoring()
             Task { await profile.refreshNotificationStatus() }
+        }
+    }
+
+    func startCallMonitoring() {
+        guard callActivityTask == nil, let callActivity else { return }
+        callActivityTask = Task { [weak self] in
+            do {
+                for try await event in callActivity.events {
+                    guard !Task.isCancelled, let self else { return }
+                    handleCallActivity(event)
+                }
+            } catch is CancellationError {
+                return
+            } catch {
+                guard let self else { return }
+                let detail = (error as? BackendAnalysisError)?.detail
+                    ?? "iOS menghentikan pemantauan panggilan."
+                profile.present(Toast(
+                    id: "call-monitor-error",
+                    title: "Pemantauan panggilan berhenti",
+                    body: detail,
+                    level: .review,
+                    alertID: nil
+                ))
+            }
+        }
+    }
+
+    private func handleCallActivity(_ event: CallActivityEvent) {
+        switch event.state {
+        case .connected:
+            guard state.onboardingComplete, state.persona.isParent else { return }
+            guard state.session?.id != event.id else { return }
+            guard isProtectionConfigured() else {
+                profile.present(Toast(
+                    id: "protection-not-configured-\(event.id)",
+                    title: "Perlindungan panggilan belum siap",
+                    body: "Hubungkan akun orang tua ke server Rambu sebelum menerima panggilan.",
+                    level: .review,
+                    alertID: nil
+                ))
+                return
+            }
+            call.startDetectedCall(id: event.id, startedAt: event.at)
+            profile.present(Toast(
+                id: "call-detected-\(event.id)",
+                title: "Panggilan terdeteksi",
+                body: "Menunggu Rambu Puck. Audio belum dianalisis.",
+                level: .safe,
+                alertID: nil
+            ))
+        case .ended:
+            guard state.session?.id == event.id else { return }
+            call.end()
         }
     }
 

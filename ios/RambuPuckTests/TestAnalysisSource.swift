@@ -47,3 +47,83 @@ final class CountingFailureSource: CallAnalysisSource, @unchecked Sendable {
         }
     }
 }
+
+final class FakeCallActivityMonitor: CallActivityMonitoring, @unchecked Sendable {
+    let events: AsyncThrowingStream<CallActivityEvent, Error>
+    private let continuation: AsyncThrowingStream<CallActivityEvent, Error>.Continuation
+
+    init() {
+        var captured: AsyncThrowingStream<CallActivityEvent, Error>.Continuation!
+        events = AsyncThrowingStream { captured = $0 }
+        continuation = captured
+    }
+
+    func send(_ event: CallActivityEvent) {
+        continuation.yield(event)
+    }
+
+    func fail(_ error: Error) {
+        continuation.finish(throwing: error)
+    }
+}
+
+final class RecordingCallAnalysisSession: CallAnalysisSession, @unchecked Sendable {
+    let assessments: AsyncThrowingStream<ChunkAssessment, Error>
+    let statusUpdates: AsyncStream<ProtectionStatus>
+
+    private let assessmentContinuation: AsyncThrowingStream<ChunkAssessment, Error>.Continuation
+    private let statusContinuation: AsyncStream<ProtectionStatus>.Continuation
+    private let lock = NSLock()
+    private var finished = false
+    private var cancelled = false
+
+    init() {
+        var capturedAssessment: AsyncThrowingStream<ChunkAssessment, Error>.Continuation!
+        assessments = AsyncThrowingStream { capturedAssessment = $0 }
+        assessmentContinuation = capturedAssessment
+        var capturedStatus: AsyncStream<ProtectionStatus>.Continuation!
+        statusUpdates = AsyncStream { capturedStatus = $0 }
+        statusContinuation = capturedStatus
+    }
+
+    var didFinish: Bool { lock.withLock { finished } }
+    var didCancel: Bool { lock.withLock { cancelled } }
+
+    func send(_ status: ProtectionStatus) {
+        statusContinuation.yield(status)
+    }
+
+    func finish() async throws {
+        lock.withLock { finished = true }
+        assessmentContinuation.finish()
+        statusContinuation.finish()
+    }
+
+    func cancel() async throws {
+        lock.withLock { cancelled = true }
+        assessmentContinuation.finish()
+        statusContinuation.finish()
+    }
+}
+
+final class RecordingCallAnalysisSource: CallAnalysisSource, @unchecked Sendable {
+    private let lock = NSLock()
+    private var contexts: [CallContext] = []
+    private var sessions: [RecordingCallAnalysisSession] = []
+
+    var startCount: Int { lock.withLock { contexts.count } }
+    var latestSession: RecordingCallAnalysisSession? { lock.withLock { sessions.last } }
+
+    func start(for call: CallContext) async throws -> any CallAnalysisSession {
+        let session = RecordingCallAnalysisSession()
+        lock.withLock {
+            contexts.append(call)
+            sessions.append(session)
+        }
+        return session
+    }
+
+    func assessments(for call: CallContext) -> AsyncThrowingStream<ChunkAssessment, Error> {
+        AsyncThrowingStream { $0.finish() }
+    }
+}
