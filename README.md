@@ -37,8 +37,9 @@ Open <http://127.0.0.1:7861>, then:
 
 1. Import `langflow/flows/Rambu.json`.
 2. Open the **Language Model** component and add the OpenRouter API key.
-3. Save the flow. Its endpoint name is `rambu`.
-4. Create a Langflow API key under **Settings → API Keys**.
+3. Save the flow and run it once in the Playground. Its endpoint name is `rambu`.
+4. Select your profile icon, then open **Settings → Langflow API Keys → Add New**.
+5. Create a new key and copy its complete value immediately. The key must come from this running Langflow instance.
 
 Keep this terminal running.
 
@@ -57,6 +58,8 @@ LANGFLOW_URL=http://127.0.0.1:7861
 LANGFLOW_FLOW_ID=rambu
 LANGFLOW_API_KEY=<your-langflow-api-key>
 ```
+
+`LANGFLOW_API_KEY` must contain the Langflow key created in step 1. Do not put the OpenRouter or IBM API key in this field.
 
 Start the backend in a new terminal:
 
@@ -122,6 +125,7 @@ Allow microphone access when macOS asks. Keep this terminal running.
 | Problem | Fix |
 |---|---|
 | `langflow: command not found` | Activate `langflow/.venv`. If it does not exist, run all first-time commands in step 1. |
+| Backend exits with Langflow `HTTP 403` | Create a new key in the currently running Langflow under **Settings → Langflow API Keys**, copy it completely into `backend/.env`, then restart the backend. |
 | Backend exits during startup | Check that Langflow is running, all three `LANGFLOW_*` values are correct, and the imported flow works in Langflow. |
 | iPhone cannot reach the backend | Use the Mac's Wi-Fi IP, not `127.0.0.1`, and keep both devices on the same network. |
 | Call is detected but remains waiting for the puck | Keep the puck `listen` command running and pair it with the current family invitation code. |
