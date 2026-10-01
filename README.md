@@ -35,11 +35,8 @@ langflow run --host 127.0.0.1 --port 7861
 
 Open <http://127.0.0.1:7861>, then:
 
-1. Import `langflow/flows/Rambu.json`.
-2. Open the **Language Model** component and add the OpenRouter API key.
-3. Save the flow and run it once in the Playground. Its endpoint name is `rambu`.
-4. Select your profile icon, then open **Settings → Langflow API Keys → Add New**.
-5. Create a new key and copy its complete value immediately. The key must come from this running Langflow instance.
+1. Select your profile icon, then open **Settings → Langflow API Keys → Add New**.
+2. Create a new key and copy its complete value immediately. The key must come from this running Langflow instance.
 
 Keep this terminal running.
 
@@ -57,14 +54,23 @@ Set these values in `backend/.env`:
 LANGFLOW_URL=http://127.0.0.1:7861
 LANGFLOW_FLOW_ID=rambu
 LANGFLOW_API_KEY=<your-langflow-api-key>
+OPENROUTER_API_KEY=<your-openrouter-api-key>
 ```
 
-`LANGFLOW_API_KEY` must contain the Langflow key created in step 1. Do not put the OpenRouter or IBM API key in this field.
+Use the Langflow key created in step 1 for `LANGFLOW_API_KEY`. The OpenRouter key goes only in `OPENROUTER_API_KEY`; the IBM key is not used by the runtime.
 
-Start the backend in a new terminal:
+Install the backend dependencies, then automatically import, configure, and verify the Rambu flow:
 
 ```bash
 uv sync --project backend
+uv run --project backend python langflow/scripts/bootstrap_flow.py
+```
+
+The command must print `Langflow flow ready: Rambu`. It injects the OpenRouter key only into the upload sent to your local Langflow; it does not write the key into `Rambu.json`.
+
+Start the backend:
+
+```bash
 uv run --project backend uvicorn rambu_api.app:app \
   --host 0.0.0.0 --port 8000 --env-file backend/.env
 ```
@@ -125,7 +131,9 @@ Allow microphone access when macOS asks. Keep this terminal running.
 | Problem | Fix |
 |---|---|
 | `langflow: command not found` | Activate `langflow/.venv`. If it does not exist, run all first-time commands in step 1. |
+| Bootstrap reports a missing variable | Set all four required values shown in step 2, then run the bootstrap command again. |
 | Backend exits with Langflow `HTTP 403` | Create a new key in the currently running Langflow under **Settings → Langflow API Keys**, copy it completely into `backend/.env`, then restart the backend. |
+| Backend exits with Langflow `HTTP 404` | Run the bootstrap command in step 2 and confirm that it prints `Langflow flow ready: Rambu`. |
 | Backend exits during startup | Check that Langflow is running, all three `LANGFLOW_*` values are correct, and the imported flow works in Langflow. |
 | iPhone cannot reach the backend | Use the Mac's Wi-Fi IP, not `127.0.0.1`, and keep both devices on the same network. |
 | Call is detected but remains waiting for the puck | Keep the puck `listen` command running and pair it with the current family invitation code. |
