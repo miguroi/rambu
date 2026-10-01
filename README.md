@@ -20,7 +20,16 @@ Run every command below from the repository root unless stated otherwise.
 ### 1. Start Langflow
 
 ```bash
-uv tool install 'langflow>=1.12,<1.13'
+uv venv langflow/.venv --python 3.12
+source langflow/.venv/bin/activate
+uv pip install 'langflow>=1.12,<1.13'
+langflow run --host 127.0.0.1 --port 7861
+```
+
+For later runs, activate the existing environment and start Langflow:
+
+```bash
+source langflow/.venv/bin/activate
 langflow run --host 127.0.0.1 --port 7861
 ```
 
@@ -112,7 +121,7 @@ Allow microphone access when macOS asks. Keep this terminal running.
 
 | Problem | Fix |
 |---|---|
-| `Failed to spawn: langflow` | Run the install command in step 1, then use `langflow run`, not `uv run langflow run`. |
+| `langflow: command not found` | Activate `langflow/.venv`. If it does not exist, run all first-time commands in step 1. |
 | Backend exits during startup | Check that Langflow is running, all three `LANGFLOW_*` values are correct, and the imported flow works in Langflow. |
 | iPhone cannot reach the backend | Use the Mac's Wi-Fi IP, not `127.0.0.1`, and keep both devices on the same network. |
 | Call is detected but remains waiting for the puck | Keep the puck `listen` command running and pair it with the current family invitation code. |
