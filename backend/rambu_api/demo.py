@@ -9,13 +9,15 @@ from typing import Protocol
 from uuid import uuid4
 
 from .audio import split_wav, validate_wav_bytes
-from .models import ChunkAnalysisResponse, DemoSnapshot, RiskAssessment, RiskLevel
+from .langflow_client import LangflowFailure
+from .models import ChunkAnalysisResponse, DemoFailure, DemoSnapshot, RiskAssessment, RiskLevel
 from .redaction import mask_sensitive_text
 from .transcription import Transcriber
 
 
 class Analyzer(Protocol):
     def analyze(self, transcript: str, final: bool) -> RiskAssessment: ...
+    def probe(self) -> None: ...
 
 
 @dataclass(frozen=True)
@@ -31,9 +33,10 @@ def default_scenarios(root: Path | None = None) -> dict[str, Scenario]:
     project_root = root or Path(__file__).resolve().parents[2]
     audio = project_root / "samples" / "audio"
     scenarios = [
-        Scenario("normal", "Konfirmasi pengiriman", "Percakapan layanan yang wajar", audio / "normal.wav", "low"),
-        Scenario("unclear", "Permintaan mendesak", "Permintaan mendesak tanpa bukti penipuan", audio / "unclear.wav", "needs_review"),
-        Scenario("otp", "Permintaan OTP", "Permintaan kode rahasia dan pembayaran", audio / "otp.wav", "high_risk"),
+        Scenario("bank-otp", "Telepon dari Bank Nusantara", "Permintaan kode OTP", audio / "bank-otp.wav", "high_risk"),
+        Scenario("kecelakaan-transfer", "Kabar kecelakaan keluarga", "Permintaan transfer mendesak", audio / "kecelakaan-transfer.wav", "high_risk"),
+        Scenario("kurir-aplikasi", "Kurir meminta pasang aplikasi", "Tautan dan aplikasi berbahaya", audio / "kurir-aplikasi.wav", "high_risk"),
+        Scenario("tetangga-aman", "Telepon dari Bu Wati", "Informasi jadwal arisan", audio / "tetangga-aman.wav", "low"),
     ]
     return {scenario.slug: scenario for scenario in scenarios}
 
@@ -99,6 +102,9 @@ class DemoService:
                 event.set()
         self._executor.shutdown(wait=True, cancel_futures=True)
 
+    def probe(self) -> None:
+        self.analyzer.probe()
+
     def analyze_chunk(self, audio: bytes, final: bool) -> ChunkAnalysisResponse:
         validate_wav_bytes(audio)
         text = self._transcribe_temporary_chunk(audio)
@@ -118,20 +124,45 @@ class DemoService:
                 if self._is_cancelled(session_id):
                     return
 
-                text = self._transcribe_temporary_chunk(chunk)
+                try:
+                    text = self._transcribe_temporary_chunk(chunk)
+                except Exception:
+                    self._fail(
+                        session_id,
+                        DemoFailure(
+                            code="transcription_failed",
+                            message="Transkripsi audio gagal.",
+                        ),
+                    )
+                    return
                 if text:
                     transcript_parts.append(text)
                 masked_transcript = mask_sensitive_text(" ".join(transcript_parts))
                 assessment = None
-                analysis_error = None
                 if masked_transcript:
                     try:
                         assessment = self.analyzer.analyze(
                             masked_transcript,
                             final=index == len(chunks),
                         )
-                    except Exception as error:  # The transcript must continue if Langflow fails.
-                        analysis_error = f"Analisis Langflow gagal: {error}"
+                    except LangflowFailure as error:
+                        self._fail(
+                            session_id,
+                            DemoFailure(
+                                code=f"analysis_{error.code}",
+                                message=error.safe_message,
+                            ),
+                        )
+                        return
+                    except Exception:
+                        self._fail(
+                            session_id,
+                            DemoFailure(
+                                code="analysis_failed",
+                                message="Analisis panggilan gagal.",
+                            ),
+                        )
+                        return
 
                 with self._lock:
                     current = self._sessions.get(session_id)
@@ -141,18 +172,27 @@ class DemoService:
                     current.progress = round(index / len(chunks) * 100)
                     if assessment is not None:
                         current.assessment = assessment
-                    current.error = analysis_error
 
             with self._lock:
                 current = self._sessions.get(session_id)
                 if current is not None:
                     current.status = "completed"
-        except Exception as error:
-            with self._lock:
-                current = self._sessions.get(session_id)
-                if current is not None:
-                    current.status = "error"
-                    current.error = str(error)
+        except Exception:
+            self._fail(
+                session_id,
+                DemoFailure(
+                    code="processing_failed",
+                    message="Pemrosesan audio gagal.",
+                ),
+            )
+
+    def _fail(self, session_id: str, failure: DemoFailure) -> None:
+        with self._lock:
+            current = self._sessions.get(session_id)
+            if current is not None:
+                current.status = "error"
+                current.assessment = None
+                current.error = failure
 
     def _is_cancelled(self, session_id: str) -> bool:
         with self._lock:

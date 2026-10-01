@@ -44,6 +44,13 @@ def validate_assessment(assessment: RiskAssessment, transcript: str) -> RiskAsse
     return assessment
 
 
+class DemoFailure(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    code: str
+    message: str
+
+
 class DemoSnapshot(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -54,7 +61,7 @@ class DemoSnapshot(BaseModel):
     progress: int
     transcript: str
     assessment: RiskAssessment | None
-    error: str | None
+    error: DemoFailure | None
 
 
 class ChunkAnalysisResponse(BaseModel):

@@ -1,7 +1,9 @@
 import time
 from pathlib import Path
 
-from rambu_api.demo import DemoService, Scenario
+from rambu_api.audio import split_wav
+from rambu_api.demo import DemoService, Scenario, default_scenarios
+from rambu_api.langflow_client import LangflowFailure
 from rambu_api.models import RiskAssessment
 
 from .conftest import write_test_wav
@@ -37,6 +39,43 @@ class EvidenceAnalyzer:
             explanation="Ada permintaan kode rahasia." if high else "Belum cukup bukti.",
             recommended_action="Akhiri panggilan." if high else "Tetap waspada.",
         )
+
+    def probe(self) -> None:
+        pass
+
+
+class ThrowingTranscriber:
+    def __init__(self) -> None:
+        self.paths: list[Path] = []
+
+    def transcribe(self, path: Path) -> str:
+        self.paths.append(path)
+        raise RuntimeError("raw whisper diagnostic")
+
+
+class FailingSecondAnalyzer:
+    def __init__(self) -> None:
+        self.calls = 0
+        self.probes = 0
+
+    def analyze(self, transcript: str, final: bool) -> RiskAssessment:
+        self.calls += 1
+        if self.calls == 2:
+            raise LangflowFailure(
+                "timeout",
+                "Langflow tidak merespons sebelum batas waktu.",
+                "http://langflow/api/v1/run/rambu",
+            )
+        return RiskAssessment(
+            risk_level="needs_review",
+            signals=["impersonation"],
+            evidence=[{"quote": transcript, "signals": ["impersonation"]}],
+            explanation="Identitas penelepon belum terverifikasi.",
+            recommended_action="Jangan berikan data.",
+        )
+
+    def probe(self) -> None:
+        self.probes += 1
 
 
 def wait_for_completion(service: DemoService, session_id: str):
@@ -103,3 +142,75 @@ def test_live_chunk_is_masked_before_analysis_and_temporary_audio_is_removed(tmp
     assert analyzer.inputs == [result.transcript]
     assert all(not path.exists() for path in transcriber.paths)
     service.close()
+
+
+def test_transcription_failure_is_terminal_sanitized_and_removes_temporary_file(tmp_path) -> None:
+    audio = write_test_wav(tmp_path / "call.wav", seconds=6)
+    transcriber = ThrowingTranscriber()
+    analyzer = EvidenceAnalyzer()
+    service = DemoService(
+        {"bank-otp": Scenario("bank-otp", "OTP", "", audio, "high_risk")},
+        transcriber,
+        analyzer,
+        delay_seconds=0,
+    )
+
+    failed = wait_for_completion(service, service.start("bank-otp").id)
+
+    assert failed.status == "error"
+    assert failed.progress == 0
+    assert failed.assessment is None
+    assert failed.error is not None
+    assert failed.error.code == "transcription_failed"
+    assert "raw whisper diagnostic" not in failed.error.message
+    assert analyzer.inputs == []
+    assert all(not path.exists() for path in transcriber.paths)
+    service.close()
+
+
+def test_analysis_failure_clears_stale_assessment_and_stops_later_chunks(tmp_path) -> None:
+    audio = write_test_wav(tmp_path / "call.wav", seconds=11)
+    transcriber = SequentialTranscriber(["Saya dari bank.", "Segera jawab.", "Berikan kode."])
+    analyzer = FailingSecondAnalyzer()
+    service = DemoService(
+        {"bank-otp": Scenario("bank-otp", "OTP", "", audio, "high_risk")},
+        transcriber,
+        analyzer,
+        delay_seconds=0,
+    )
+
+    failed = wait_for_completion(service, service.start("bank-otp").id)
+
+    assert failed.status == "error"
+    assert failed.progress == 33
+    assert failed.assessment is None
+    assert failed.error is not None
+    assert failed.error.code == "analysis_timeout"
+    assert failed.error.message == "Langflow tidak merespons sebelum batas waktu."
+    assert analyzer.calls == 2
+    assert len(transcriber.paths) == 2
+    assert all(not path.exists() for path in transcriber.paths)
+    service.close()
+
+
+def test_probe_is_forwarded_to_the_analyzer() -> None:
+    analyzer = FailingSecondAnalyzer()
+    service = DemoService({}, SequentialTranscriber([]), analyzer, delay_seconds=0)
+
+    service.probe()
+
+    assert analyzer.probes == 1
+    service.close()
+
+
+def test_default_scenarios_match_ios_and_all_audio_exists() -> None:
+    scenarios = default_scenarios()
+
+    assert set(scenarios) == {
+        "bank-otp",
+        "kecelakaan-transfer",
+        "kurir-aplikasi",
+        "tetangga-aman",
+    }
+    assert all(value.audio_path.exists() for value in scenarios.values())
+    assert all(list(split_wav(value.audio_path, chunk_seconds=5)) for value in scenarios.values())

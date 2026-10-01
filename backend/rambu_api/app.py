@@ -9,11 +9,12 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 from .demo import DemoService, default_scenarios, delay_from_environment
-from .langflow_client import LangflowClient
+from .langflow_client import LangflowClient, LangflowFailure
 from .apns import PushSender, push_sender_from_environment
 from .models import (
     CreateFamilyRequest,
     ChunkAnalysisResponse,
+    DemoFailure,
     DemoSnapshot,
     JoinFamilyRequest,
     PilotAlert,
@@ -134,8 +135,18 @@ def create_app(
             return demo_service.analyze_chunk(audio, final=x_rambu_final == "true")
         except ValueError as error:
             raise HTTPException(status_code=422, detail=str(error)) from error
+        except LangflowFailure as error:
+            failure = DemoFailure(
+                code=f"analysis_{error.code}",
+                message=error.safe_message,
+            )
+            raise HTTPException(status_code=503, detail=failure.model_dump()) from error
         except Exception as error:
-            raise HTTPException(status_code=503, detail=f"Analisis audio gagal: {error}") from error
+            failure = DemoFailure(
+                code="transcription_failed",
+                message="Transkripsi audio gagal.",
+            )
+            raise HTTPException(status_code=503, detail=failure.model_dump()) from error
 
     def token_from(authorization: str | None) -> str:
         if not authorization or not authorization.startswith("Bearer "):
