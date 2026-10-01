@@ -14,8 +14,10 @@ final class CallViewModel {
     @ObservationIgnored private let escalationDelay: Duration
     @ObservationIgnored private let speakerCheckDelay: Duration
     @ObservationIgnored private var listenTask: Task<Void, Never>?
+    @ObservationIgnored private var statusTask: Task<Void, Never>?
     @ObservationIgnored private var escalationTask: Task<Void, Never>?
     @ObservationIgnored private var speakerTask: Task<Void, Never>?
+    @ObservationIgnored private var analysisSession: (any CallAnalysisSession)?
 
     init(
         state: AppState,
@@ -44,6 +46,7 @@ final class CallViewModel {
     @discardableResult
     func start(_ template: Scenario) -> Task<Void, Never> {
         let scenario = template.personalized(parentName: state.parent.name)
+        cancelRemoteSession()
         cancelTasks()
         if let old = state.session {
             liveActivity.end(state: activityState(for: old), dismissImmediately: true)
@@ -72,6 +75,28 @@ final class CallViewModel {
     }
 
     @discardableResult
+    func startDetectedCall(id: UUID, startedAt: Date) -> Task<Void, Never> {
+        if state.session?.id == id, let listenTask { return listenTask }
+        cancelRemoteSession()
+        cancelTasks()
+        if let old = state.session {
+            liveActivity.end(state: activityState(for: old), dismissImmediately: true)
+        }
+        let session = CallSession(
+            id: id,
+            metadata: .production,
+            startedAt: startedAt,
+            protectionStatus: .waitingForPuck
+        )
+        state.session = session
+        state.persona = .ratna
+        state.toast = nil
+        state.showCallStatus = false
+        state.isCallScreenPresented = false
+        return beginListening(session)
+    }
+
+    @discardableResult
     func turnOnSpeaker() -> Task<Void, Never>? {
         guard var current = state.session, !current.speakerOn else { return nil }
         current.speakerOn = true
@@ -83,20 +108,31 @@ final class CallViewModel {
 
     func end() {
         guard let session = state.session else { return }
+        let remote = analysisSession
+        analysisSession = nil
         cancelTasks()
+        if let remote {
+            Task { [weak self] in
+                do {
+                    try await remote.finish()
+                } catch {
+                    self?.presentLifecycleFailure(error, sessionID: session.id)
+                }
+            }
+        }
 
         let alert = state.alerts.first { $0.id == session.id }
         if session.level > .safe, session.analysisFailure == nil {
             state.history.insert(CallRecord(
                 id: session.id,
-                title: session.scenario.title,
-                callerDetail: session.scenario.callerDetail,
-                channel: session.scenario.channel,
+                title: session.metadata.title,
+                callerDetail: session.metadata.callerDetail,
+                channel: session.metadata.channel,
                 startedAt: session.startedAt,
                 duration: Date.now.timeIntervalSince(session.startedAt),
                 level: session.level,
                 signals: session.signals,
-                evidence: session.heard.filter { $0.speaker == .caller && $0.isFlagged },
+                evidence: session.heard.filter { $0.speaker != .parent && $0.isFlagged },
                 decision: alert?.decision
             ), at: 0)
         }
@@ -117,7 +153,18 @@ final class CallViewModel {
     }
 
     func cancel() {
+        let remote = analysisSession
+        analysisSession = nil
         cancelTasks()
+        if let remote {
+            Task { [weak self] in
+                do {
+                    try await remote.cancel()
+                } catch {
+                    self?.presentLifecycleFailure(error, sessionID: self?.state.session?.id)
+                }
+            }
+        }
         if let session = state.session {
             liveActivity.end(state: activityState(for: session), dismissImmediately: true)
         }
@@ -126,11 +173,25 @@ final class CallViewModel {
 
     private func cancelTasks() {
         listenTask?.cancel()
+        statusTask?.cancel()
         escalationTask?.cancel()
         speakerTask?.cancel()
         listenTask = nil
+        statusTask = nil
         escalationTask = nil
         speakerTask = nil
+    }
+
+    private func cancelRemoteSession() {
+        guard let remote = analysisSession else { return }
+        analysisSession = nil
+        Task { [weak self] in
+            do {
+                try await remote.cancel()
+            } catch {
+                self?.presentLifecycleFailure(error, sessionID: self?.state.session?.id)
+            }
+        }
     }
 
     private func remindSpeaker(for id: UUID) {
@@ -147,17 +208,28 @@ final class CallViewModel {
     private func beginListening(_ session: CallSession) -> Task<Void, Never> {
         let context = CallContext(
             id: session.id,
-            channel: session.scenario.channel,
-            startedAt: session.startedAt,
-            scenario: session.scenario
+            metadata: session.metadata,
+            startedAt: session.startedAt
         )
-        let stream = analysis.assessments(for: context)
         let sessionID = session.id
         let task = Task { [weak self] in
             do {
-                for try await chunk in stream {
+                guard let self else { return }
+                let remote = try await analysis.start(for: context)
+                guard state.session?.id == sessionID, !Task.isCancelled else {
+                    try await remote.cancel()
+                    return
+                }
+                analysisSession = remote
+                statusTask = Task { [weak self] in
+                    for await status in remote.statusUpdates {
+                        guard !Task.isCancelled else { return }
+                        self?.updateProtectionStatus(status, sessionID: sessionID)
+                    }
+                }
+                for try await chunk in remote.assessments {
                     guard !Task.isCancelled else { return }
-                    self?.ingest(chunk, sessionID: sessionID)
+                    ingest(chunk, sessionID: sessionID)
                 }
             } catch is CancellationError {
                 return
@@ -167,6 +239,24 @@ final class CallViewModel {
         }
         listenTask = task
         return task
+    }
+
+    private func updateProtectionStatus(_ status: ProtectionStatus, sessionID: UUID) {
+        guard var current = state.session, current.id == sessionID else { return }
+        current.protectionStatus = status
+        current.isListening = status == .listening || status == .waitingForPuck
+        state.session = current
+    }
+
+    private func presentLifecycleFailure(_ error: Error, sessionID: UUID?) {
+        let failure = analysisFailure(from: error)
+        profile.present(Toast(
+            id: "analysis-lifecycle-\(sessionID?.uuidString ?? UUID().uuidString)",
+            title: failure.title,
+            body: failure.detail,
+            level: .review,
+            alertID: nil
+        ))
     }
 
     private func handleAnalysisFailure(_ error: Error, sessionID: UUID) {
@@ -230,7 +320,7 @@ final class CallViewModel {
             liveActivity.start(
                 attributes: RambuCallAttributes(
                     parentName: state.parent.name,
-                    channel: current.scenario.channel.short,
+                    channel: current.metadata.channel.short,
                     startedAt: current.startedAt
                 ),
                 state: activityState(for: current)
@@ -287,13 +377,13 @@ final class CallViewModel {
         return FamilyAlert(
             id: session.id,
             parent: state.parent,
-            callerDetail: session.scenario.callerDetail,
-            channel: session.scenario.channel,
+            callerDetail: session.metadata.callerDetail,
+            channel: session.metadata.channel,
             startedAt: session.startedAt,
             raisedAt: existing?.raisedAt ?? .now,
             level: session.level,
             signals: session.signals,
-            evidence: session.heard.filter { $0.speaker == .caller && $0.isFlagged },
+            evidence: session.heard.filter { $0.speaker != .parent && $0.isFlagged },
             recipients: state.guardians,
             decision: existing?.decision
         )

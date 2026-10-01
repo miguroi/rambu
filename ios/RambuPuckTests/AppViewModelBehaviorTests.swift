@@ -105,7 +105,7 @@ struct AppViewModelBehaviorTests {
     @Test("Tingkat risiko tidak pernah turun selama satu panggilan")
     func levelIsMonotonic() async throws {
         for scenario in Scenario.all {
-            let context = CallContext(id: UUID(), channel: scenario.channel, startedAt: .now, scenario: scenario)
+            let context = CallContext(id: UUID(), metadata: scenario.callMetadata, startedAt: .now)
             var levels: [RiskLevel] = []
             for try await chunk in ScenarioAnalysis(interval: .zero, initialDelay: .zero).assessments(for: context) {
                 levels.append(chunk.level)

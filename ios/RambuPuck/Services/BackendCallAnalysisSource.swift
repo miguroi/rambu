@@ -66,11 +66,11 @@ struct BackendCallAnalysisSource: CallAnalysisSource {
                 var remoteID: String?
                 do {
                     let baseURL = try validatedBaseURL()
-                    guard let scenario = call.scenario else {
+                    guard let scenarioID = call.metadata.fixtureID else {
                         throw BackendAnalysisError.invalidScenario
                     }
 
-                    var request = URLRequest(url: endpoint(baseURL, "api", "demo", scenario.id))
+                    var request = URLRequest(url: endpoint(baseURL, "api", "demo", scenarioID))
                     request.httpMethod = "POST"
                     request.setValue("application/json", forHTTPHeaderField: "Accept")
                     var snapshot = try await snapshot(for: request)

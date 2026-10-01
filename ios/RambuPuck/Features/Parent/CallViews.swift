@@ -10,7 +10,7 @@ struct CallScreen: View {
     var body: some View {
         if let session = model.session {
             ZStack(alignment: .top) {
-                CallBackdrop(channel: session.scenario.channel)
+                CallBackdrop(channel: session.metadata.channel)
 
                 VStack(spacing: 0) {
                     HStack {
@@ -77,13 +77,13 @@ private struct CallerHeader: View {
                 .frame(width: 84, height: 84)
                 .background(.white.opacity(0.14), in: .circle)
                 .accessibilityHidden(true)
-            Text(session.scenario.callerName)
+            Text(session.metadata.callerName)
                 .font(.system(.title, design: .default, weight: .semibold))
                 .foregroundStyle(.white)
-            Text(session.scenario.callerDetail)
+            Text(session.metadata.callerDetail)
                 .font(.subheadline).foregroundStyle(.white.opacity(0.7))
             HStack(spacing: 6) {
-                if session.scenario.channel == .whatsapp {
+                if session.metadata.channel == .whatsapp {
                     Image(systemName: "lock.fill").font(.caption)
                     Text("WhatsApp")
                     Text("·")

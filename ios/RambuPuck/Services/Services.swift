@@ -10,10 +10,8 @@ import Foundation
 /// Identitas panggilan yang sedang diperiksa.
 struct CallContext: Sendable {
     let id: UUID
-    let channel: CallChannel
+    let metadata: CallMetadata
     let startedAt: Date
-    /// Hanya dipakai simulasi. Implementasi nyata membaca audio dari puck.
-    let scenario: Scenario?
 }
 
 /// Hasil pemeriksaan satu potongan audio ±5 detik dari puck.
@@ -27,8 +25,30 @@ struct ChunkAssessment: Sendable {
 
 /// Sumber penilaian risiko selama panggilan.
 /// Nyata: audio puck → POST /transcribe (backend/) → analisis Langflow → ChunkAssessment.
+protocol CallAnalysisSession: Sendable {
+    var assessments: AsyncThrowingStream<ChunkAssessment, Error> { get }
+    var statusUpdates: AsyncStream<ProtectionStatus> { get }
+    func finish() async throws
+    func cancel() async throws
+}
+
 protocol CallAnalysisSource: Sendable {
     func assessments(for call: CallContext) -> AsyncThrowingStream<ChunkAssessment, Error>
+    func start(for call: CallContext) async throws -> any CallAnalysisSession
+}
+
+extension CallAnalysisSource {
+    func start(for call: CallContext) async throws -> any CallAnalysisSession {
+        LegacyCallAnalysisSession(assessments: assessments(for: call))
+    }
+}
+
+private struct LegacyCallAnalysisSession: CallAnalysisSession {
+    let assessments: AsyncThrowingStream<ChunkAssessment, Error>
+    let statusUpdates = AsyncStream<ProtectionStatus> { $0.finish() }
+
+    func finish() async throws {}
+    func cancel() async throws {}
 }
 
 /// Saluran keluarga: menyebarkan peringatan ke semua pengawas dan menerima keputusan.

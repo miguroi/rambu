@@ -28,6 +28,7 @@
 		42963518B268AEDBABD2A1EE /* PilotViewModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6197E4EFD4B427356A6CE399 /* PilotViewModelTests.swift */; };
 		42EEBDACAEE13DBA46D625DF /* CallViewModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 19268EF8B8AAFE56CB1E4B54 /* CallViewModelTests.swift */; };
 		45C9A03B93E57C41EDFA5EBE /* AppViewModelBehaviorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4D879990D8387FAFDCB177D8 /* AppViewModelBehaviorTests.swift */; };
+		4A6CAC85000D33B3040DCA1C /* ProtectionCallAnalysisSourceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 81308CA0D02E32C5314DDCB6 /* ProtectionCallAnalysisSourceTests.swift */; };
 		4F2CE3D39E879D0D3F80A419 /* PushBanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = D833E86F0B75BF98C91CBD79 /* PushBanner.swift */; };
 		530E3EC772DB134178BF0434 /* CallStatusView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 584D32FC4D1AFB6F3AECB476 /* CallStatusView.swift */; };
 		53A61864CD45F6EC363E3256 /* TestAnalysisSource.swift in Sources */ = {isa = PBXBuildFile; fileRef = EC31B86E067B078F143C7FD3 /* TestAnalysisSource.swift */; };
@@ -42,6 +43,7 @@
 		9DB85FF86E6CB4DCCCC67546 /* CallViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = B7CDCE6EF63A63200F0B2FB4 /* CallViews.swift */; };
 		9E601B732444FC070AADBBF5 /* DemoViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA7D248A50874923A5773C5B /* DemoViews.swift */; };
 		A055F61D163E18E07EFCA272 /* AppViewModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC43E5662306F9A230B35F44 /* AppViewModelTests.swift */; };
+		A609E87338AA956CFD2AAFA6 /* ProtectionCallAnalysisSource.swift in Sources */ = {isa = PBXBuildFile; fileRef = B19434D0FC3F3A794D68ECE3 /* ProtectionCallAnalysisSource.swift */; };
 		A72CE525687EC9A818338C8D /* AppState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 82C73D063566713B5B01E271 /* AppState.swift */; };
 		A82B691C1E05301974E55EFB /* RambuPuckWidgets.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 3369AA22200DFAE58EEC64F7 /* RambuPuckWidgets.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		AB064A7B899635EFC2A78A56 /* RambuAppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9789563CF2D3BDD9236709F8 /* RambuAppDelegate.swift */; };
@@ -64,6 +66,7 @@
 		F317B9D4BC4504C2FA1A3E59 /* Mascot.swift in Sources */ = {isa = PBXBuildFile; fileRef = EE025E71C0581D1C225224FF /* Mascot.swift */; };
 		F477BD0767AE1AEF493D3715 /* BackendCallAnalysisSourceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B24C0B3C24156603217FFBC /* BackendCallAnalysisSourceTests.swift */; };
 		FBA42146BA73716407796465 /* ProfileViewModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9578F342B212F7B8FFA9063E /* ProfileViewModelTests.swift */; };
+		FE82FF0316C631667D189263 /* ProtectionAPI.swift in Sources */ = {isa = PBXBuildFile; fileRef = C06AADA1C8FEBDC150FF2568 /* ProtectionAPI.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -124,6 +127,7 @@
 		74E49F75DDD008C191F3D55C /* ParentOnboarding.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ParentOnboarding.swift; sourceTree = "<group>"; };
 		7681D4A10BB857FF3E4ADBA5 /* RambuPuck.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = RambuPuck.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		7DF654B5013C8198BA3E1168 /* RambuPuckWidgets.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RambuPuckWidgets.swift; sourceTree = "<group>"; };
+		81308CA0D02E32C5314DDCB6 /* ProtectionCallAnalysisSourceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProtectionCallAnalysisSourceTests.swift; sourceTree = "<group>"; };
 		8195A3D0B1997A51D52BA2CB /* FamilyViewModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FamilyViewModelTests.swift; sourceTree = "<group>"; };
 		82C73D063566713B5B01E271 /* AppState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppState.swift; sourceTree = "<group>"; };
 		8B2564934BEF6BC601943839 /* HistoryViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HistoryViews.swift; sourceTree = "<group>"; };
@@ -143,7 +147,9 @@
 		AC43E5662306F9A230B35F44 /* AppViewModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppViewModelTests.swift; sourceTree = "<group>"; };
 		ACFB9A3C7BA8CA1AC410629D /* FamilyViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FamilyViewModel.swift; sourceTree = "<group>"; };
 		B0EDEA58598842DF751D6C31 /* Domain.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Domain.swift; sourceTree = "<group>"; };
+		B19434D0FC3F3A794D68ECE3 /* ProtectionCallAnalysisSource.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProtectionCallAnalysisSource.swift; sourceTree = "<group>"; };
 		B7CDCE6EF63A63200F0B2FB4 /* CallViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CallViews.swift; sourceTree = "<group>"; };
+		C06AADA1C8FEBDC150FF2568 /* ProtectionAPI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProtectionAPI.swift; sourceTree = "<group>"; };
 		D1895E2E895061C7B2730C99 /* PracticeViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PracticeViews.swift; sourceTree = "<group>"; };
 		D39AD886929DFFEA490113F8 /* ParentViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ParentViews.swift; sourceTree = "<group>"; };
 		D62C810E7F0730096E994073 /* AlertDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AlertDetailView.swift; sourceTree = "<group>"; };
@@ -232,6 +238,7 @@
 				4F665B1BCE82624C765384CC /* OnboardingViewModelTests.swift */,
 				6197E4EFD4B427356A6CE399 /* PilotViewModelTests.swift */,
 				9578F342B212F7B8FFA9063E /* ProfileViewModelTests.swift */,
+				81308CA0D02E32C5314DDCB6 /* ProtectionCallAnalysisSourceTests.swift */,
 				EC31B86E067B078F143C7FD3 /* TestAnalysisSource.swift */,
 			);
 			path = RambuPuckTests;
@@ -243,6 +250,8 @@
 				6B2D615BE25C1586D42EDBAA /* BackendCallAnalysisSource.swift */,
 				D73DC190DB3434F464EE9AFE /* Notifier.swift */,
 				8FC844283417105CF59A4E3B /* PilotAPI.swift */,
+				C06AADA1C8FEBDC150FF2568 /* ProtectionAPI.swift */,
+				B19434D0FC3F3A794D68ECE3 /* ProtectionCallAnalysisSource.swift */,
 				254EDE427C00FEAD4D6BF286 /* Services.swift */,
 				70D9204B33F579FD3246A5D6 /* Support.swift */,
 			);
@@ -483,6 +492,7 @@
 				99CA9228671A3B125C47FD17 /* OnboardingViewModelTests.swift in Sources */,
 				42963518B268AEDBABD2A1EE /* PilotViewModelTests.swift in Sources */,
 				FBA42146BA73716407796465 /* ProfileViewModelTests.swift in Sources */,
+				4A6CAC85000D33B3040DCA1C /* ProtectionCallAnalysisSourceTests.swift in Sources */,
 				53A61864CD45F6EC363E3256 /* TestAnalysisSource.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -521,6 +531,8 @@
 				CF6C1FEC36A542614581EFBF /* PracticeViews.swift in Sources */,
 				BE03E3A3EAF7111DAF59B3E5 /* ProfileViewModel.swift in Sources */,
 				E934C20C3166E000727A4A3E /* ProfileViews.swift in Sources */,
+				FE82FF0316C631667D189263 /* ProtectionAPI.swift in Sources */,
+				A609E87338AA956CFD2AAFA6 /* ProtectionCallAnalysisSource.swift in Sources */,
 				CABA98908EE7419C4B419AF4 /* PuckViews.swift in Sources */,
 				4F2CE3D39E879D0D3F80A419 /* PushBanner.swift in Sources */,
 				3BA1CE3A7FC7411FC0D4B796 /* QuickCallGuardians.swift in Sources */,

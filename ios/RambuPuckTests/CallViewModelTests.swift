@@ -121,4 +121,18 @@ struct CallViewModelTests {
         #expect(source.invocationCount == 2)
         #expect(second.analysisFailure?.code == "transport")
     }
+
+    @Test("Detected production call starts neutral protection without fake call UI")
+    func detectedCallDoesNotPresentScenarioScreen() async throws {
+        let (state, call) = makeCall()
+        let callID = UUID()
+
+        await call.startDetectedCall(id: callID, startedAt: .now).value
+
+        let session = try #require(state.session)
+        #expect(session.id == callID)
+        #expect(session.metadata.fixtureID == nil)
+        #expect(session.metadata.callerDetail == "Nomor tidak tersedia")
+        #expect(state.isCallScreenPresented == false)
+    }
 }

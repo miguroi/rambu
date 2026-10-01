@@ -6,7 +6,7 @@ struct ScenarioAnalysis: CallAnalysisSource {
     var initialDelay: Duration = .milliseconds(1200)
 
     func assessments(for call: CallContext) -> AsyncThrowingStream<ChunkAssessment, Error> {
-        let lines = call.scenario?.lines ?? []
+        let lines = Scenario.all.first { $0.id == call.metadata.fixtureID }?.lines ?? []
         let interval = interval
         let initialDelay = initialDelay
         return AsyncThrowingStream { continuation in

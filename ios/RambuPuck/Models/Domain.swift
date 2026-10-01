@@ -106,9 +106,15 @@ enum CallChannel: String, Codable, Hashable, Sendable {
 }
 
 enum Speaker: String, Codable, Hashable, Sendable {
-    case caller, parent
+    case caller, parent, unknown
 
-    var label: String { self == .caller ? "Penelepon" : "Orang tua" }
+    var label: String {
+        switch self {
+        case .caller: "Penelepon"
+        case .parent: "Orang tua"
+        case .unknown: "Pembicara"
+        }
+    }
 }
 
 /// Satu potongan transkrip ±5 detik.
@@ -133,6 +139,39 @@ struct Scenario: Identifiable, Hashable, Sendable {
     let lines: [TranscriptLine]
 
     var expectedLevel: RiskLevel { RiskRules.level(for: Set(lines.flatMap(\.signals))) }
+
+    var callMetadata: CallMetadata {
+        CallMetadata(
+            title: title,
+            callerName: callerName,
+            callerDetail: callerDetail,
+            channel: channel,
+            fixtureID: id
+        )
+    }
+}
+
+struct CallMetadata: Hashable, Sendable {
+    let title: String
+    let callerName: String
+    let callerDetail: String
+    let channel: CallChannel
+    let fixtureID: String?
+
+    static let production = CallMetadata(
+        title: "Panggilan terdeteksi",
+        callerName: "Panggilan aktif",
+        callerDetail: "Nomor tidak tersedia",
+        channel: .cellular,
+        fixtureID: nil
+    )
+}
+
+enum ProtectionStatus: String, Equatable, Sendable {
+    case waitingForPuck
+    case listening
+    case completed
+    case noSpeech
 }
 
 struct AnalysisFailure: Equatable, Sendable {
@@ -145,17 +184,39 @@ struct AnalysisFailure: Equatable, Sendable {
 /// Panggilan yang sedang berlangsung di HP orang tua.
 struct CallSession: Identifiable, Sendable {
     let id: UUID
-    let scenario: Scenario
+    let metadata: CallMetadata
     let startedAt: Date
     var heard: [TranscriptLine] = []
     var signals: [SignalKind] = []
     var level: RiskLevel = .safe
     var isListening = true
     var analysisFailure: AnalysisFailure?
+    var protectionStatus: ProtectionStatus
     /// Puck hanya mendengar dari loudspeaker. Kalau mati, Rambu belum bisa menilai apa pun.
     var speakerOn = true
 
     var headline: String { signals.last?.parentHeadline ?? "Rambu mendengarkan" }
+
+    init(
+        id: UUID,
+        metadata: CallMetadata,
+        startedAt: Date,
+        protectionStatus: ProtectionStatus = .waitingForPuck
+    ) {
+        self.id = id
+        self.metadata = metadata
+        self.startedAt = startedAt
+        self.protectionStatus = protectionStatus
+    }
+
+    init(id: UUID, scenario: Scenario, startedAt: Date) {
+        self.init(
+            id: id,
+            metadata: scenario.callMetadata,
+            startedAt: startedAt,
+            protectionStatus: .listening
+        )
+    }
 }
 
 // MARK: - Keputusan keluarga

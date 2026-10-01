@@ -42,7 +42,11 @@ private actor StubHTTPSession: HTTPDataSession {
 @MainActor
 struct BackendCallAnalysisSourceTests {
     private func context(scenario: Scenario? = .bankOTP) -> CallContext {
-        CallContext(id: UUID(), channel: .cellular, startedAt: .now, scenario: scenario)
+        CallContext(
+            id: UUID(),
+            metadata: scenario?.callMetadata ?? .production,
+            startedAt: .now
+        )
     }
 
     private func data(
