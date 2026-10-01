@@ -46,3 +46,12 @@ def test_exported_prompt_matches_source() -> None:
     embedded = prompt_node["data"]["node"]["template"]["template"]["value"]
 
     assert embedded == PROMPT_PATH.read_text()
+
+
+def test_exported_prompt_preserves_literal_json_schema() -> None:
+    flow = json.loads(FLOW_PATH.read_text())
+    prompt_node = next(node for node in flow["data"]["nodes"] if node["id"].startswith("Prompt-"))
+    template = prompt_node["data"]["node"]["template"]
+
+    assert '"risk_level"' in template["template"]["value"]
+    assert template["use_double_brackets"]["value"] is True

@@ -34,6 +34,7 @@ def build() -> Path:
     prompt["data"]["node"]["template"]["template"]["value"] = (
         ROOT / "langflow" / "prompts" / "system_prompt.md"
     ).read_text()
+    prompt["data"]["node"]["template"]["use_double_brackets"]["value"] = True
 
     template = model["data"]["node"]["template"]
     template["model"]["value"] = [
