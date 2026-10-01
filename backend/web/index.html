@@ -26,14 +26,15 @@
         <div class="control-row">
           <label for="scenario-select">Skenario</label>
           <select id="scenario-select">
-            <option value="normal" data-audio="/samples/normal.wav">Konfirmasi pengiriman — risiko rendah</option>
-            <option value="unclear" data-audio="/samples/unclear.wav">Permintaan mendesak — perlu ditinjau</option>
-            <option value="otp" data-audio="/samples/otp.wav">Permintaan OTP — risiko tinggi</option>
+            <option value="bank-otp" data-audio="/samples/bank-otp.wav">Mengaku petugas bank — risiko tinggi</option>
+            <option value="kecelakaan-transfer" data-audio="/samples/kecelakaan-transfer.wav">Kabar kecelakaan — risiko tinggi</option>
+            <option value="kurir-aplikasi" data-audio="/samples/kurir-aplikasi.wav">Kurir meminta aplikasi — risiko tinggi</option>
+            <option value="tetangga-aman" data-audio="/samples/tetangga-aman.wav">Telepon tetangga — risiko rendah</option>
           </select>
           <button id="start-button" class="primary-button" type="button">Mulai</button>
           <button id="reset-button" class="secondary-button" type="button" disabled>Atur ulang</button>
         </div>
-        <audio id="call-audio" controls preload="metadata" src="/samples/normal.wav">
+        <audio id="call-audio" controls preload="metadata" src="/samples/bank-otp.wav">
           Peramban Anda tidak mendukung pemutar audio.
         </audio>
       </section>

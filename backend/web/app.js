@@ -101,8 +101,17 @@ function renderSnapshot(snapshot) {
     transcriptText.hidden = false;
     transcriptText.textContent = snapshot.transcript;
   }
+  if (snapshot.status === "error") {
+    window.clearTimeout(pollTimer);
+    pollTimer = null;
+    audio.pause();
+    clearAssessment();
+    showError(snapshot.error?.message || "Analisis panggilan gagal.");
+    statusLabel.textContent = "Gagal";
+    statusLabel.dataset.state = "error";
+    return;
+  }
   if (snapshot.assessment) renderAssessment(snapshot.assessment);
-  if (snapshot.error) showError(snapshot.error);
 }
 
 function renderAssessment(assessment) {
@@ -111,12 +120,12 @@ function renderAssessment(assessment) {
   riskBanner.dataset.risk = assessment.risk_level;
   riskValue.textContent = riskLabels[assessment.risk_level] || assessment.risk_level;
   indicatorList.replaceChildren();
-  const indicators = assessment.indicators.length
-    ? assessment.indicators
-    : ["Tidak ada indikator kuat yang terdeteksi."];
-  indicators.forEach((indicator) => {
+  const evidence = assessment.evidence.length
+    ? assessment.evidence.map((item) => item.quote)
+    : ["Tidak ada bukti risiko yang terdeteksi."];
+  evidence.forEach((quote) => {
     const item = document.createElement("li");
-    item.textContent = indicator;
+    item.textContent = quote;
     indicatorList.appendChild(item);
   });
   explanationText.textContent = assessment.explanation;
@@ -134,6 +143,10 @@ function clearResult() {
   transcriptEmpty.hidden = false;
   errorMessage.hidden = true;
   errorMessage.textContent = "";
+  clearAssessment();
+}
+
+function clearAssessment() {
   riskBanner.dataset.risk = "pending";
   riskBanner.hidden = true;
   assessmentEmpty.hidden = false;
