@@ -6,11 +6,22 @@ from urllib.request import Request, urlopen
 
 from pydantic import ValidationError
 
-from .models import RiskAssessment
+from .models import RiskAssessment, validate_assessment
 
 
-class LangflowResponseError(RuntimeError):
-    pass
+class LangflowFailure(RuntimeError):
+    def __init__(
+        self,
+        code: str,
+        safe_message: str,
+        endpoint: str,
+        http_status: int | None = None,
+    ) -> None:
+        super().__init__(safe_message)
+        self.code = code
+        self.safe_message = safe_message
+        self.endpoint = endpoint
+        self.http_status = http_status
 
 
 Transport = Callable[[str, dict[str, str], dict[str, Any]], dict[str, Any]]
@@ -47,9 +58,44 @@ class LangflowClient:
         url = f"{self.base_url}/api/v1/run/{self.flow_id}"
         try:
             response = self.transport(url, headers, payload)
-        except (HTTPError, URLError, TimeoutError, OSError) as error:
-            raise LangflowResponseError(f"Langflow tidak tersedia: {error}") from error
-        return _extract_assessment(response)
+        except HTTPError as error:
+            raise LangflowFailure(
+                "http",
+                f"Langflow menolak permintaan (HTTP {error.code}).",
+                url,
+                error.code,
+            ) from error
+        except TimeoutError as error:
+            raise LangflowFailure(
+                "timeout",
+                "Langflow tidak merespons sebelum batas waktu.",
+                url,
+            ) from error
+        except (URLError, OSError) as error:
+            raise LangflowFailure(
+                "connection",
+                "Langflow tidak dapat dihubungi.",
+                url,
+            ) from error
+        except json.JSONDecodeError as error:
+            raise LangflowFailure(
+                "invalid_json",
+                "Langflow mengembalikan JSON yang tidak valid.",
+                url,
+            ) from error
+        return _extract_assessment(response, transcript, url)
+
+    def probe(self) -> None:
+        assessment = self.analyze(
+            "Halo Bu, arisan dimulai pukul empat sore.",
+            final=True,
+        )
+        if assessment.risk_level != "low":
+            raise LangflowFailure(
+                "invalid_response",
+                "Probe Langflow tidak menghasilkan risiko rendah yang valid.",
+                f"{self.base_url}/api/v1/run/{self.flow_id}",
+            )
 
     @staticmethod
     def _http_transport(
@@ -67,34 +113,35 @@ class LangflowClient:
             return json.loads(response.read().decode("utf-8"))
 
 
-def _extract_assessment(value: Any) -> RiskAssessment:
-    candidates: list[Any] = []
-
-    def visit(item: Any) -> None:
-        if isinstance(item, dict):
-            if set(item) == {
-                "risk_level",
-                "indicators",
-                "explanation",
-                "recommended_action",
-            }:
-                candidates.append(item)
-            for nested in item.values():
-                visit(nested)
-        elif isinstance(item, list):
-            for nested in item:
-                visit(nested)
-        elif isinstance(item, str):
-            try:
-                parsed = json.loads(item)
-            except json.JSONDecodeError:
-                return
-            visit(parsed)
-
-    visit(value)
-    for candidate in candidates:
-        try:
-            return RiskAssessment.model_validate(candidate)
-        except ValidationError:
-            continue
-    raise LangflowResponseError("Respons Langflow tidak sesuai kontrak Rambu.")
+def _extract_assessment(value: Any, transcript: str, endpoint: str) -> RiskAssessment:
+    try:
+        text = value["outputs"][0]["outputs"][0]["results"]["message"]["text"]
+    except (KeyError, IndexError, TypeError) as error:
+        raise LangflowFailure(
+            "invalid_response",
+            "Respons Langflow tidak sesuai kontrak Rambu.",
+            endpoint,
+        ) from error
+    if not isinstance(text, str):
+        raise LangflowFailure(
+            "invalid_response",
+            "Respons Langflow tidak sesuai kontrak Rambu.",
+            endpoint,
+        )
+    try:
+        candidate = json.loads(text)
+    except json.JSONDecodeError as error:
+        raise LangflowFailure(
+            "invalid_json",
+            "Langflow mengembalikan JSON yang tidak valid.",
+            endpoint,
+        ) from error
+    try:
+        assessment = RiskAssessment.model_validate(candidate)
+        return validate_assessment(assessment, transcript)
+    except (ValidationError, ValueError) as error:
+        raise LangflowFailure(
+            "invalid_response",
+            "Respons Langflow tidak sesuai kontrak Rambu.",
+            endpoint,
+        ) from error

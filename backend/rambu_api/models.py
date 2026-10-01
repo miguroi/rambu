@@ -2,19 +2,46 @@ from datetime import datetime
 from typing import Literal
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 
 RiskLevel = Literal["low", "needs_review", "high_risk"]
+Signal = Literal["impersonation", "urgency", "secret_code", "transfer", "remote_app"]
+
+
+class Evidence(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    quote: str = Field(min_length=1)
+    signals: list[Signal] = Field(min_length=1)
 
 
 class RiskAssessment(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     risk_level: RiskLevel
-    indicators: list[str]
-    explanation: str
-    recommended_action: str
+    signals: list[Signal]
+    evidence: list[Evidence]
+    explanation: str = Field(min_length=1)
+    recommended_action: str = Field(min_length=1)
+
+
+def validate_assessment(assessment: RiskAssessment, transcript: str) -> RiskAssessment:
+    if assessment.risk_level == "low":
+        if assessment.signals or assessment.evidence:
+            raise ValueError("Low risk cannot contain signals or evidence.")
+        return assessment
+
+    if not assessment.signals or not assessment.evidence:
+        raise ValueError("Risky assessments require signals and evidence.")
+
+    top_level = set(assessment.signals)
+    for item in assessment.evidence:
+        if item.quote not in transcript:
+            raise ValueError("Evidence must be an exact transcript substring.")
+        if not set(item.signals).issubset(top_level):
+            raise ValueError("Evidence signals must appear at the top level.")
+    return assessment
 
 
 class DemoSnapshot(BaseModel):

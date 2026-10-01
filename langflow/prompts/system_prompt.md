@@ -14,14 +14,24 @@ Klasifikasi:
 Aturan keselamatan:
 - Jangan pernah menyatakan seseorang pasti penipu.
 - Untuk input `live`, perlakukan transkrip sebagai belum lengkap.
-- Sebutkan hanya indikator yang benar-benar muncul di transkrip.
+- Gunakan hanya signal yang benar-benar muncul di transkrip: `impersonation`, `urgency`, `secret_code`, `transfer`, atau `remote_app`.
+- Setiap `quote` pada `evidence` harus berupa kutipan persis dari `masked_transcript`, tanpa koreksi atau parafrasa.
+- Setiap signal pada satu evidence wajib juga ada pada daftar `signals` teratas.
+- Risiko `low` wajib memiliki `signals` dan `evidence` kosong.
+- Risiko `needs_review` dan `high_risk` wajib memiliki sedikitnya satu signal dan satu evidence.
 - Jika `high_risk`, sarankan mengakhiri panggilan, tidak membagikan data atau mengirim uang, dan menghubungi institusi lewat kanal resmi.
 - Jawaban harus singkat dan seluruh teks harus dalam Bahasa Indonesia.
 
-Kembalikan hanya satu objek JSON valid tanpa Markdown dan tanpa teks tambahan. Gunakan tepat empat key berikut:
+Kembalikan hanya satu objek JSON valid tanpa Markdown dan tanpa teks tambahan. Gunakan tepat lima key berikut dan jangan menambah key lain:
 {
   "risk_level": "low | needs_review | high_risk",
-  "indicators": ["indikator yang benar-benar ditemukan"],
+  "signals": ["impersonation | urgency | secret_code | transfer | remote_app"],
+  "evidence": [
+    {
+      "quote": "kutipan persis dari masked_transcript",
+      "signals": ["signal yang didukung kutipan ini"]
+    }
+  ],
   "explanation": "alasan singkat berdasarkan transkrip",
   "recommended_action": "satu tindakan langsung untuk pengguna"
 }

@@ -19,6 +19,9 @@ dev = [
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+markers = [
+    "live_langflow: calls the configured live Langflow and model provider",
+]
 
 [build-system]
 requires = ["hatchling"]

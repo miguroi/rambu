@@ -11,12 +11,17 @@ def test_prompt_defines_risk_contract_and_safety_rules() -> None:
     prompt = PROMPT_PATH.read_text()
 
     assert "risk_level" in prompt
-    assert "indicators" in prompt
+    assert "signals" in prompt
+    assert "evidence" in prompt
     assert "explanation" in prompt
     assert "recommended_action" in prompt
     assert "low | needs_review | high_risk" in prompt
+    assert "impersonation | urgency | secret_code | transfer | remote_app" in prompt
+    assert "kutipan persis" in prompt
+    assert "low` wajib memiliki `signals` dan `evidence` kosong" in prompt
     assert "Jangan pernah menyatakan seseorang pasti penipu" in prompt
     assert "JSON" in prompt
+    assert "indicators" not in prompt
 
 
 def test_exported_flow_is_minimal_and_secret_free() -> None:

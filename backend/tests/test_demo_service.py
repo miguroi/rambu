@@ -27,7 +27,13 @@ class EvidenceAnalyzer:
         high = "OTP [KODE]" in transcript
         return RiskAssessment(
             risk_level="high_risk" if high else "needs_review",
-            indicators=["Meminta OTP [KODE]"] if high else [],
+            signals=["secret_code"] if high else ["impersonation"],
+            evidence=[
+                {
+                    "quote": "OTP [KODE]" if high else transcript,
+                    "signals": ["secret_code"] if high else ["impersonation"],
+                }
+            ],
             explanation="Ada permintaan kode rahasia." if high else "Belum cukup bukti.",
             recommended_action="Akhiri panggilan." if high else "Tetap waspada.",
         )

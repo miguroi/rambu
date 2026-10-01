@@ -51,7 +51,8 @@ class StubDemoService:
             transcript="Berikan OTP [KODE].",
             assessment=RiskAssessment(
                 risk_level="high_risk",
-                indicators=["Meminta OTP [KODE]"],
+                signals=["secret_code"],
+                evidence=[{"quote": "OTP [KODE]", "signals": ["secret_code"]}],
                 explanation="Meminta kode rahasia.",
                 recommended_action="Tutup telepon.",
             ),
