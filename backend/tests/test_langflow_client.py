@@ -66,6 +66,32 @@ def test_parses_only_the_exact_langflow_envelope_and_sends_authentication() -> N
 
 
 @pytest.mark.parametrize(
+    ("final", "expected_mode"),
+    [(False, "live"), (True, "final")],
+)
+def test_analysis_mode_matches_final_flag(final, expected_mode) -> None:
+    calls: list[dict[str, object]] = []
+
+    def transport(_url, _headers, payload):
+        calls.append(payload)
+        return envelope(assessment(risk_level="low", signals=[], evidence=[]))
+
+    client = LangflowClient(
+        "http://localhost:7861",
+        "rambu",
+        "secret",
+        transport=transport,
+    )
+
+    client.analyze("Halo.", final=final)
+
+    assert json.loads(calls[0]["input_value"]) == {
+        "masked_transcript": "Halo.",
+        "analysis_mode": expected_mode,
+    }
+
+
+@pytest.mark.parametrize(
     "invalid",
     [
         {**assessment(), "invented_caller": "Bank palsu"},

@@ -1,0 +1,28 @@
+# Secrets and local configuration
+.env
+.env.*
+*.key
+*.pem
+*.p8
+*.p12
+
+# Version control and local tooling
+.git/
+.superpowers/
+.pytest_cache/
+**/__pycache__/
+
+# Generated dependencies and runtime data
+backend/.venv/
+backend/data/
+node_modules/
+DerivedData/
+.build/
+ios/build/
+**/xcuserdata/
+*.xcresult
+
+# Generated media and local evidence
+*.wav
+!samples/audio/*.wav
+docs/
