@@ -1,4 +1,6 @@
 import hashlib
+import json
+import logging
 import tempfile
 from pathlib import Path
 from typing import Protocol
@@ -18,6 +20,7 @@ from .transcription import Transcriber
 
 
 MAXIMUM_CHUNK_BYTES = 1_048_576
+TRANSCRIPTION_LOGGER = logging.getLogger("uvicorn.error.rambu.transcription")
 
 
 class Analyzer(Protocol):
@@ -94,6 +97,18 @@ class ProtectionService:
                 ),
             )
             raise
+
+        masked_chunk = mask_sensitive_text(text)
+        logged_text = (
+            json.dumps(masked_chunk, ensure_ascii=False) if masked_chunk else "<empty>"
+        )
+        TRANSCRIPTION_LOGGER.info(
+            "transcription session=%s sequence=%d final=%s text=%s",
+            session_id,
+            sequence,
+            final,
+            logged_text,
+        )
 
         combined = " ".join(
             part for part in (current.masked_transcript.strip(), text) if part

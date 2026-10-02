@@ -1,3 +1,4 @@
+import logging
 from collections.abc import Iterator
 from pathlib import Path
 
@@ -79,6 +80,22 @@ def test_chunks_are_masked_persisted_and_analyzed_cumulatively() -> None:
     persisted = store.get_protection_session(parent_token, session_id)
     assert "081234567890" not in persisted.masked_transcript
     assert "123456" not in persisted.masked_transcript
+
+
+def test_successful_transcription_logs_masked_chunk(caplog: pytest.LogCaptureFixture) -> None:
+    service, _, _, puck_token, session_id = configured_service(
+        ["Nomor saya 081234567890."]
+    )
+    caplog.set_level(logging.INFO, logger="uvicorn.error.rambu.transcription")
+
+    service.process_chunk(puck_token, session_id, 0, False, wav_bytes())
+
+    messages = [record.getMessage() for record in caplog.records]
+    assert messages == [
+        f'transcription session={session_id} sequence=0 final=False '
+        'text="Nomor saya [NOMOR_TELEPON]."'
+    ]
+    assert "081234567890" not in caplog.text
 
 
 def test_empty_interim_chunk_advances_without_fabricating_assessment() -> None:
