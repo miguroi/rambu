@@ -112,6 +112,11 @@ final class AppViewModel {
                 ))
             }
         }
+        callActivity.refresh()
+    }
+
+    func refreshCallMonitoring() {
+        callActivity?.refresh()
     }
 
     private func handleCallActivity(_ event: CallActivityEvent) {

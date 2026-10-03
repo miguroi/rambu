@@ -3,7 +3,7 @@ from urllib.error import HTTPError, URLError
 
 import pytest
 
-from rambu_api.langflow_client import LangflowClient
+from rambu_api.langflow_client import LangflowClient, LangflowFailure
 
 
 def assessment(
@@ -63,6 +63,48 @@ def test_parses_only_the_exact_langflow_envelope_and_sends_authentication() -> N
     assert calls[0][0] == "http://localhost:7861/api/v1/run/rambu"
     assert calls[0][1]["x-api-key"] == "secret"
     assert "Tolong berikan OTP [KODE] sekarang." in calls[0][2]["input_value"]
+
+
+def test_canonicalizes_case_only_evidence_to_the_exact_transcript_text() -> None:
+    transcript = "Saya perlu 4 juta sekarang untuk menebus mobil."
+    response = assessment(
+        signals=["transfer", "urgency"],
+        evidence=[
+            {
+                "quote": "saya perlu 4 juta sekarang untuk menebus mobil.",
+                "signals": ["transfer", "urgency"],
+            }
+        ],
+    )
+    client = LangflowClient(
+        "http://localhost:7861",
+        "rambu",
+        "secret",
+        transport=lambda *_: envelope(response),
+    )
+
+    result = client.analyze(transcript, final=True)
+
+    assert result.evidence[0].quote == transcript
+
+
+def test_prunes_top_level_signals_that_have_no_supporting_evidence() -> None:
+    response = assessment(
+        signals=["secret_code", "transfer"],
+        evidence=[
+            {"quote": "berikan OTP [KODE]", "signals": ["secret_code"]}
+        ],
+    )
+    client = LangflowClient(
+        "http://localhost:7861",
+        "rambu",
+        "secret",
+        transport=lambda *_: envelope(response),
+    )
+
+    result = client.analyze("Tolong berikan OTP [KODE] sekarang.", final=True)
+
+    assert result.signals == ["secret_code"]
 
 
 @pytest.mark.parametrize(
@@ -126,6 +168,43 @@ def test_rejects_schema_and_semantic_contract_violations(invalid) -> None:
     )
 
     assert getattr(error, "code") == "invalid_response"
+
+
+def test_reports_a_sanitized_semantic_validation_reason() -> None:
+    client = LangflowClient(
+        "http://localhost:7861",
+        "rambu",
+        "secret",
+        transport=lambda *_: envelope(
+            assessment(
+                signals=["secret_code"],
+                evidence=[
+                    {
+                        "quote": "kutipan yang tidak ada",
+                        "signals": ["secret_code"],
+                    }
+                ],
+            )
+        ),
+    )
+
+    error = failure_from(
+        lambda: client.analyze("Tolong berikan OTP [KODE] sekarang.", final=True)
+    )
+
+    assert getattr(error, "reason") == "evidence_not_in_transcript"
+    assert "kutipan yang tidak ada" not in str(error)
+
+
+def test_discards_an_unrecognized_failure_reason() -> None:
+    error = LangflowFailure(
+        "invalid_response",
+        "Pesan aman.",
+        "http://langflow/api/v1/run/rambu",
+        reason="raw transcript sk-or-provider-secret provider-body",
+    )
+
+    assert error.reason is None
 
 
 def test_rejects_assessment_outside_the_documented_envelope() -> None:

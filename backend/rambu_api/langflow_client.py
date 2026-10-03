@@ -9,6 +9,23 @@ from pydantic import ValidationError
 from .models import RiskAssessment, validate_assessment
 
 
+SAFE_FAILURE_REASONS = frozenset(
+    {
+        "response_not_json",
+        "probe_not_low",
+        "response_envelope",
+        "message_not_text",
+        "message_not_json",
+        "schema_validation",
+        "low_risk_has_findings",
+        "risky_assessment_missing_findings",
+        "evidence_not_in_transcript",
+        "evidence_signal_missing_from_summary",
+        "semantic_validation",
+    }
+)
+
+
 class LangflowFailure(RuntimeError):
     def __init__(
         self,
@@ -16,12 +33,14 @@ class LangflowFailure(RuntimeError):
         safe_message: str,
         endpoint: str,
         http_status: int | None = None,
+        reason: str | None = None,
     ) -> None:
         super().__init__(safe_message)
         self.code = code
         self.safe_message = safe_message
         self.endpoint = endpoint
         self.http_status = http_status
+        self.reason = reason if reason in SAFE_FAILURE_REASONS else None
 
 
 Transport = Callable[[str, dict[str, str], dict[str, Any]], dict[str, Any]]
@@ -81,6 +100,7 @@ class LangflowClient:
                 "invalid_json",
                 "Langflow mengembalikan JSON yang tidak valid.",
                 url,
+                reason="response_not_json",
             ) from error
         return _extract_assessment(response, transcript, url)
 
@@ -94,6 +114,7 @@ class LangflowClient:
                 "invalid_response",
                 "Probe Langflow tidak menghasilkan risiko rendah yang valid.",
                 f"{self.base_url}/api/v1/run/{self.flow_id}",
+                reason="probe_not_low",
             )
 
     @staticmethod
@@ -120,12 +141,14 @@ def _extract_assessment(value: Any, transcript: str, endpoint: str) -> RiskAsses
             "invalid_response",
             "Respons Langflow tidak sesuai kontrak Rambu.",
             endpoint,
+            reason="response_envelope",
         ) from error
     if not isinstance(text, str):
         raise LangflowFailure(
             "invalid_response",
             "Respons Langflow tidak sesuai kontrak Rambu.",
             endpoint,
+            reason="message_not_text",
         )
     try:
         candidate = json.loads(text)
@@ -134,13 +157,28 @@ def _extract_assessment(value: Any, transcript: str, endpoint: str) -> RiskAsses
             "invalid_json",
             "Langflow mengembalikan JSON yang tidak valid.",
             endpoint,
+            reason="message_not_json",
         ) from error
     try:
         assessment = RiskAssessment.model_validate(candidate)
         return validate_assessment(assessment, transcript)
-    except (ValidationError, ValueError) as error:
+    except ValidationError as error:
         raise LangflowFailure(
             "invalid_response",
             "Respons Langflow tidak sesuai kontrak Rambu.",
             endpoint,
+            reason="schema_validation",
+        ) from error
+    except ValueError as error:
+        reasons = {
+            "Low risk cannot contain signals or evidence.": "low_risk_has_findings",
+            "Risky assessments require signals and evidence.": "risky_assessment_missing_findings",
+            "Evidence must be an exact transcript substring.": "evidence_not_in_transcript",
+            "Evidence signals must appear at the top level.": "evidence_signal_missing_from_summary",
+        }
+        raise LangflowFailure(
+            "invalid_response",
+            "Respons Langflow tidak sesuai kontrak Rambu.",
+            endpoint,
+            reason=reasons.get(str(error), "semantic_validation"),
         ) from error

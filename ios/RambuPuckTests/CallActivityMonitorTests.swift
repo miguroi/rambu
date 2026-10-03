@@ -39,4 +39,19 @@ struct CallActivityMonitorTests {
             CallActivityEvent(id: id, state: .ended, at: date),
         ])
     }
+
+    @Test("Foreground reconciliation ends a connected call missing from CallKit")
+    func reconciliationEndsMissingCallOnce() {
+        let id = UUID()
+        let connectedAt = Date(timeIntervalSince1970: 400)
+        let reconciledAt = Date(timeIntervalSince1970: 500)
+        var reducer = CallActivityReducer()
+
+        _ = reducer.reduce(id: id, hasConnected: true, hasEnded: false, at: connectedAt)
+
+        #expect(reducer.reconcile(activeCallIDs: [], at: reconciledAt) == [
+            CallActivityEvent(id: id, state: .ended, at: reconciledAt),
+        ])
+        #expect(reducer.reconcile(activeCallIDs: [], at: reconciledAt).isEmpty)
+    }
 }

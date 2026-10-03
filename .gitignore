@@ -45,6 +45,9 @@ android/local.properties
 # Audio fixtures and generated recordings
 *.wav
 !samples/audio/*.wav
+test-results/manual-call-tests/
+test-results/audio-dataset/
+test-results/automated-call-tests/
 
 # Documentation (temporarily excluded)
 docs/

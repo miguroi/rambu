@@ -1,10 +1,60 @@
 import Foundation
 
+public enum PuckRiskLevel: String, Decodable, Sendable {
+    case low
+    case needsReview = "needs_review"
+    case highRisk = "high_risk"
+}
+
+public struct PuckAssessment: Decodable, Sendable {
+    public let riskLevel: PuckRiskLevel
+    public let recommendedAction: String
+
+    public init(riskLevel: PuckRiskLevel, recommendedAction: String) {
+        self.riskLevel = riskLevel
+        self.recommendedAction = recommendedAction
+    }
+}
+
 public struct ProtectionSession: Decodable, Sendable {
     public let id: String
     public let status: String
     public let endRequested: Bool
     public let nextSequence: Int
+    public let assessment: PuckAssessment?
+}
+
+public struct PuckWarning: Equatable, Sendable {
+    public let title: String
+    public let recommendedAction: String
+}
+
+public struct PuckWarningGate: Sendable {
+    private var highestSeverity = 0
+
+    public init() {}
+
+    public mutating func warning(for assessment: PuckAssessment?) -> PuckWarning? {
+        guard let assessment else { return nil }
+        let severity: Int
+        let title: String
+        switch assessment.riskLevel {
+        case .low:
+            return nil
+        case .needsReview:
+            severity = 1
+            title = "Telepon mencurigakan"
+        case .highRisk:
+            severity = 2
+            title = "Terindikasi penipuan"
+        }
+        guard severity > highestSeverity else { return nil }
+        highestSeverity = severity
+        return PuckWarning(
+            title: title,
+            recommendedAction: assessment.recommendedAction
+        )
+    }
 }
 
 public struct PairedPuck: Decodable, Sendable {
@@ -12,6 +62,13 @@ public struct PairedPuck: Decodable, Sendable {
     public let familyID: String
     public let displayName: String
     public let accessToken: String
+
+    private enum CodingKeys: String, CodingKey {
+        case puckID = "puckId"
+        case familyID = "familyId"
+        case displayName
+        case accessToken
+    }
 }
 
 public enum PuckAPIError: Error, CustomStringConvertible, Equatable {

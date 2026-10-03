@@ -47,6 +47,7 @@ struct RootView: View {
         .onChange(of: scenePhase) { _, phase in
             // Izin notifikasi bisa berubah dari Pengaturan iOS.
             if phase == .active {
+                app.refreshCallMonitoring()
                 Task {
                     await app.profile.refreshNotificationStatus()
                     await app.pilot.refresh()

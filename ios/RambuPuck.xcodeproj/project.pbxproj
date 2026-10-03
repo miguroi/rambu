@@ -111,7 +111,7 @@
 		254EDE427C00FEAD4D6BF286 /* Services.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Services.swift; sourceTree = "<group>"; };
 		27DD64632E430D53BEB6E067 /* PilotViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PilotViewModel.swift; sourceTree = "<group>"; };
 		32F4C5FA7C6526844B3B2720 /* OnboardingFlow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingFlow.swift; sourceTree = "<group>"; };
-		3369AA22200DFAE58EEC64F7 /* RambuPuckWidgets.appex */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = "wrapper.app-extension"; path = RambuPuckWidgets.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		3369AA22200DFAE58EEC64F7 /* RambuPuckWidgets.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = RambuPuckWidgets.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		35A862CC980FBCAD88AEECD0 /* GuardianViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GuardianViews.swift; sourceTree = "<group>"; };
 		44B119C571D30C720BA86A00 /* IssueViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IssueViews.swift; sourceTree = "<group>"; };
 		4D879990D8387FAFDCB177D8 /* AppViewModelBehaviorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppViewModelBehaviorTests.swift; sourceTree = "<group>"; };
@@ -129,7 +129,7 @@
 		70D9204B33F579FD3246A5D6 /* Support.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Support.swift; sourceTree = "<group>"; };
 		7426E7D445E89B52B25F83A1 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		74E49F75DDD008C191F3D55C /* ParentOnboarding.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ParentOnboarding.swift; sourceTree = "<group>"; };
-		7681D4A10BB857FF3E4ADBA5 /* RambuPuck.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = RambuPuck.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		7681D4A10BB857FF3E4ADBA5 /* RambuPuck.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = RambuPuck.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		7DF654B5013C8198BA3E1168 /* RambuPuckWidgets.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RambuPuckWidgets.swift; sourceTree = "<group>"; };
 		81308CA0D02E32C5314DDCB6 /* ProtectionCallAnalysisSourceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProtectionCallAnalysisSourceTests.swift; sourceTree = "<group>"; };
 		8195A3D0B1997A51D52BA2CB /* FamilyViewModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FamilyViewModelTests.swift; sourceTree = "<group>"; };
@@ -139,7 +139,7 @@
 		91303AE084840EFA17FD0C49 /* CallActivityAttributes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CallActivityAttributes.swift; sourceTree = "<group>"; };
 		9578F342B212F7B8FFA9063E /* ProfileViewModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileViewModelTests.swift; sourceTree = "<group>"; };
 		9789563CF2D3BDD9236709F8 /* RambuAppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RambuAppDelegate.swift; sourceTree = "<group>"; };
-		98AE9A49065B9F67BA237979 /* RambuPuckTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = RambuPuckTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		98AE9A49065B9F67BA237979 /* RambuPuckTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = RambuPuckTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		9AA31C9DFE6C9E5A28F74189 /* RambuPuck.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = RambuPuck.entitlements; sourceTree = "<group>"; };
 		9B24C0B3C24156603217FFBC /* BackendCallAnalysisSourceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BackendCallAnalysisSourceTests.swift; sourceTree = "<group>"; };
 		9E1C235124B472B6340D7ACB /* GuardianOnboarding.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GuardianOnboarding.swift; sourceTree = "<group>"; };
@@ -425,18 +425,16 @@
 			isa = PBXProject;
 			attributes = {
 				BuildIndependentTargetsInParallel = YES;
-				LastUpgradeCheck = 1430;
+				LastUpgradeCheck = 2700;
 				TargetAttributes = {
 					64A87743DAD85BC878022384 = {
 						DevelopmentTeam = "";
 						ProvisioningStyle = Automatic;
 					};
 					D7E763B5D8B7AF2BD72D44BE = {
-						DevelopmentTeam = "";
 						ProvisioningStyle = Automatic;
 					};
 					FDDB49AECDDB4120E9115001 = {
-						DevelopmentTeam = "";
 						ProvisioningStyle = Automatic;
 					};
 				};
@@ -591,6 +589,7 @@
 		59FCDC477DF43B704007A7FB /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				DEVELOPMENT_TEAM = X343JBU8CX;
 				INFOPLIST_FILE = RambuPuckWidgets/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -609,7 +608,9 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = RambuPuck/RambuPuck.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
+				DEVELOPMENT_TEAM = X343JBU8CX;
 				INFOPLIST_FILE = RambuPuck/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -683,6 +684,7 @@
 				ONLY_ACTIVE_ARCH = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = iphoneos;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_VERSION = 6.0;
@@ -694,7 +696,9 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = RambuPuck/RambuPuck.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
+				DEVELOPMENT_TEAM = X343JBU8CX;
 				INFOPLIST_FILE = RambuPuck/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -709,6 +713,7 @@
 		C2650449F639975E68A4DC07 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				DEVELOPMENT_TEAM = X343JBU8CX;
 				INFOPLIST_FILE = RambuPuckWidgets/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -794,6 +799,7 @@
 				MTL_FAST_MATH = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = iphoneos;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_COMPILATION_MODE = wholemodule;
 				SWIFT_OPTIMIZATION_LEVEL = "-O";
 				SWIFT_VERSION = 6.0;

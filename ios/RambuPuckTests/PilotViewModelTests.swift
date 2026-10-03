@@ -4,6 +4,44 @@ import Testing
 
 @MainActor
 struct PilotViewModelTests {
+    @Test("Respons buat keluarga membaca family_id dari backend")
+    func decodesCreateFamilyResponse() throws {
+        let data = Data(#"""
+        {
+          "family_id": "family-1",
+          "member": {"id": "parent-1", "name": "Ratna", "relation": "Orang tua", "role": "parent"},
+          "access_token": "token-1",
+          "invite_code": "123456",
+          "invite_expires_at": null
+        }
+        """#.utf8)
+        let decoder = JSONDecoder()
+        decoder.keyDecodingStrategy = .convertFromSnakeCase
+
+        let session = try decoder.decode(PilotSessionDTO.self, from: data)
+
+        #expect(session.familyID == "family-1")
+        #expect(session.inviteCode == "123456")
+    }
+
+    @Test("Respons profil keluarga membaca family_id dari backend")
+    func decodesFamilyProfileResponse() throws {
+        let data = Data(#"""
+        {
+          "family_id": "family-1",
+          "member": {"id": "parent-1", "name": "Ratna", "relation": "Orang tua", "role": "parent"},
+          "parent": {"id": "parent-1", "name": "Ratna", "relation": "Orang tua", "role": "parent"},
+          "guardians": []
+        }
+        """#.utf8)
+        let decoder = JSONDecoder()
+        decoder.keyDecodingStrategy = .convertFromSnakeCase
+
+        let profile = try decoder.decode(PilotProfileDTO.self, from: data)
+
+        #expect(profile.familyID == "family-1")
+    }
+
     private func makePilot(persona: Persona = .ratna) -> (AppState, PilotViewModel) {
         let state = AppState(persona: persona, onboardingComplete: true)
         let profile = ProfileViewModel(

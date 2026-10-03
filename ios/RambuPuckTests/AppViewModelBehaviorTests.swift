@@ -340,6 +340,36 @@ struct AppViewModelBehaviorTests {
         }
     }
 
+    @Test("Returning to the foreground reconciles a missed call-ended event")
+    func foregroundRefreshEndsMissingCall() async throws {
+        let monitor = FakeCallActivityMonitor()
+        let analysis = RecordingCallAnalysisSource(finishStatus: .noSpeech)
+        let model = AppViewModel(
+            persona: .ratna,
+            onboardingComplete: true,
+            analysis: analysis,
+            liveActivities: false,
+            notifications: false,
+            speech: false,
+            callActivity: monitor,
+            isProtectionConfigured: { true }
+        )
+        let id = UUID()
+
+        model.startCallMonitoring()
+        monitor.send(CallActivityEvent(id: id, state: .connected, at: .now))
+        try await waitUntil { analysis.startCount == 1 && model.state.session?.id == id }
+        monitor.sendOnRefresh(CallActivityEvent(id: id, state: .ended, at: .now))
+
+        model.refreshCallMonitoring()
+
+        try await waitUntil {
+            model.state.session == nil
+                && analysis.latestSession?.didFinish == true
+                && model.state.protectionPresentation == .noSpeech
+        }
+    }
+
     @Test("Call monitor failures are visible")
     func callMonitorFailureIsVisible() async throws {
         let monitor = FakeCallActivityMonitor()

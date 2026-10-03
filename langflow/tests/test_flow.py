@@ -20,6 +20,12 @@ def test_prompt_defines_risk_contract_and_safety_rules() -> None:
     assert "kutipan persis" in prompt
     assert "low` wajib memiliki `signals` dan `evidence` kosong" in prompt
     assert "Jangan pernah menyatakan seseorang pasti penipu" in prompt
+    assert "Nilai maksud ucapan, bukan kemunculan kata kunci" in prompt
+    assert "peringatan, larangan, penolakan, atau cerita tentang kejadian lampau" in prompt
+    assert "Jika ada permintaan berisiko aktif di bagian lain" in prompt
+    assert "karakter demi karakter" in prompt
+    assert "Susun `evidence` terlebih dahulu" in prompt
+    assert "harus sama persis dengan gabungan unik" in prompt
     assert "JSON" in prompt
     assert "indicators" not in prompt
 

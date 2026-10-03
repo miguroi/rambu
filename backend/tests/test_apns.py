@@ -1,0 +1,53 @@
+import pytest
+
+from rambu_api.apns import DisabledPushSender, push_sender_from_environment
+
+
+APNS_VARIABLES = (
+    "APNS_TEAM_ID",
+    "APNS_KEY_ID",
+    "APNS_PRIVATE_KEY_PATH",
+    "APNS_BUNDLE_ID",
+    "APNS_ENVIRONMENT",
+)
+
+
+def clear_apns_environment(monkeypatch: pytest.MonkeyPatch) -> None:
+    for name in APNS_VARIABLES:
+        monkeypatch.delenv(name, raising=False)
+
+
+def test_push_is_explicitly_disabled_when_no_apns_credentials_exist(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    clear_apns_environment(monkeypatch)
+
+    sender = push_sender_from_environment()
+
+    assert isinstance(sender, DisabledPushSender)
+    with pytest.raises(RuntimeError, match="APNs is not configured"):
+        sender.send(["device-token"], "Title", "Body", "alert-id")
+
+
+def test_partial_apns_configuration_fails_at_startup(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    clear_apns_environment(monkeypatch)
+    monkeypatch.setenv("APNS_TEAM_ID", "TEAM123")
+
+    with pytest.raises(RuntimeError, match="APNS_KEY_ID"):
+        push_sender_from_environment()
+
+
+def test_unknown_apns_environment_fails_at_startup(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    clear_apns_environment(monkeypatch)
+    monkeypatch.setenv("APNS_TEAM_ID", "TEAM123")
+    monkeypatch.setenv("APNS_KEY_ID", "KEY123")
+    monkeypatch.setenv("APNS_PRIVATE_KEY_PATH", "/tmp/AuthKey.p8")
+    monkeypatch.setenv("APNS_BUNDLE_ID", "id.rambu.puck")
+    monkeypatch.setenv("APNS_ENVIRONMENT", "staging")
+
+    with pytest.raises(RuntimeError, match="sandbox or production"):
+        push_sender_from_environment()

@@ -677,6 +677,31 @@ class PilotStore:
             ).fetchall()
         return [row["token"] for row in rows]
 
+    def protection_notification_tokens(
+        self, puck_token: str, session_id: str, environment: str
+    ) -> list[str]:
+        puck = self.authenticate_puck(puck_token)
+        with self._lock:
+            session = self._connection.execute(
+                "SELECT family_id, puck_id FROM protection_sessions WHERE id = ?",
+                (session_id,),
+            ).fetchone()
+            if session is None:
+                raise MissingProtectionSessionError("Sesi perlindungan tidak ditemukan.")
+            if session["family_id"] != puck["family_id"] or session["puck_id"] != puck["id"]:
+                raise AuthorizationError("Sesi perlindungan berasal dari keluarga lain.")
+            rows = self._connection.execute(
+                """
+                SELECT push_tokens.token
+                FROM push_tokens
+                JOIN members ON members.id = push_tokens.member_id
+                WHERE members.family_id = ? AND members.role = 'parent'
+                  AND push_tokens.environment = ?
+                """,
+                (puck["family_id"], environment),
+            ).fetchall()
+        return [row["token"] for row in rows]
+
     def publish_alert(self, token: str, value: PilotAlertInput) -> PilotAlert:
         alert, _ = self.publish_alert_result(token, value)
         return alert

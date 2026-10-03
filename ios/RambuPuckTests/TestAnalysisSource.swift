@@ -51,6 +51,8 @@ final class CountingFailureSource: CallAnalysisSource, @unchecked Sendable {
 final class FakeCallActivityMonitor: CallActivityMonitoring, @unchecked Sendable {
     let events: AsyncThrowingStream<CallActivityEvent, Error>
     private let continuation: AsyncThrowingStream<CallActivityEvent, Error>.Continuation
+    private let lock = NSLock()
+    private var refreshEvent: CallActivityEvent?
 
     init() {
         var captured: AsyncThrowingStream<CallActivityEvent, Error>.Continuation!
@@ -64,6 +66,18 @@ final class FakeCallActivityMonitor: CallActivityMonitoring, @unchecked Sendable
 
     func fail(_ error: Error) {
         continuation.finish(throwing: error)
+    }
+
+    func sendOnRefresh(_ event: CallActivityEvent) {
+        lock.withLock { refreshEvent = event }
+    }
+
+    func refresh() {
+        let event = lock.withLock {
+            defer { refreshEvent = nil }
+            return refreshEvent
+        }
+        if let event { continuation.yield(event) }
     }
 }
 

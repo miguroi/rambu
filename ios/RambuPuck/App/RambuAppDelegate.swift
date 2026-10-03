@@ -18,7 +18,6 @@ final class RambuAppDelegate: NSObject, UIApplicationDelegate {
         _ application: UIApplication,
         didFailToRegisterForRemoteNotificationsWithError error: Error
     ) {
-        // Notification permission and connection issues are already surfaced in the app.
-        // APNs retries registration on a later launch.
+        NSLog("Rambu APNs registration failed: %@", error.localizedDescription)
     }
 }

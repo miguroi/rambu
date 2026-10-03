@@ -1,3 +1,4 @@
+import logging
 import os
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -47,6 +48,33 @@ from .protection import MAXIMUM_CHUNK_BYTES, ProtectionService
 from .transcription import FasterWhisperTranscriber
 
 
+PUSH_LOGGER = logging.getLogger("uvicorn.error.rambu.push")
+RISK_RANK = {"low": 0, "needs_review": 1, "high_risk": 2}
+
+
+def _risk_increased(
+    previous: ProtectionSessionSnapshot,
+    current: ProtectionSessionSnapshot,
+) -> bool:
+    previous_level = previous.assessment.risk_level if previous.assessment else "low"
+    current_level = current.assessment.risk_level if current.assessment else "low"
+    return RISK_RANK[current_level] > max(0, RISK_RANK[previous_level])
+
+
+def _protection_warning(snapshot: ProtectionSessionSnapshot) -> tuple[str, str]:
+    if snapshot.assessment is None or snapshot.assessment.risk_level == "low":
+        raise ValueError("Peringatan membutuhkan hasil analisis berisiko.")
+    if snapshot.assessment.risk_level == "high_risk":
+        return (
+            "Bahaya: terindikasi penipuan",
+            "Jangan berikan kode atau transfer. Tutup telepon sekarang.",
+        )
+    return (
+        "Waspada: telepon mencurigakan",
+        "Jangan berikan data atau uang. Verifikasi penelepon sebelum melanjutkan.",
+    )
+
+
 class DemoServiceContract(Protocol):
     def start(self, scenario: str) -> DemoSnapshot: ...
     def get(self, session_id: str) -> DemoSnapshot: ...
@@ -86,6 +114,20 @@ def create_app(
     pilots = pilot_store or (PilotStore(":memory:") if service is not None else _default_pilot_store())
     pushes = push_sender or push_sender_from_environment()
     push_environment = os.getenv("APNS_ENVIRONMENT", "sandbox")
+
+    def send_protection_warning(
+        tokens: list[str], title: str, body: str, call_id: str, session_id: str
+    ) -> None:
+        if not tokens:
+            PUSH_LOGGER.error(
+                "protection push not sent session=%s reason=no_registered_parent_token",
+                session_id,
+            )
+            return
+        try:
+            pushes.send(tokens, title, body, call_id)
+        except Exception:
+            PUSH_LOGGER.exception("protection push failed session=%s", session_id)
 
     @asynccontextmanager
     async def lifespan(_: FastAPI):
@@ -300,6 +342,7 @@ def create_app(
     )
     def upload_puck_chunk(
         session_id: str,
+        background_tasks: BackgroundTasks,
         audio: bytes = Body(media_type="audio/wav"),
         authorization: str | None = Header(default=None),
         content_type: str | None = Header(default=None),
@@ -315,13 +358,29 @@ def create_app(
         if len(audio) > MAXIMUM_CHUNK_BYTES:
             raise HTTPException(status_code=413, detail="Potongan audio melebihi batas 1 MB.")
         try:
-            return protections().process_chunk(
-                token_from(authorization),
+            token = token_from(authorization)
+            previous = protections().get_puck_session(token, session_id)
+            snapshot = protections().process_chunk(
+                token,
                 session_id,
                 int(x_rambu_sequence),
                 x_rambu_final == "true",
                 audio,
             )
+            if _risk_increased(previous, snapshot):
+                targets = pilots.protection_notification_tokens(
+                    token, session_id, push_environment
+                )
+                title, body = _protection_warning(snapshot)
+                background_tasks.add_task(
+                    send_protection_warning,
+                    targets,
+                    title,
+                    body,
+                    str(snapshot.call_id),
+                    snapshot.id,
+                )
+            return snapshot
         except HTTPException:
             raise
         except LangflowFailure as error:

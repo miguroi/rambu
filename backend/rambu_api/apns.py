@@ -12,7 +12,7 @@ class PushSender(Protocol):
 
 class DisabledPushSender:
     def send(self, tokens: list[str], title: str, body: str, alert_id: str) -> None:
-        return
+        raise RuntimeError("APNs is not configured.")
 
     def close(self) -> None:
         return
@@ -49,6 +49,7 @@ class APNsPushSender:
             "apns-topic": self.bundle_id,
             "apns-push-type": "alert",
             "apns-priority": "10",
+            "apns-collapse-id": alert_id,
         }
         payload = {
             "aps": {
@@ -58,13 +59,15 @@ class APNsPushSender:
             },
             "alertID": alert_id,
         }
+        failures: list[str] = []
         for token in set(tokens):
-            # A failed device must not prevent delivery attempts to the rest.
             try:
                 response = self.client.post(f"{self.base_url}/3/device/{token}", headers=headers, json=payload)
                 response.raise_for_status()
-            except Exception:
-                continue
+            except Exception as error:
+                failures.append(f"{token[-8:]}: {error}")
+        if failures:
+            raise RuntimeError("APNs delivery failed: " + "; ".join(failures))
 
     def close(self) -> None:
         self.client.close()
@@ -94,6 +97,14 @@ def push_sender_from_environment() -> PushSender:
         "bundle_id": os.getenv("APNS_BUNDLE_ID", ""),
         "environment": os.getenv("APNS_ENVIRONMENT", "sandbox"),
     }
-    if not all(values[key] for key in ("team_id", "key_id", "private_key_path", "bundle_id")):
+    required = ("team_id", "key_id", "private_key_path", "bundle_id")
+    configured = [key for key in required if values[key]]
+    if not configured:
         return DisabledPushSender()
+    missing = [key for key in required if not values[key]]
+    if missing:
+        names = ", ".join(f"APNS_{key.upper()}" for key in missing)
+        raise RuntimeError(f"Incomplete APNs configuration. Missing: {names}.")
+    if values["environment"] not in {"sandbox", "production"}:
+        raise RuntimeError("APNS_ENVIRONMENT must be sandbox or production.")
     return APNsPushSender(**values)

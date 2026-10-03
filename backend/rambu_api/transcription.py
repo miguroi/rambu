@@ -13,10 +13,13 @@ class FasterWhisperTranscriber:
         self._model = None
 
     def transcribe(self, path: Path) -> str:
-        with wave.open(str(path), "rb") as source:
-            duration = source.getnframes() / source.getframerate()
-        if duration < 0.75:
-            return ""
+        # Runtime puck chunks are WAV. Dataset evaluation also accepts formats
+        # supported by faster-whisper/PyAV, including MP3.
+        if path.suffix.lower() == ".wav":
+            with wave.open(str(path), "rb") as source:
+                duration = source.getnframes() / source.getframerate()
+            if duration < 0.75:
+                return ""
 
         if self._model is None:
             from faster_whisper import WhisperModel

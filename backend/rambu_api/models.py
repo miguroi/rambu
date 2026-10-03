@@ -1,4 +1,5 @@
 from datetime import datetime
+import re
 from typing import Literal
 from uuid import UUID
 
@@ -36,12 +37,26 @@ def validate_assessment(assessment: RiskAssessment, transcript: str) -> RiskAsse
         raise ValueError("Risky assessments require signals and evidence.")
 
     top_level = set(assessment.signals)
+    canonical_evidence: list[Evidence] = []
+    evidenced_signals: set[Signal] = set()
     for item in assessment.evidence:
-        if item.quote not in transcript:
+        match = re.search(re.escape(item.quote), transcript, flags=re.IGNORECASE)
+        if match is None:
             raise ValueError("Evidence must be an exact transcript substring.")
         if not set(item.signals).issubset(top_level):
             raise ValueError("Evidence signals must appear at the top level.")
-    return assessment
+        evidenced_signals.update(item.signals)
+        canonical_evidence.append(
+            item.model_copy(update={"quote": transcript[match.start() : match.end()]})
+        )
+    canonical_signals = list(
+        dict.fromkeys(
+            signal for signal in assessment.signals if signal in evidenced_signals
+        )
+    )
+    return assessment.model_copy(
+        update={"signals": canonical_signals, "evidence": canonical_evidence}
+    )
 
 
 class DemoFailure(BaseModel):

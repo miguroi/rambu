@@ -103,14 +103,18 @@ struct RambuPuckAgentMain {
         }
 
         var chunker = PCMChunker()
+        var warningGate = PuckWarningGate()
         for try await samples in stream {
             for chunk in chunker.append(samples) {
-                _ = try await api.uploadChunk(
+                let updated = try await api.uploadChunk(
                     sessionID: session.id,
                     sequence: chunk.sequence,
                     final: false,
                     wav: WAVEncoder.encode(samples: chunk.samples)
                 )
+                if let warning = warningGate.warning(for: updated.assessment) {
+                    emit(warning)
+                }
             }
             if await signal.requested { break }
         }
@@ -119,13 +123,26 @@ struct RambuPuckAgentMain {
         }
         capture.stop()
         if let final = chunker.finish() {
-            _ = try await api.uploadChunk(
+            let updated = try await api.uploadChunk(
                 sessionID: session.id,
                 sequence: final.sequence,
                 final: true,
                 wav: WAVEncoder.encode(samples: final.samples)
             )
+            if let warning = warningGate.warning(for: updated.assessment) {
+                emit(warning)
+            }
         }
+    }
+
+    private static func emit(_ warning: PuckWarning) {
+        let message = """
+        \u{7}
+        ⚠️ RAMBU WARNING: \(warning.title)
+        \(warning.recommendedAction)
+
+        """
+        FileHandle.standardError.write(Data(message.utf8))
     }
 
     private static func printUsage() {

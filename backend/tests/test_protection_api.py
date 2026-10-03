@@ -39,6 +39,30 @@ class LowRiskAnalyzer:
         )
 
 
+class HighRiskAnalyzer:
+    def analyze(self, transcript: str, final: bool) -> RiskAssessment:
+        return RiskAssessment(
+            risk_level="high_risk",
+            signals=["secret_code", "transfer"],
+            evidence=[
+                {"quote": "Halo", "signals": ["secret_code", "transfer"]},
+            ],
+            explanation="Penelepon meminta kode dan transfer.",
+            recommended_action="Tutup telepon sekarang.",
+        )
+
+
+class RecordingProtectionPushSender:
+    def __init__(self) -> None:
+        self.sent: list[tuple[list[str], str, str, str]] = []
+
+    def send(self, tokens: list[str], title: str, body: str, alert_id: str) -> None:
+        self.sent.append((tokens, title, body, alert_id))
+
+    def close(self) -> None:
+        pass
+
+
 def auth(token: str) -> dict[str, str]:
     return {"authorization": f"Bearer {token}"}
 
@@ -52,7 +76,8 @@ def session_payload(call_id: str = "7f011753-8f09-4a45-8812-8a4591a96b3c") -> di
 
 
 def build_client(
-    *, analyzer: LowRiskAnalyzer | None = None
+    *, analyzer: LowRiskAnalyzer | HighRiskAnalyzer | None = None,
+    push_sender: RecordingProtectionPushSender | None = None,
 ) -> tuple[TestClient, PilotStore, TextTranscriber, ProtectionService]:
     store = PilotStore(":memory:")
     transcriber = TextTranscriber()
@@ -61,8 +86,59 @@ def build_client(
         service=StubDemoService(),
         pilot_store=store,
         protection_service=protection,
+        push_sender=push_sender,
     )
     return TestClient(app), store, transcriber, protection
+
+
+def test_high_risk_chunk_pushes_parent_once_when_risk_increases() -> None:
+    pushes = RecordingProtectionPushSender()
+    client, store, _, _ = build_client(
+        analyzer=HighRiskAnalyzer(), push_sender=pushes
+    )
+    parent = store.create_family("Ibu Ratna")
+    store.register_push_token(parent.access_token, "aa" * 32, "sandbox")
+    puck = store.pair_puck(parent.invite_code or "", "Mac")
+    session = store.create_protection_session(
+        parent.access_token,
+        session_payload()["call_id"],
+        datetime.fromisoformat("2026-10-01T10:00:00+00:00"),
+        None,
+    )
+    store.active_protection_session(puck.access_token)
+    path = f"/api/pucks/sessions/{session.id}/chunks"
+
+    first = client.post(
+        path,
+        headers={
+            **auth(puck.access_token),
+            "content-type": "audio/wav",
+            "x-rambu-sequence": "0",
+            "x-rambu-final": "false",
+        },
+        content=wav_bytes(),
+    )
+    second = client.post(
+        path,
+        headers={
+            **auth(puck.access_token),
+            "content-type": "audio/wav",
+            "x-rambu-sequence": "1",
+            "x-rambu-final": "false",
+        },
+        content=wav_bytes(),
+    )
+
+    assert first.status_code == 200
+    assert second.status_code == 200
+    assert pushes.sent == [
+        (
+            ["aa" * 32],
+            "Bahaya: terindikasi penipuan",
+            "Jangan berikan kode atau transfer. Tutup telepon sekarang.",
+            session_payload()["call_id"],
+        )
+    ]
 
 
 def test_protection_routes_complete_authenticated_parent_and_puck_flow() -> None:

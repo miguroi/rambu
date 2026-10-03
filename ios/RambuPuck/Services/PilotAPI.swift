@@ -81,6 +81,14 @@ struct PilotSessionDTO: Codable, Sendable {
     let accessToken: String
     let inviteCode: String?
     let inviteExpiresAt: Date?
+
+    private enum CodingKeys: String, CodingKey {
+        case familyID = "familyId"
+        case member
+        case accessToken
+        case inviteCode
+        case inviteExpiresAt
+    }
 }
 
 struct PilotProfileDTO: Codable, Sendable {
@@ -88,6 +96,13 @@ struct PilotProfileDTO: Codable, Sendable {
     let member: PilotPersonDTO
     let parent: PilotPersonDTO
     let guardians: [PilotPersonDTO]
+
+    private enum CodingKeys: String, CodingKey {
+        case familyID = "familyId"
+        case member
+        case parent
+        case guardians
+    }
 }
 
 struct PilotInviteDTO: Codable, Sendable {
