@@ -60,6 +60,39 @@ final class PuckAPITests: XCTestCase {
         XCTAssertEqual(request.value(forHTTPHeaderField: "X-Rambu-Final"), "true")
     }
 
+    func testCreateSessionSendsAuthenticatedWhatsAppMetadata() async throws {
+        let transport = ScriptedTransport(results: [
+            .success((sessionJSON(id: "session-created", status: "listening"), response(status: 201)))
+        ])
+        let api = PuckAPI(
+            serverURL: URL(string: "http://127.0.0.1:8000")!,
+            token: "puck-secret",
+            retryDelaysNanoseconds: [],
+            transport: { request in try await transport.send(request) }
+        )
+        let callID = UUID(uuidString: "7F011753-8F09-4A45-8812-8A4591A96B3C")!
+        let startedAt = try XCTUnwrap(
+            ISO8601DateFormatter().date(from: "2026-10-01T10:00:00Z")
+        )
+
+        let session = try await api.createSession(callID: callID, startedAt: startedAt)
+
+        XCTAssertEqual(session.id, "session-created")
+        let requests = await transport.requests
+        let request = try XCTUnwrap(requests.first)
+        XCTAssertEqual(request.url?.path, "/api/pucks/sessions")
+        XCTAssertEqual(request.httpMethod, "POST")
+        XCTAssertEqual(request.value(forHTTPHeaderField: "Authorization"), "Bearer puck-secret")
+        XCTAssertEqual(request.value(forHTTPHeaderField: "Content-Type"), "application/json")
+        let body = try XCTUnwrap(request.httpBody)
+        let json = try XCTUnwrap(JSONSerialization.jsonObject(with: body) as? [String: String])
+        XCTAssertEqual(json["call_id"]?.lowercased(), callID.uuidString.lowercased())
+        XCTAssertEqual(json["started_at"], "2026-10-01T10:00:00Z")
+        XCTAssertEqual(json["channel"], "whatsapp")
+        XCTAssertEqual(json["title"], "Panggilan WhatsApp terdeteksi")
+        XCTAssertEqual(json["caller_detail"], "Kontak WhatsApp")
+    }
+
     func testUploadDecodesRiskAssessmentForLocalWarning() async throws {
         let body = Data(
             #"{"id":"session-1","call_id":"7f011753-8f09-4a45-8812-8a4591a96b3c","channel":null,"status":"listening","puck_connected":true,"masked_transcript":"Halo","assessment":{"risk_level":"high_risk","signals":["secret_code","transfer"],"evidence":[],"explanation":"Permintaan kode dan transfer.","recommended_action":"Tutup telepon sekarang."},"outcome":null,"end_requested":false,"revision":1,"next_sequence":1,"started_at":"2026-10-01T10:00:00Z","end_requested_at":null,"ended_at":null,"failure":null}"#.utf8

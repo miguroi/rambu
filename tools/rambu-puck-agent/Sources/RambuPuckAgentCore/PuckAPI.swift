@@ -123,6 +123,7 @@ public struct PuckAPI: Sendable {
         self.decoder = decoder
         let encoder = JSONEncoder()
         encoder.keyEncodingStrategy = .convertToSnakeCase
+        encoder.dateEncodingStrategy = .iso8601
         self.encoder = encoder
     }
 
@@ -142,6 +143,29 @@ public struct PuckAPI: Sendable {
         request.httpMethod = "GET"
         let (data, response) = try await send(request)
         if response.statusCode == 404 { return nil }
+        try requireSuccess(response, data: data)
+        return try decode(ProtectionSession.self, from: data)
+    }
+
+    public func createSession(callID: UUID, startedAt: Date) async throws -> ProtectionSession {
+        struct Body: Encodable {
+            let callID: UUID
+            let startedAt: Date
+            let channel: String
+            let title: String
+            let callerDetail: String
+        }
+        var request = try authenticatedRequest(endpoint("api", "pucks", "sessions"))
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try encoder.encode(Body(
+            callID: callID,
+            startedAt: startedAt,
+            channel: "whatsapp",
+            title: "Panggilan WhatsApp terdeteksi",
+            callerDetail: "Kontak WhatsApp"
+        ))
+        let (data, response) = try await send(request)
         try requireSuccess(response, data: data)
         return try decode(ProtectionSession.self, from: data)
     }
