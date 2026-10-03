@@ -6,18 +6,19 @@ struct HistoryList: View {
     let forGuardian: Bool
     @Environment(AppState.self) private var model
 
-    /// Pengawas hanya melihat panggilan yang pernah diteruskan. Panggilan Aman tetap privat.
     private var records: [CallRecord] {
-        forGuardian ? model.history.filter { $0.level.relaysToGuardians } : model.history
+        Self.visibleRecords(model.history, forGuardian: forGuardian)
     }
+
+    static func visibleRecords(_ records: [CallRecord], forGuardian: Bool) -> [CallRecord] { records }
 
     var body: some View {
         List {
             if records.isEmpty {
                 VStack(spacing: 10) {
                     MascotView(pose: .calm, sign: .safe).frame(height: 130)
-                    Text("Belum ada peringatan").font(Brand.display(.title3)).foregroundStyle(Brand.ink)
-                    Text("Telepon Waspada dan Bahaya muncul di sini.")
+                    Text("Belum ada riwayat").font(Brand.display(.title3)).foregroundStyle(Brand.ink)
+                    Text("Panggilan yang selesai akan muncul di sini.")
                         .font(.subheadline).foregroundStyle(Brand.ink2)
                 }
                 .frame(maxWidth: .infinity)
@@ -28,8 +29,6 @@ struct HistoryList: View {
                     ForEach(records) { record in
                         NavigationLink(value: record.id) { HistoryRow(record: record, forGuardian: forGuardian) }
                     }
-                } footer: {
-                    Label("Hanya telepon Waspada dan Bahaya", systemImage: "lock.fill")
                 }
             }
         }
@@ -48,13 +47,13 @@ struct HistoryRow: View {
 
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
-            LevelTile(level: record.level)
+            HistoryTile(presentation: record.historyPresentation)
             VStack(alignment: .leading, spacing: 3) {
                 Text(record.title)
                     .font(.headline).foregroundStyle(Brand.ink)
                     .fixedSize(horizontal: false, vertical: true)
                 HStack(spacing: 8) {
-                    RiskBadge(level: record.level)
+                    HistoryBadge(presentation: record.historyPresentation)
                     Label(Fmt.day(record.startedAt), systemImage: record.channel.symbol)
                         .font(.subheadline).foregroundStyle(Brand.ink2)
                         .labelStyle(CompactLabelStyle())
@@ -95,7 +94,7 @@ struct CallDetail: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 22) {
                     VStack(alignment: .leading, spacing: 10) {
-                        RiskBadge(level: record.level, large: true)
+                        HistoryBadge(presentation: record.historyPresentation, large: true)
                         Text(record.title)
                             .font(Brand.display(.title))
                             .foregroundStyle(Brand.ink)
@@ -130,10 +129,22 @@ struct CallDetail: View {
                             .font(.footnote).foregroundStyle(Brand.ink3)
                     }
 
-                    if record.signals.isEmpty {
+                    if let reason = record.unassessedReason {
+                        HStack(spacing: 12) {
+                            Image(systemName: record.historyPresentation.symbol)
+                                .font(.title2.weight(.semibold))
+                                .foregroundStyle(record.historyPresentation.ink)
+                            Text(reason)
+                                .font(.body).foregroundStyle(Brand.ink2)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                        .card()
+                        .accessibilityElement(children: .combine)
+                        .accessibilityLabel("Tidak dapat dinilai. \(reason)")
+                    } else if record.signals.isEmpty {
                         HStack(spacing: 12) {
                             MascotView(pose: .calm, animated: false).frame(width: 56)
-                            Text("Tidak ada tanda penipuan. Tidak dibagikan ke pengawas.")
+                            Text("Tidak ada tanda penipuan.")
                                 .font(.body).foregroundStyle(Brand.ink2)
                                 .fixedSize(horizontal: false, vertical: true)
                         }
@@ -156,6 +167,40 @@ struct CallDetail: View {
         } else {
             ContentUnavailableView("Riwayat tidak ditemukan", systemImage: "clock.badge.xmark")
         }
+    }
+}
+
+private struct HistoryBadge: View {
+    let presentation: HistoryPresentation
+    var large = false
+
+    var body: some View {
+        HStack(spacing: 5) {
+            Image(systemName: presentation.symbol)
+            Text(presentation.title)
+        }
+        .font(large ? .headline : .subheadline.weight(.bold))
+        .foregroundStyle(presentation.glyph)
+        .lineLimit(1)
+        .fixedSize()
+        .padding(.horizontal, large ? 14 : 10)
+        .padding(.vertical, large ? 8 : 5)
+        .background(presentation.tint, in: .capsule)
+        .accessibilityElement(children: .combine)
+    }
+}
+
+private struct HistoryTile: View {
+    let presentation: HistoryPresentation
+    @ScaledMetric private var size: CGFloat = 44
+
+    var body: some View {
+        Image(systemName: presentation.symbol)
+            .font(.system(size: size * 0.46, weight: .bold))
+            .foregroundStyle(presentation.glyph)
+            .frame(width: size, height: size)
+            .background(presentation.tint, in: .rect(cornerRadius: size * 0.3, style: .continuous))
+            .accessibilityLabel(presentation.title)
     }
 }
 

@@ -308,6 +308,27 @@ struct PilotViewModelTests {
         #expect(state.history.first?.decision?.verdict == .scam)
     }
 
+    @Test("Riwayat memetakan aman, waspada, bahaya, dan tidak dapat dinilai")
+    func testHistoryPresentationMapsSafeReviewDangerAndUnassessed() {
+        let presentations: [HistoryPresentation] = [.safe, .review, .danger, .unassessed]
+
+        #expect(presentations.map(\.title) == ["Aman", "Waspada", "Bahaya", "Tidak dapat dinilai"])
+        #expect(presentations.map(\.symbol) == [
+            "checkmark.circle.fill",
+            "exclamationmark.triangle.fill",
+            "exclamationmark.octagon.fill",
+            "questionmark.circle.fill",
+        ])
+        #expect(presentations.map(\.colorRole) == [.safe, .warning, .danger, .neutral])
+
+        let safe = CallRecord(
+            id: UUID(), title: "Aman", callerDetail: "Kontak", channel: .cellular,
+            startedAt: .now, duration: 30, level: .safe,
+            signals: [], evidence: [], decision: nil
+        )
+        #expect(HistoryList.visibleRecords([safe], forGuardian: true) == [safe])
+    }
+
     @Test("Profil pilot memilih persona dan mengurutkan pengawas aktif")
     func appliesRemoteProfile() {
         let (state, pilot) = makePilot()

@@ -35,6 +35,21 @@ During a call, the same terminal prints a masked transcription line for every pr
 
 Keep the terminal open during the demo and press `Ctrl+C` afterward. The launcher stops only the processes it started and prints the location of its diagnostic logs. A Quick Tunnel URL changes on every run and anyone with the URL can reach the demo backend while it is active, so use it only for controlled testing.
 
+### TestFlight rollout and two-device acceptance
+
+Install the same new TestFlight build on both the parent iPhone and Richard's iPhone before validating synchronized history. Backend-owned yellow/red guardian notifications become available as soon as the new backend is running and the guardian device has registered its push token; the new app build is required for both devices to display the shared green/yellow/red/gray history.
+
+Run this acceptance matrix with the parent app backgrounded for the yellow, red, and escalation cases:
+
+| Case | Parent and guardian history | Guardian notification |
+|---|---|---|
+| Safe call, then end | Green **Aman** on both phones | None |
+| Warning call, then end | Yellow **Waspada** on both phones | One warning |
+| High-confidence call, then end | Red **Bahaya** on both phones | One danger warning |
+| One call escalates yellow → red | Final red **Bahaya** on both phones | One at yellow and one at red; no duplicates |
+| No-speech call, then end | Gray **Tidak dapat dinilai** on both phones | None |
+| Call remains active, then ends | Absent while active; final state appears on both phones after ending | Only if risk reaches yellow/red |
+
 ## Run the App
 
 ### 1. Start Langflow

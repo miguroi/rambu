@@ -285,6 +285,66 @@ struct CallRecord: Identifiable, Hashable, Codable, Sendable {
 
 enum HistoryPresentation: String, Codable, Hashable, Sendable {
     case safe, review, danger, unassessed
+
+    var title: String {
+        switch self {
+        case .safe: "Aman"
+        case .review: "Waspada"
+        case .danger: "Bahaya"
+        case .unassessed: "Tidak dapat dinilai"
+        }
+    }
+
+    var symbol: String {
+        switch self {
+        case .safe: "checkmark.circle.fill"
+        case .review: "exclamationmark.triangle.fill"
+        case .danger: "exclamationmark.octagon.fill"
+        case .unassessed: "questionmark.circle.fill"
+        }
+    }
+
+    var colorRole: HistoryColorRole {
+        switch self {
+        case .safe: .safe
+        case .review: .warning
+        case .danger: .danger
+        case .unassessed: .neutral
+        }
+    }
+
+    var tint: Color {
+        switch colorRole {
+        case .safe: Brand.safe
+        case .warning: Brand.signal
+        case .danger: Brand.danger
+        case .neutral: Brand.ink3
+        }
+    }
+
+    var soft: Color {
+        switch colorRole {
+        case .safe: Brand.safeSoft
+        case .warning: Brand.signalSoft
+        case .danger: Brand.dangerSoft
+        case .neutral: Brand.hairline
+        }
+    }
+
+    var ink: Color {
+        switch colorRole {
+        case .safe: Brand.safeInk
+        case .warning: Brand.signalInk
+        case .danger: Brand.dangerInk
+        case .neutral: Brand.ink2
+        }
+    }
+
+    var glyph: Color { self == .review ? Brand.signalInk : .white }
+}
+
+enum HistoryColorRole: String, Codable, Hashable, Sendable {
+    case safe, warning, danger, neutral
 }
 
 // MARK: - Puck
@@ -424,6 +484,9 @@ extension CallRecord {
     /// Ringkasan singkat untuk riwayat. Di produk nyata teks ini dibuat backend
     /// (watsonx Orchestrate) dari transkrip dan keputusan. Prototipe menyusunnya dari data yang sama.
     var incidentSummary: String {
+        if let unassessedReason {
+            return "\(channel.label) \(Fmt.duration(duration)) dari \(callerDetail). \(unassessedReason)"
+        }
         let actions = signals.map(\.summaryPhrase)
         let listed = actions.formatted(.list(type: .and).locale(Fmt.locale))
         let what = actions.isEmpty ? "Tidak ada tanda penipuan." : "Penelepon \(listed)."
