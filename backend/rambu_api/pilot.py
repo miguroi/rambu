@@ -491,6 +491,15 @@ class PilotStore:
                         session_id,
                     ),
                 )
+                if final:
+                    self._connection.execute(
+                        """
+                        UPDATE alerts
+                        SET call_ended = 1, updated_at = ?
+                        WHERE id = ? AND family_id = ?
+                        """,
+                        (_iso(_now()), row["call_id"], row["family_id"]),
+                    )
                 self._connection.commit()
             except Exception:
                 if self._connection.in_transaction:
@@ -554,6 +563,14 @@ class PilotStore:
                         session_id,
                     ),
                 )
+                self._connection.execute(
+                    """
+                    UPDATE alerts
+                    SET call_ended = 1, updated_at = ?
+                    WHERE id = ? AND family_id = ?
+                    """,
+                    (_iso(_now()), row["call_id"], row["family_id"]),
+                )
             updated = self._connection.execute(
                 "SELECT * FROM protection_sessions WHERE id = ?", (session_id,)
             ).fetchone()
@@ -581,6 +598,15 @@ class PilotStore:
                 """,
                 (now, without_puck, without_puck, without_puck, now, session_id),
             )
+            if without_puck:
+                self._connection.execute(
+                    """
+                    UPDATE alerts
+                    SET call_ended = 1, updated_at = ?
+                    WHERE id = ? AND family_id = ?
+                    """,
+                    (now, row["call_id"], row["family_id"]),
+                )
             updated = self._connection.execute(
                 "SELECT * FROM protection_sessions WHERE id = ?", (session_id,)
             ).fetchone()
@@ -708,8 +734,14 @@ class PilotStore:
         return [row["token"] for row in rows]
 
     def protection_notification_tokens(
-        self, puck_token: str, session_id: str, environment: str
+        self,
+        puck_token: str,
+        session_id: str,
+        target_role: str,
+        environment: str,
     ) -> list[str]:
+        if target_role not in {"parent", "guardian"}:
+            raise ValueError("Peran penerima notifikasi tidak valid.")
         puck = self.authenticate_puck(puck_token)
         with self._lock:
             session = self._connection.execute(
@@ -725,12 +757,95 @@ class PilotStore:
                 SELECT push_tokens.token
                 FROM push_tokens
                 JOIN members ON members.id = push_tokens.member_id
-                WHERE members.family_id = ? AND members.role = 'parent'
+                WHERE members.family_id = ? AND members.role = ?
                   AND push_tokens.environment = ?
                 """,
-                (puck["family_id"], environment),
+                (puck["family_id"], target_role, environment),
             ).fetchall()
         return [row["token"] for row in rows]
+
+    def upsert_protection_alert(
+        self, puck_token: str, session_id: str
+    ) -> tuple[PilotAlert | None, bool]:
+        puck = self.authenticate_puck(puck_token)
+        now = _iso(_now())
+        with self._lock, self._connection:
+            session = self._connection.execute(
+                "SELECT * FROM protection_sessions WHERE id = ?", (session_id,)
+            ).fetchone()
+            if session is None:
+                raise MissingProtectionSessionError("Sesi perlindungan tidak ditemukan.")
+            if session["family_id"] != puck["family_id"] or session["puck_id"] != puck["id"]:
+                raise AuthorizationError("Sesi perlindungan berasal dari keluarga lain.")
+            assessment = (
+                RiskAssessment.model_validate_json(session["assessment_json"])
+                if session["assessment_json"]
+                else None
+            )
+            if assessment is None or assessment.risk_level == "low":
+                return None, False
+
+            alert_id = session["call_id"]
+            existing = self._connection.execute(
+                "SELECT * FROM alerts WHERE id = ?", (alert_id,)
+            ).fetchone()
+            if existing is not None and existing["family_id"] != session["family_id"]:
+                raise AuthorizationError("Peringatan berasal dari keluarga lain.")
+
+            level = "danger" if assessment.risk_level == "high_risk" else "review"
+            signals = [self._pilot_signal(value) for value in assessment.signals]
+            evidence = [
+                PilotTranscriptLine(
+                    id=index,
+                    offset=float(index * 5),
+                    speaker="unknown",
+                    text=item.quote,
+                    flagged=[item.quote],
+                    signals=[self._pilot_signal(value) for value in item.signals],
+                ).model_dump(mode="json")
+                for index, item in enumerate(assessment.evidence)
+            ]
+            if existing is not None:
+                if existing["level"] == "danger":
+                    level = "danger"
+                old_evidence = json.loads(existing["evidence_json"])
+                if len(old_evidence) > len(evidence):
+                    evidence = old_evidence
+                    signals = json.loads(existing["signals_json"])
+            should_notify = existing is None or (
+                existing["level"] != level and level == "danger"
+            )
+            call_ended = session["status"] in {"completed", "error"}
+            self._connection.execute(
+                """
+                INSERT INTO alerts (
+                    id, family_id, caller_detail, channel, started_at, raised_at,
+                    level, signals_json, evidence_json, call_ended, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(id) DO UPDATE SET
+                    caller_detail = excluded.caller_detail,
+                    channel = excluded.channel,
+                    level = excluded.level,
+                    signals_json = excluded.signals_json,
+                    evidence_json = excluded.evidence_json,
+                    call_ended = MAX(alerts.call_ended, excluded.call_ended),
+                    updated_at = excluded.updated_at
+                """,
+                (
+                    alert_id,
+                    session["family_id"],
+                    session["caller_detail"],
+                    session["channel"] or "cellular",
+                    session["started_at"],
+                    now,
+                    level,
+                    json.dumps(signals, ensure_ascii=False),
+                    json.dumps(evidence, ensure_ascii=False),
+                    int(call_ended),
+                    now,
+                ),
+            )
+        return self._alert(alert_id, session["family_id"]), should_notify
 
     def publish_alert(self, token: str, value: PilotAlertInput) -> PilotAlert:
         alert, _ = self.publish_alert_result(token, value)

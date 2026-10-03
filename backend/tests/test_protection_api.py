@@ -53,6 +53,17 @@ class HighRiskAnalyzer:
         )
 
 
+class SequenceAnalyzer:
+    def __init__(self, values: list[RiskAssessment | Exception]) -> None:
+        self.values = values
+
+    def analyze(self, transcript: str, final: bool) -> RiskAssessment:
+        value = self.values.pop(0)
+        if isinstance(value, Exception):
+            raise value
+        return value
+
+
 class RecordingProtectionPushSender:
     def __init__(self) -> None:
         self.sent: list[tuple[list[str], str, str, str]] = []
@@ -77,7 +88,7 @@ def session_payload(call_id: str = "7f011753-8f09-4a45-8812-8a4591a96b3c") -> di
 
 
 def build_client(
-    *, analyzer: LowRiskAnalyzer | HighRiskAnalyzer | None = None,
+    *, analyzer: LowRiskAnalyzer | HighRiskAnalyzer | SequenceAnalyzer | None = None,
     push_sender: RecordingProtectionPushSender | None = None,
 ) -> tuple[TestClient, PilotStore, TextTranscriber, ProtectionService]:
     store = PilotStore(":memory:")
@@ -90,6 +101,46 @@ def build_client(
         push_sender=push_sender,
     )
     return TestClient(app), store, transcriber, protection
+
+
+def review_assessment() -> RiskAssessment:
+    return RiskAssessment(
+        risk_level="needs_review",
+        signals=["impersonation"],
+        evidence=[{"quote": "Halo", "signals": ["impersonation"]}],
+        explanation="Penelepon mengaku dari bank.",
+        recommended_action="Verifikasi melalui kanal resmi.",
+    )
+
+
+def danger_assessment() -> RiskAssessment:
+    return RiskAssessment(
+        risk_level="high_risk",
+        signals=["secret_code", "transfer"],
+        evidence=[{"quote": "Halo", "signals": ["secret_code", "transfer"]}],
+        explanation="Penelepon meminta kode dan transfer.",
+        recommended_action="Tutup telepon sekarang.",
+    )
+
+
+def upload_chunk(
+    client: TestClient,
+    puck_token: str,
+    session_id: str,
+    *,
+    sequence: int,
+    final: bool = False,
+):
+    return client.post(
+        f"/api/pucks/sessions/{session_id}/chunks",
+        headers={
+            **auth(puck_token),
+            "content-type": "audio/wav",
+            "x-rambu-sequence": str(sequence),
+            "x-rambu-final": str(final).lower(),
+        },
+        content=wav_bytes(),
+    )
 
 
 def finish_store_session(
@@ -176,6 +227,197 @@ def test_high_risk_chunk_pushes_parent_once_when_risk_increases() -> None:
             session_payload()["call_id"],
         )
     ]
+
+
+def test_risky_chunk_persists_alert_and_pushes_guardian_without_parent_publish() -> None:
+    pushes = RecordingProtectionPushSender()
+    client, store, _, _ = build_client(
+        analyzer=HighRiskAnalyzer(), push_sender=pushes
+    )
+    parent = store.create_family("Ibu Ratna")
+    guardian = store.join_family(parent.invite_code or "", "Richard", "Anak")
+    store.register_push_token(parent.access_token, "aa" * 32, "sandbox")
+    store.register_push_token(guardian.access_token, "bb" * 32, "sandbox")
+    puck = store.pair_puck(parent.invite_code or "", "Mac")
+    session = store.create_protection_session(
+        parent.access_token,
+        session_payload()["call_id"],
+        datetime.fromisoformat("2026-10-01T10:00:00+00:00"),
+        "cellular",
+        "Panggilan terdeteksi",
+        "+62 812-••••-4417",
+    )
+    store.active_protection_session(puck.access_token)
+
+    response = upload_chunk(client, puck.access_token, session.id, sequence=0)
+    alerts = client.get(
+        "/api/pilot/alerts", headers=auth(guardian.access_token)
+    ).json()
+
+    assert response.status_code == 200
+    assert len(alerts) == 1
+    assert alerts[0]["id"] == session_payload()["call_id"]
+    assert alerts[0]["level"] == "danger"
+    assert alerts[0]["evidence"][0]["speaker"] == "unknown"
+    assert [sent[0] for sent in pushes.sent].count(["aa" * 32]) == 1
+    assert [sent[0] for sent in pushes.sent].count(["bb" * 32]) == 1
+
+
+def test_yellow_to_red_escalation_pushes_guardian_once_per_level() -> None:
+    pushes = RecordingProtectionPushSender()
+    analyzer = SequenceAnalyzer(
+        [review_assessment(), danger_assessment(), danger_assessment()]
+    )
+    client, store, _, _ = build_client(analyzer=analyzer, push_sender=pushes)
+    parent = store.create_family("Ibu Ratna")
+    guardian = store.join_family(parent.invite_code or "", "Richard", "Anak")
+    store.register_push_token(parent.access_token, "aa" * 32, "sandbox")
+    store.register_push_token(guardian.access_token, "bb" * 32, "sandbox")
+    puck = store.pair_puck(parent.invite_code or "", "Mac")
+    session = store.create_protection_session(
+        parent.access_token,
+        session_payload()["call_id"],
+        datetime.fromisoformat("2026-10-01T10:00:00+00:00"),
+        "cellular",
+    )
+    store.active_protection_session(puck.access_token)
+
+    assert upload_chunk(client, puck.access_token, session.id, sequence=0).status_code == 200
+    assert upload_chunk(client, puck.access_token, session.id, sequence=1).status_code == 200
+    assert upload_chunk(client, puck.access_token, session.id, sequence=2).status_code == 200
+
+    guardian_pushes = [sent for sent in pushes.sent if sent[0] == ["bb" * 32]]
+    assert len(guardian_pushes) == 2
+    assert "Review" in guardian_pushes[0][1]
+    assert "Danger" in guardian_pushes[1][1]
+    alerts = client.get(
+        "/api/pilot/alerts", headers=auth(guardian.access_token)
+    ).json()
+    assert alerts[0]["level"] == "danger"
+
+
+def test_safe_chunk_creates_history_but_no_alert_or_guardian_push() -> None:
+    pushes = RecordingProtectionPushSender()
+    client, store, _, _ = build_client(push_sender=pushes)
+    parent = store.create_family("Ibu Ratna")
+    guardian = store.join_family(parent.invite_code or "", "Richard", "Anak")
+    store.register_push_token(guardian.access_token, "bb" * 32, "sandbox")
+    puck = store.pair_puck(parent.invite_code or "", "Mac")
+    session = store.create_protection_session(
+        parent.access_token,
+        session_payload()["call_id"],
+        datetime.fromisoformat("2026-10-01T10:00:00+00:00"),
+        "cellular",
+    )
+    store.active_protection_session(puck.access_token)
+
+    response = upload_chunk(
+        client, puck.access_token, session.id, sequence=0, final=True
+    )
+
+    assert response.status_code == 200
+    assert client.get(
+        "/api/pilot/alerts", headers=auth(guardian.access_token)
+    ).json() == []
+    history = client.get(
+        "/api/pilot/history", headers=auth(guardian.access_token)
+    ).json()
+    assert history[0]["presentation"] == "safe"
+    assert pushes.sent == []
+
+
+def test_terminal_chunk_and_analysis_failure_end_existing_alert() -> None:
+    pushes = RecordingProtectionPushSender()
+    client, store, _, _ = build_client(
+        analyzer=SequenceAnalyzer([danger_assessment(), danger_assessment()]),
+        push_sender=pushes,
+    )
+    parent = store.create_family("Ibu Ratna")
+    guardian = store.join_family(parent.invite_code or "", "Richard", "Anak")
+    puck = store.pair_puck(parent.invite_code or "", "Mac")
+    session = store.create_protection_session(
+        parent.access_token,
+        session_payload()["call_id"],
+        datetime.fromisoformat("2026-10-01T10:00:00+00:00"),
+        "cellular",
+    )
+    store.active_protection_session(puck.access_token)
+    assert upload_chunk(client, puck.access_token, session.id, sequence=0).status_code == 200
+    assert upload_chunk(
+        client, puck.access_token, session.id, sequence=1, final=True
+    ).status_code == 200
+    ended = client.get(
+        "/api/pilot/alerts", headers=auth(guardian.access_token)
+    ).json()[0]
+    assert ended["call_ended"] is True
+
+    failure_pushes = RecordingProtectionPushSender()
+    failure = LangflowFailure("timeout", "Analisis gagal.", "provider timeout")
+    failed_client, failed_store, _, _ = build_client(
+        analyzer=SequenceAnalyzer([danger_assessment(), failure]),
+        push_sender=failure_pushes,
+    )
+    failed_parent = failed_store.create_family("Ibu Ratna")
+    failed_guardian = failed_store.join_family(
+        failed_parent.invite_code or "", "Richard", "Anak"
+    )
+    failed_puck = failed_store.pair_puck(failed_parent.invite_code or "", "Mac")
+    failed_session = failed_store.create_protection_session(
+        failed_parent.access_token,
+        "30000000-0000-0000-0000-000000000001",
+        datetime.fromisoformat("2026-10-01T10:00:00+00:00"),
+        "cellular",
+    )
+    failed_store.active_protection_session(failed_puck.access_token)
+    assert upload_chunk(
+        failed_client, failed_puck.access_token, failed_session.id, sequence=0
+    ).status_code == 200
+    assert upload_chunk(
+        failed_client, failed_puck.access_token, failed_session.id, sequence=1
+    ).status_code == 502
+    failed_alert = failed_client.get(
+        "/api/pilot/alerts", headers=auth(failed_guardian.access_token)
+    ).json()[0]
+    assert failed_alert["call_ended"] is True
+
+
+def test_retried_risky_chunk_idempotently_repairs_alert_without_duplicate_push() -> None:
+    pushes = RecordingProtectionPushSender()
+    client, store, transcriber, protection = build_client(
+        analyzer=HighRiskAnalyzer(), push_sender=pushes
+    )
+    parent = store.create_family("Ibu Ratna")
+    guardian = store.join_family(parent.invite_code or "", "Richard", "Anak")
+    store.register_push_token(guardian.access_token, "bb" * 32, "sandbox")
+    puck = store.pair_puck(parent.invite_code or "", "Mac")
+    session = store.create_protection_session(
+        parent.access_token,
+        session_payload()["call_id"],
+        datetime.fromisoformat("2026-10-01T10:00:00+00:00"),
+        "cellular",
+    )
+    store.active_protection_session(puck.access_token)
+    audio = wav_bytes()
+    protection.process_chunk(puck.access_token, session.id, 0, False, audio)
+
+    response = client.post(
+        f"/api/pucks/sessions/{session.id}/chunks",
+        headers={
+            **auth(puck.access_token),
+            "content-type": "audio/wav",
+            "x-rambu-sequence": "0",
+            "x-rambu-final": "false",
+        },
+        content=audio,
+    )
+
+    assert response.status_code == 200
+    assert transcriber.calls == 1
+    alerts = client.get(
+        "/api/pilot/alerts", headers=auth(guardian.access_token)
+    ).json()
+    assert len(alerts) == 1
+    assert [sent[0] for sent in pushes.sent].count(["bb" * 32]) == 1
 
 
 def test_parent_and_guardian_share_safe_review_danger_and_unassessed_history() -> None:

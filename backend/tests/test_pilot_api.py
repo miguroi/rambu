@@ -1,8 +1,10 @@
 from concurrent.futures import ThreadPoolExecutor
+from datetime import UTC, datetime
 
 from fastapi.testclient import TestClient
 
 from rambu_api.app import create_app
+from rambu_api.models import PilotAlertInput, RiskAssessment
 from rambu_api.pilot import DecisionConflict, PilotStore
 
 from .test_api import StubDemoService
@@ -183,3 +185,52 @@ def test_store_atomically_accepts_only_one_concurrent_decision() -> None:
     assert len(winners) == 1
     assert losers == [f"lost:{winners[0]}"]
     store.close()
+
+
+def test_legacy_parent_publish_is_idempotent_with_backend_alert() -> None:
+    store = PilotStore(":memory:")
+    parent = store.create_family("Ibu Ratna")
+    puck = store.pair_puck(parent.invite_code or "", "Mac")
+    session = store.create_protection_session(
+        parent.access_token,
+        alert_payload()["id"],
+        datetime(2026, 10, 1, 10, 0, tzinfo=UTC),
+        "cellular",
+        "Panggilan terdeteksi",
+        "+62 812-••••-4417",
+    )
+    store.active_protection_session(puck.access_token)
+    store.record_protection_chunk(
+        puck.access_token,
+        session.id,
+        sequence=0,
+        digest="digest-zero",
+        masked_transcript="Halo OTP transfer",
+        assessment=RiskAssessment(
+            risk_level="high_risk",
+            signals=["secret_code", "transfer"],
+            evidence=[
+                {"quote": "OTP", "signals": ["secret_code"]},
+                {"quote": "transfer", "signals": ["transfer"]},
+            ],
+            explanation="Penelepon meminta kode dan transfer.",
+            recommended_action="Tutup telepon sekarang.",
+        ),
+        final=False,
+    )
+    backend_alert, backend_should_notify = store.upsert_protection_alert(
+        puck.access_token, session.id
+    )
+    legacy = alert_payload()
+    legacy["level"] = "review"
+
+    published, legacy_should_notify = store.publish_alert_result(
+        parent.access_token,
+        PilotAlertInput.model_validate(legacy),
+    )
+
+    assert backend_alert is not None
+    assert backend_should_notify is True
+    assert legacy_should_notify is False
+    assert published.level == "danger"
+    assert len(published.evidence) == 2

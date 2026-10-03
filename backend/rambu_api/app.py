@@ -368,9 +368,24 @@ def create_app(
                 x_rambu_final == "true",
                 audio,
             )
+            alert, should_notify_guardians = pilots.upsert_protection_alert(
+                token, session_id
+            )
+            if alert is not None and should_notify_guardians:
+                guardian_targets = pilots.protection_notification_tokens(
+                    token, session_id, "guardian", push_environment
+                )
+                if guardian_targets:
+                    background_tasks.add_task(
+                        pushes.send,
+                        guardian_targets,
+                        f"{alert.level.title()}: {alert.parent.name} mungkin sedang ditipu",
+                        "Ketuk untuk melihat kalimat pemicu dan memutuskan.",
+                        str(alert.id),
+                    )
             if _risk_increased(previous, snapshot):
                 targets = pilots.protection_notification_tokens(
-                    token, session_id, push_environment
+                    token, session_id, "parent", push_environment
                 )
                 title, body = _protection_warning(snapshot)
                 background_tasks.add_task(
