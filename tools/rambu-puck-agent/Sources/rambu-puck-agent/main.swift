@@ -37,8 +37,8 @@ struct RambuPuckAgentMain {
                 printUsage()
             case .pair(let code, let name):
                 try await pair(code: code, name: name)
-            case .listen:
-                try await listen()
+            case .listen(let detectAudio):
+                try await listen(detectAudio: detectAudio)
             }
         } catch {
             FileHandle.standardError.write(Data("Error: \(error)\n".utf8))
@@ -56,24 +56,68 @@ struct RambuPuckAgentMain {
         print(puck.accessToken)
     }
 
-    private static func listen() async throws {
+    private static func listen(detectAudio: Bool) async throws {
         let configuration = try AgentConfiguration(
             environment: ProcessInfo.processInfo.environment,
             command: .listen
         )
         let api = PuckAPI(serverURL: configuration.serverURL, token: configuration.puckToken)
-        print("Rambu puck agent is waiting for an active call.")
+        if detectAudio {
+            print("Rambu puck agent is listening for WhatsApp call audio near the Mac.")
+        } else {
+            print("Rambu puck agent is waiting for an active call.")
+        }
         while !Task.isCancelled {
             if let session = try await api.activeSession() {
-                try await record(session: session, api: api)
+                try await record(
+                    session: session,
+                    api: api,
+                    initialSamples: [],
+                    endsAfterSilence: detectAudio
+                )
                 print("Protection session \(session.id) completed.")
+            } else if detectAudio {
+                let preRoll = try await waitForAudioActivation()
+                let session: ProtectionSession
+                if let existing = try await api.activeSession() {
+                    session = existing
+                    print("Audio detected. Joining the protection session created by the iPhone.")
+                } else {
+                    print("Audio detected. Starting WhatsApp protection from the puck.")
+                    session = try await api.createSession(callID: UUID(), startedAt: .now)
+                }
+                try await record(
+                    session: session,
+                    api: api,
+                    initialSamples: preRoll,
+                    endsAfterSilence: true
+                )
+                print("Protection session \(session.id) completed. Listening for the next call.")
             } else {
                 try await Task.sleep(for: .seconds(1))
             }
         }
     }
 
-    private static func record(session: ProtectionSession, api: PuckAPI) async throws {
+    private static func waitForAudioActivation() async throws -> [Int16] {
+        let capture = MicrophoneCapture()
+        let stream = try await capture.start()
+        defer { capture.stop() }
+        var gate = PuckAudioGate()
+        for try await samples in stream {
+            if case .activated(let preRoll) = gate.ingest(samples) {
+                return preRoll
+            }
+        }
+        throw AgentRuntimeError.monitoring("Microphone capture ended before audio was detected.")
+    }
+
+    private static func record(
+        session: ProtectionSession,
+        api: PuckAPI,
+        initialSamples: [Int16],
+        endsAfterSilence: Bool
+    ) async throws {
         print("Active call found. Capturing external audio with the Mac microphone.")
         let capture = MicrophoneCapture()
         let stream = try await capture.start()
@@ -105,14 +149,23 @@ struct RambuPuckAgentMain {
         var chunker = PCMChunker()
         var transcriptProgress = PuckTranscriptProgress()
         var warningGate = PuckWarningGate()
+        var audioGate = PuckAudioGate(initiallyActive: true)
+
+        for chunk in chunker.append(initialSamples) {
+            let updated = try await upload(chunk, sessionID: session.id, api: api)
+            emitTranscript(
+                transcriptProgress.line(
+                    sequence: chunk.sequence,
+                    cumulativeTranscript: updated.maskedTranscript
+                )
+            )
+            if let warning = warningGate.warning(for: updated.assessment) {
+                emit(warning)
+            }
+        }
         for try await samples in stream {
             for chunk in chunker.append(samples) {
-                let updated = try await api.uploadChunk(
-                    sessionID: session.id,
-                    sequence: chunk.sequence,
-                    final: false,
-                    wav: WAVEncoder.encode(samples: chunk.samples)
-                )
+                let updated = try await upload(chunk, sessionID: session.id, api: api)
                 emitTranscript(
                     transcriptProgress.line(
                         sequence: chunk.sequence,
@@ -123,6 +176,10 @@ struct RambuPuckAgentMain {
                     emit(warning)
                 }
             }
+            if endsAfterSilence, audioGate.ingest(samples) == .ended {
+                print("Sustained silence detected. Finishing the protection session.")
+                break
+            }
             if await signal.requested { break }
         }
         if let failure = await signal.failure {
@@ -130,12 +187,7 @@ struct RambuPuckAgentMain {
         }
         capture.stop()
         if let final = chunker.finish() {
-            let updated = try await api.uploadChunk(
-                sessionID: session.id,
-                sequence: final.sequence,
-                final: true,
-                wav: WAVEncoder.encode(samples: final.samples)
-            )
+            let updated = try await upload(final, sessionID: session.id, api: api)
             emitTranscript(
                 transcriptProgress.line(
                     sequence: final.sequence,
@@ -146,6 +198,19 @@ struct RambuPuckAgentMain {
                 emit(warning)
             }
         }
+    }
+
+    private static func upload(
+        _ chunk: PCMChunk,
+        sessionID: String,
+        api: PuckAPI
+    ) async throws -> ProtectionSession {
+        try await api.uploadChunk(
+            sessionID: sessionID,
+            sequence: chunk.sequence,
+            final: chunk.isFinal,
+            wav: WAVEncoder.encode(samples: chunk.samples)
+        )
     }
 
     private static func emitTranscript(_ line: String) {
@@ -168,6 +233,7 @@ struct RambuPuckAgentMain {
             Usage:
               rambu-puck-agent pair --code 123456 --name "Mac puck"
               rambu-puck-agent listen
+              rambu-puck-agent listen --detect-audio
 
             Required environment:
               RAMBU_SERVER_URL   Backend base URL

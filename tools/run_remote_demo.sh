@@ -352,7 +352,7 @@ run_demo() {
   printf '\n✓ Mac puck paired. Waiting for a call. Press Ctrl+C to stop everything.\n\n'
   RAMBU_SERVER_URL="http://127.0.0.1:8000" \
     RAMBU_PUCK_TOKEN="${puck_token}" \
-    swift run --package-path tools/rambu-puck-agent rambu-puck-agent listen \
+    swift run --package-path tools/rambu-puck-agent rambu-puck-agent listen --detect-audio \
     2> >(tee -a "${puck_log}" >&2)
 }
 
