@@ -332,6 +332,37 @@ def create_app(
             raise protection_error(error) from error
 
     @app.post(
+        "/api/pucks/sessions",
+        response_model=ProtectionSessionSnapshot,
+        status_code=201,
+    )
+    def create_puck_session(
+        background_tasks: BackgroundTasks,
+        value: CreateProtectionSessionRequest,
+        authorization: str | None = Header(default=None),
+    ) -> ProtectionSessionSnapshot:
+        try:
+            token = token_from(authorization)
+            snapshot, created = protections().create_puck_session(token, value)
+            if created:
+                targets = pilots.protection_notification_tokens(
+                    token, snapshot.id, "parent", push_environment
+                )
+                background_tasks.add_task(
+                    send_protection_warning,
+                    targets,
+                    "Panggilan WhatsApp terdeteksi",
+                    "Rambu Puck mulai mendengarkan dan melindungi panggilan ini.",
+                    str(snapshot.call_id),
+                    snapshot.id,
+                )
+            return snapshot
+        except HTTPException:
+            raise
+        except Exception as error:
+            raise protection_error(error) from error
+
+    @app.post(
         "/api/pucks/sessions/{session_id}/chunks",
         response_model=ProtectionSessionSnapshot,
     )

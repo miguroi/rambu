@@ -53,6 +53,18 @@ class ProtectionService:
             request.caller_detail,
         )
 
+    def create_puck_session(
+        self, puck_token: str, request: CreateProtectionSessionRequest
+    ) -> tuple[ProtectionSessionSnapshot, bool]:
+        return self.store.create_puck_protection_session(
+            puck_token,
+            str(request.call_id),
+            request.started_at,
+            request.channel,
+            request.title,
+            request.caller_detail,
+        )
+
     def get_parent_session(
         self, parent_token: str, session_id: str
     ) -> ProtectionSessionSnapshot:

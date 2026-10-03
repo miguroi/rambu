@@ -127,6 +127,67 @@ def test_puck_can_claim_only_its_family_active_session() -> None:
         store.authenticate_puck("wrong-token")
 
 
+def test_puck_can_create_an_idempotent_active_session_for_its_own_family() -> None:
+    store = PilotStore(":memory:")
+    parent = store.create_family("Ibu Ratna")
+    puck = store.pair_puck(parent.invite_code or "", "Mac")
+
+    created, was_created = store.create_puck_protection_session(
+        puck.access_token,
+        "7F011753-8F09-4A45-8812-8A4591A96B3C",
+        STARTED_AT,
+        "whatsapp",
+        "Panggilan WhatsApp terdeteksi",
+        "Kontak WhatsApp",
+    )
+    repeated, was_repeated = store.create_puck_protection_session(
+        puck.access_token,
+        "7F011753-8F09-4A45-8812-8A4591A96B3C",
+        STARTED_AT,
+        "whatsapp",
+        "Judul pengganti",
+        "Detail pengganti",
+    )
+
+    assert was_created is True
+    assert was_repeated is False
+    assert repeated.id == created.id
+    assert created.status == "listening"
+    assert created.puck_connected is True
+    assert created.channel == "whatsapp"
+    assert repeated.title == "Panggilan WhatsApp terdeteksi"
+    assert store.get_protection_session(parent.access_token, created.id).id == created.id
+
+    with pytest.raises(PilotError, match="aktif"):
+        store.create_puck_protection_session(
+            puck.access_token,
+            "B2546D82-9466-4015-A663-CA10CCACFFBF",
+            STARTED_AT,
+            "whatsapp",
+        )
+
+
+def test_puck_session_creation_rejects_non_puck_and_invalid_channel() -> None:
+    store = PilotStore(":memory:")
+    parent = store.create_family("Ibu Ratna")
+    puck = store.pair_puck(parent.invite_code or "", "Mac")
+
+    with pytest.raises(PilotError, match="tidak valid"):
+        store.create_puck_protection_session(
+            parent.access_token,
+            "7F011753-8F09-4A45-8812-8A4591A96B3C",
+            STARTED_AT,
+            "whatsapp",
+        )
+    with pytest.raises(ValueError, match="Kanal"):
+        store.create_puck_protection_session(
+            puck.access_token,
+            "7F011753-8F09-4A45-8812-8A4591A96B3C",
+            STARTED_AT,
+            "telegram",
+        )
+
+
 def test_chunk_sequence_is_ordered_and_last_identical_upload_is_idempotent() -> None:
     store = PilotStore(":memory:")
     parent = store.create_family("Ibu Ratna")

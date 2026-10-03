@@ -365,6 +365,78 @@ class PilotStore:
             ).fetchone()
         return self._protection_snapshot(row)
 
+    def create_puck_protection_session(
+        self,
+        token: str,
+        call_id: str,
+        started_at: datetime,
+        channel: str | None,
+        title: str | None = None,
+        caller_detail: str | None = None,
+    ) -> tuple[ProtectionSessionSnapshot, bool]:
+        puck = self.authenticate_puck(token)
+        if channel not in {None, "cellular", "whatsapp"}:
+            raise ValueError("Kanal panggilan tidak valid.")
+        normalized_call_id = str(call_id).lower()
+        now = _iso(_now())
+        with self._lock:
+            existing = self._connection.execute(
+                "SELECT * FROM protection_sessions WHERE family_id = ? AND call_id = ?",
+                (puck["family_id"], normalized_call_id),
+            ).fetchone()
+            if existing is not None:
+                return self._protection_snapshot(existing), False
+            active = self._connection.execute(
+                """
+                SELECT 1 FROM protection_sessions
+                WHERE family_id = ? AND status IN ('waiting_for_puck', 'listening')
+                """,
+                (puck["family_id"],),
+            ).fetchone()
+            if active is not None:
+                raise ActiveProtectionSessionConflict(
+                    "Keluarga sudah memiliki sesi perlindungan aktif."
+                )
+            parent = self._connection.execute(
+                """
+                SELECT id FROM members
+                WHERE family_id = ? AND role = 'parent'
+                ORDER BY created_at ASC LIMIT 1
+                """,
+                (puck["family_id"],),
+            ).fetchone()
+            if parent is None:
+                raise AuthorizationError("Keluarga puck tidak memiliki akun orang tua.")
+            session_id = uuid4().hex
+            with self._connection:
+                self._connection.execute(
+                    """
+                    INSERT INTO protection_sessions (
+                        id, family_id, parent_id, call_id, title, caller_detail,
+                        channel, status, started_at, puck_id
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, 'listening', ?, ?)
+                    """,
+                    (
+                        session_id,
+                        puck["family_id"],
+                        parent["id"],
+                        normalized_call_id,
+                        title or "Panggilan terdeteksi",
+                        caller_detail or "Nomor tidak tersedia",
+                        channel,
+                        _iso(started_at),
+                        puck["id"],
+                    ),
+                )
+                self._connection.execute(
+                    "UPDATE pucks SET last_seen_at = ? WHERE id = ?",
+                    (now, puck["id"]),
+                )
+            row = self._connection.execute(
+                "SELECT * FROM protection_sessions WHERE id = ?", (session_id,)
+            ).fetchone()
+        return self._protection_snapshot(row), True
+
     def get_protection_session(
         self, token: str, session_id: str
     ) -> ProtectionSessionSnapshot:

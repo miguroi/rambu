@@ -701,6 +701,56 @@ def test_protection_routes_complete_authenticated_parent_and_puck_flow() -> None
     assert deleted.status_code == 204
 
 
+def test_puck_created_session_pushes_parent_once_and_not_guardian() -> None:
+    pushes = RecordingProtectionPushSender()
+    client, store, _, _ = build_client(push_sender=pushes)
+    parent = store.create_family("Ibu Ratna")
+    guardian = store.join_family(parent.invite_code or "", "Richard", "Anak")
+    puck = store.pair_puck(parent.invite_code or "", "Mac")
+    store.register_push_token(parent.access_token, "aa" * 32, "sandbox")
+    store.register_push_token(guardian.access_token, "bb" * 32, "sandbox")
+    payload = {
+        **session_payload(),
+        "channel": "whatsapp",
+        "title": "Panggilan WhatsApp terdeteksi",
+        "caller_detail": "Kontak WhatsApp",
+    }
+
+    created = client.post(
+        "/api/pucks/sessions", headers=auth(puck.access_token), json=payload
+    )
+    repeated = client.post(
+        "/api/pucks/sessions", headers=auth(puck.access_token), json=payload
+    )
+
+    assert created.status_code == 201
+    assert created.json()["status"] == "listening"
+    assert created.json()["puck_connected"] is True
+    assert repeated.status_code == 201
+    assert repeated.json()["id"] == created.json()["id"]
+    assert pushes.sent == [
+        (
+            ["aa" * 32],
+            "Panggilan WhatsApp terdeteksi",
+            "Rambu Puck mulai mendengarkan dan melindungi panggilan ini.",
+            session_payload()["call_id"],
+        )
+    ]
+
+
+def test_puck_session_route_rejects_member_credentials() -> None:
+    client, store, _, _ = build_client()
+    parent = store.create_family("Ibu Ratna")
+
+    response = client.post(
+        "/api/pucks/sessions",
+        headers=auth(parent.access_token),
+        json={**session_payload(), "channel": "whatsapp"},
+    )
+
+    assert response.status_code == 401
+
+
 def test_parent_and_puck_credentials_cannot_cross_roles() -> None:
     client, store, _, _ = build_client()
     parent = store.create_family("Ibu Ratna")
