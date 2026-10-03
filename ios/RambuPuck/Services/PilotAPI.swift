@@ -181,6 +181,23 @@ struct PilotAlertDTO: Codable, Sendable {
     }
 }
 
+struct PilotHistoryRecordDTO: Decodable, Sendable {
+    let id: UUID
+    let parent: PilotPersonDTO
+    let title: String
+    let callerDetail: String
+    let channel: String?
+    let startedAt: Date
+    let endedAt: Date
+    let durationSeconds: TimeInterval
+    let outcome: String
+    let presentation: String
+    let signals: [String]
+    let evidence: [PilotTranscriptLineDTO]
+    let decision: PilotDecisionDTO?
+    let failure: ProtectionFailureDTO?
+}
+
 private struct PilotAlertRequest: Encodable {
     let id: UUID
     let callerDetail: String
@@ -230,13 +247,15 @@ enum PilotAPIError: LocalizedError {
 
 struct PilotAPI: Sendable {
     let baseURL: URL
+    let session: any HTTPDataSession
 
-    init(serverURL: String) throws {
+    init(serverURL: String, session: any HTTPDataSession = URLSession.shared) throws {
         let value = serverURL.trimmingCharacters(in: .whitespacesAndNewlines)
         guard let url = URL(string: value), ["http", "https"].contains(url.scheme), url.host != nil else {
             throw PilotAPIError.invalidServerURL
         }
         baseURL = url
+        self.session = session
     }
 
     func createFamily(parentName: String) async throws -> PilotSessionDTO {
@@ -258,6 +277,10 @@ struct PilotAPI: Sendable {
 
     func alerts(token: String) async throws -> [PilotAlertDTO] {
         try await request("api/pilot/alerts", token: token, body: Optional<String>.none)
+    }
+
+    func history(token: String) async throws -> [PilotHistoryRecordDTO] {
+        try await request("api/pilot/history", token: token, body: Optional<String>.none)
     }
 
     func publish(_ alert: FamilyAlert, token: String) async throws -> PilotAlertDTO {
@@ -294,7 +317,7 @@ struct PilotAPI: Sendable {
             request.setValue("application/json", forHTTPHeaderField: "Content-Type")
             request.httpBody = try Self.encoder.encode(body)
         }
-        let (data, response) = try await URLSession.shared.data(for: request)
+        let (data, response) = try await session.data(for: request)
         guard let http = response as? HTTPURLResponse else { throw PilotAPIError.invalidResponse }
         if !(200..<300).contains(http.statusCode) && !(acceptsConflict && http.statusCode == 409) {
             let message = (try? Self.decoder.decode(APIMessage.self, from: data))?.detail
@@ -341,17 +364,24 @@ struct PilotAPI: Sendable {
 final class PilotSync {
     var onAlerts: (([FamilyAlert]) -> Void)?
     var onProfile: ((PilotProfileDTO) -> Void)?
+    var onHistory: (([PilotHistoryRecordDTO]) -> Void)?
     var onError: ((String) -> Void)?
 
     private(set) var credentials: PilotCredentials?
     private let credentialStore: PilotCredentialStore
+    private let session: any HTTPDataSession
     private var pollTask: Task<Void, Never>?
     private var operationTask: Task<Void, Never>?
     private var pushToken: String?
 
-    init(credentialStore: PilotCredentialStore = PilotCredentialStore()) {
+    init(
+        credentialStore: PilotCredentialStore = PilotCredentialStore(),
+        session: any HTTPDataSession = URLSession.shared,
+        initialCredentials: PilotCredentials? = nil
+    ) {
         self.credentialStore = credentialStore
-        credentials = credentialStore.load()
+        self.session = session
+        credentials = initialCredentials ?? credentialStore.load()
         RambuAppDelegate.onPushToken = { [weak self] token in self?.receivePushToken(token) }
         if let token = RambuAppDelegate.latestPushToken { receivePushToken(token) }
     }
@@ -373,7 +403,7 @@ final class PilotSync {
     }
 
     func createFamily(serverURL: String, parentName: String) async throws -> String {
-        let api = try PilotAPI(serverURL: serverURL)
+        let api = try PilotAPI(serverURL: serverURL, session: session)
         let session = try await api.createFamily(parentName: parentName)
         configure(serverURL: serverURL, session: session)
         await refresh()
@@ -381,7 +411,7 @@ final class PilotSync {
     }
 
     func joinFamily(serverURL: String, code: String, name: String, relation: String) async throws {
-        let api = try PilotAPI(serverURL: serverURL)
+        let api = try PilotAPI(serverURL: serverURL, session: session)
         let session = try await api.joinFamily(code: code, name: name, relation: relation)
         configure(serverURL: serverURL, session: session)
         await refresh()
@@ -389,7 +419,8 @@ final class PilotSync {
 
     func renewInvite() async throws -> String {
         guard var credentials else { throw PilotAPIError.server("Hubungkan server terlebih dahulu.") }
-        let invite = try await PilotAPI(serverURL: credentials.serverURL).renewInvite(token: credentials.accessToken)
+        let invite = try await PilotAPI(serverURL: credentials.serverURL, session: session)
+            .renewInvite(token: credentials.accessToken)
         credentials.inviteCode = invite.code
         self.credentials = credentials
         credentialStore.save(credentials)
@@ -408,16 +439,18 @@ final class PilotSync {
     func publish(_ alert: FamilyAlert) {
         guard let credentials, credentials.member.role == "parent" else { return }
         enqueue { [weak self] in
+            guard let self else { return }
             do {
-                _ = try await PilotAPI(serverURL: credentials.serverURL).publish(alert, token: credentials.accessToken)
-            } catch { await self?.report(error) }
+                _ = try await PilotAPI(serverURL: credentials.serverURL, session: self.session)
+                    .publish(alert, token: credentials.accessToken)
+            } catch { await self.report(error) }
         }
     }
 
     func submit(_ verdict: Verdict, alertID: UUID) async -> DecisionOutcome? {
         guard let credentials, credentials.member.role == "guardian" else { return nil }
         do {
-            let result = try await PilotAPI(serverURL: credentials.serverURL)
+            let result = try await PilotAPI(serverURL: credentials.serverURL, session: session)
                 .decide(verdict, alertID: alertID, token: credentials.accessToken)
             await refreshAlerts(quietly: true)
             return result.accepted ? .accepted(result.decision.decision) : .alreadyDecided(result.decision.decision)
@@ -430,9 +463,11 @@ final class PilotSync {
     func end(_ alertID: UUID) {
         guard let credentials, credentials.member.role == "parent" else { return }
         enqueue { [weak self] in
+            guard let self else { return }
             do {
-                _ = try await PilotAPI(serverURL: credentials.serverURL).end(alertID: alertID, token: credentials.accessToken)
-            } catch { await self?.report(error) }
+                _ = try await PilotAPI(serverURL: credentials.serverURL, session: self.session)
+                    .end(alertID: alertID, token: credentials.accessToken)
+            } catch { await self.report(error) }
         }
     }
 
@@ -443,11 +478,14 @@ final class PilotSync {
     private func refresh(quietly: Bool) async {
         guard let credentials else { return }
         do {
-            let api = try PilotAPI(serverURL: credentials.serverURL)
+            let api = try PilotAPI(serverURL: credentials.serverURL, session: session)
             async let profile = api.profile(token: credentials.accessToken)
             async let alerts = api.alerts(token: credentials.accessToken)
-            onProfile?(try await profile)
-            onAlerts?(try await alerts.map(\.alert))
+            async let history = api.history(token: credentials.accessToken)
+            let (profileValue, alertValues, historyValues) = try await (profile, alerts, history)
+            onProfile?(profileValue)
+            onAlerts?(alertValues.map(\.alert))
+            onHistory?(historyValues)
         } catch {
             if !quietly { onError?(error.localizedDescription) }
         }
@@ -456,7 +494,8 @@ final class PilotSync {
     private func refreshAlerts(quietly: Bool) async {
         guard let credentials else { return }
         do {
-            let values = try await PilotAPI(serverURL: credentials.serverURL).alerts(token: credentials.accessToken)
+            let values = try await PilotAPI(serverURL: credentials.serverURL, session: session)
+                .alerts(token: credentials.accessToken)
             onAlerts?(values.map(\.alert))
         } catch {
             if !quietly { onError?(error.localizedDescription) }
@@ -506,11 +545,12 @@ final class PilotSync {
         let environment = "production"
         #endif
         Task { [weak self] in
+            guard let self else { return }
             do {
-                try await PilotAPI(serverURL: credentials.serverURL)
+                try await PilotAPI(serverURL: credentials.serverURL, session: self.session)
                     .registerPushToken(pushToken, environment: environment, token: credentials.accessToken)
             } catch {
-                self?.report(error)
+                self.report(error)
             }
         }
     }

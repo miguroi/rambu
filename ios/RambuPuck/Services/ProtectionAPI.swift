@@ -41,6 +41,8 @@ struct ProtectionAPI: Sendable {
         let callID: UUID
         let startedAt: Date
         let channel: String?
+        let title: String
+        let callerDetail: String
     }
 
     let baseURL: URL
@@ -69,7 +71,9 @@ struct ProtectionAPI: Sendable {
         let body = CreateBody(
             callID: call.id,
             startedAt: call.startedAt,
-            channel: call.metadata.channel.rawValue
+            channel: call.metadata.channel.rawValue,
+            title: call.metadata.title,
+            callerDetail: call.metadata.callerDetail
         )
         return try await request(
             endpoint("api", "protection", "sessions"),

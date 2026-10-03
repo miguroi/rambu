@@ -168,6 +168,8 @@ struct ProtectionCallAnalysisSourceTests {
         let body = try #require(create.httpBody)
         let object = try #require(JSONSerialization.jsonObject(with: body) as? [String: Any])
         #expect(object["call_id"] as? String == "7F011753-8F09-4A45-8812-8A4591A96B3C")
+        #expect(object["title"] as? String == "Panggilan terdeteksi")
+        #expect(object["caller_detail"] as? String == "Nomor tidak tersedia")
     }
 
     @Test("Finish posts end while cancel deletes the remote session")
