@@ -22,8 +22,11 @@ extension CallActivityMonitoring {
 }
 
 struct CallActivityReducer: Sendable {
+    private static let missingConfirmationInterval: TimeInterval = 1.5
+
     private var connected = Set<UUID>()
     private var ended = Set<UUID>()
+    private var missingSince: [UUID: Date] = [:]
 
     mutating func reduce(
         id: UUID,
@@ -34,18 +37,32 @@ struct CallActivityReducer: Sendable {
         if hasEnded {
             guard ended.insert(id).inserted else { return [] }
             connected.remove(id)
+            missingSince.removeValue(forKey: id)
             return [CallActivityEvent(id: id, state: .ended, at: at)]
         }
-        guard hasConnected, !ended.contains(id), connected.insert(id).inserted else { return [] }
+        guard hasConnected, !ended.contains(id) else { return [] }
+        missingSince.removeValue(forKey: id)
+        guard connected.insert(id).inserted else { return [] }
         return [CallActivityEvent(id: id, state: .connected, at: at)]
     }
 
     mutating func reconcile(activeCallIDs: Set<UUID>, at: Date) -> [CallActivityEvent] {
-        connected.subtracting(activeCallIDs)
+        for id in activeCallIDs {
+            missingSince.removeValue(forKey: id)
+        }
+        return connected.subtracting(activeCallIDs)
             .sorted { $0.uuidString < $1.uuidString }
-            .compactMap { id in
+            .compactMap { id -> CallActivityEvent? in
+                guard let firstMissingAt = missingSince[id] else {
+                    missingSince[id] = at
+                    return nil
+                }
+                guard at.timeIntervalSince(firstMissingAt) >= Self.missingConfirmationInterval else {
+                    return nil
+                }
                 guard ended.insert(id).inserted else { return nil }
                 connected.remove(id)
+                missingSince.removeValue(forKey: id)
                 return CallActivityEvent(id: id, state: .ended, at: at)
             }
     }
@@ -58,6 +75,7 @@ final class CallKitActivityMonitor: NSObject, CallActivityMonitoring, CXCallObse
     private let continuation: AsyncThrowingStream<CallActivityEvent, Error>.Continuation
     private let lock = NSLock()
     private var reducer = CallActivityReducer()
+    private var reconciliationWorkItem: DispatchWorkItem?
 
     override init() {
         var captured: AsyncThrowingStream<CallActivityEvent, Error>.Continuation!
@@ -76,6 +94,17 @@ final class CallKitActivityMonitor: NSObject, CallActivityMonitoring, CXCallObse
     }
 
     func refresh() {
+        reconcileCurrentCalls()
+
+        reconciliationWorkItem?.cancel()
+        let workItem = DispatchWorkItem { [weak self] in
+            self?.reconcileCurrentCalls()
+        }
+        reconciliationWorkItem = workItem
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2, execute: workItem)
+    }
+
+    private func reconcileCurrentCalls() {
         let calls = observer.calls
         for call in calls { receive(call) }
         let activeCallIDs = Set(calls.lazy.filter { !$0.hasEnded }.map(\.uuid))
@@ -102,6 +131,7 @@ final class CallKitActivityMonitor: NSObject, CallActivityMonitoring, CXCallObse
     }
 
     deinit {
+        reconciliationWorkItem?.cancel()
         observer.setDelegate(nil, queue: nil)
         continuation.finish()
     }

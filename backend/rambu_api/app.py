@@ -6,8 +6,6 @@ from typing import Protocol
 
 from fastapi import BackgroundTasks, Body, FastAPI, Header, HTTPException, Response
 from fastapi.responses import JSONResponse
-from fastapi.responses import FileResponse
-from fastapi.staticfiles import StaticFiles
 
 from .config import LangflowSettings
 from .demo import DemoService, default_scenarios, delay_from_environment
@@ -150,14 +148,14 @@ def create_app(
             pilots.close()
             pushes.close()
 
-    app = FastAPI(title="Rambu Digital Prototype", version="0.2.0", lifespan=lifespan)
-    web_root = Path(__file__).resolve().parents[1] / "web"
-    project_root = Path(__file__).resolve().parents[2]
-
-    app.mount("/static", StaticFiles(directory=web_root), name="static")
-    samples_root = project_root / "samples" / "audio"
-    if samples_root.exists():
-        app.mount("/samples", StaticFiles(directory=samples_root), name="samples")
+    app = FastAPI(
+        title="Rambu Digital Prototype",
+        version="0.2.0",
+        lifespan=lifespan,
+        docs_url=None,
+        redoc_url=None,
+        openapi_url=None,
+    )
 
     def demos() -> DemoServiceContract:
         if demo_service is None:
@@ -168,10 +166,6 @@ def create_app(
         if protection is None:
             raise RuntimeError("Protection service is unavailable before application startup.")
         return protection
-
-    @app.get("/", include_in_schema=False)
-    def dashboard() -> FileResponse:
-        return FileResponse(web_root / "index.html")
 
     @app.get("/health")
     def health() -> dict[str, str]:

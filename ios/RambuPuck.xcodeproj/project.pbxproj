@@ -589,6 +589,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_ENTITLEMENTS = RambuPuckWidgets/RambuPuckWidgetsRelease.entitlements;
+				CURRENT_PROJECT_VERSION = 2;
 				DEVELOPMENT_TEAM = X343JBU8CX;
 				INFOPLIST_FILE = RambuPuckWidgets/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -596,6 +597,7 @@
 					"@executable_path/Frameworks",
 					"@executable_path/../../Frameworks",
 				);
+				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = id.rambu.puck.widgets;
 				SDKROOT = iphoneos;
 				SKIP_INSTALL = YES;
@@ -611,12 +613,14 @@
 				CODE_SIGN_ENTITLEMENTS = RambuPuck/RambuPuck.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 2;
 				DEVELOPMENT_TEAM = X343JBU8CX;
 				INFOPLIST_FILE = RambuPuck/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
+				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = id.rambu.puck;
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				SDKROOT = iphoneos;
@@ -700,12 +704,14 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = RambuPuck/RambuPuck.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
+				CURRENT_PROJECT_VERSION = 2;
 				DEVELOPMENT_TEAM = X343JBU8CX;
 				INFOPLIST_FILE = RambuPuck/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
+				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = id.rambu.puck;
 				SDKROOT = iphoneos;
 				TARGETED_DEVICE_FAMILY = 1;
@@ -715,6 +721,7 @@
 		C2650449F639975E68A4DC07 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CURRENT_PROJECT_VERSION = 2;
 				DEVELOPMENT_TEAM = X343JBU8CX;
 				INFOPLIST_FILE = RambuPuckWidgets/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -722,6 +729,7 @@
 					"@executable_path/Frameworks",
 					"@executable_path/../../Frameworks",
 				);
+				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = id.rambu.puck.widgets;
 				SDKROOT = iphoneos;
 				SKIP_INSTALL = YES;

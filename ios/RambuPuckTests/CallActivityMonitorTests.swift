@@ -40,18 +40,42 @@ struct CallActivityMonitorTests {
         ])
     }
 
-    @Test("Foreground reconciliation ends a connected call missing from CallKit")
-    func reconciliationEndsMissingCallOnce() {
+    @Test("A transient empty CallKit snapshot does not end a connected call")
+    func transientMissingSnapshotKeepsCallConnected() {
         let id = UUID()
         let connectedAt = Date(timeIntervalSince1970: 400)
-        let reconciledAt = Date(timeIntervalSince1970: 500)
         var reducer = CallActivityReducer()
 
         _ = reducer.reduce(id: id, hasConnected: true, hasEnded: false, at: connectedAt)
 
-        #expect(reducer.reconcile(activeCallIDs: [], at: reconciledAt) == [
-            CallActivityEvent(id: id, state: .ended, at: reconciledAt),
+        #expect(reducer.reconcile(
+            activeCallIDs: [],
+            at: connectedAt.addingTimeInterval(0.5)
+        ).isEmpty)
+        #expect(reducer.reconcile(
+            activeCallIDs: [id],
+            at: connectedAt.addingTimeInterval(1)
+        ).isEmpty)
+    }
+
+    @Test("A repeatedly missing CallKit call is ended after the confirmation delay")
+    func confirmedMissingCallEndsOnce() {
+        let id = UUID()
+        let connectedAt = Date(timeIntervalSince1970: 500)
+        let confirmedAt = connectedAt.addingTimeInterval(2)
+        var reducer = CallActivityReducer()
+
+        _ = reducer.reduce(id: id, hasConnected: true, hasEnded: false, at: connectedAt)
+        #expect(reducer.reconcile(activeCallIDs: [], at: connectedAt).isEmpty)
+        #expect(reducer.reconcile(
+            activeCallIDs: [],
+            at: confirmedAt
+        ) == [
+            CallActivityEvent(id: id, state: .ended, at: confirmedAt),
         ])
-        #expect(reducer.reconcile(activeCallIDs: [], at: reconciledAt).isEmpty)
+        #expect(reducer.reconcile(
+            activeCallIDs: [],
+            at: connectedAt.addingTimeInterval(3)
+        ).isEmpty)
     }
 }

@@ -66,18 +66,31 @@ class StubDemoService:
         )
 
 
-def test_dashboard_and_demo_api_contract() -> None:
+@pytest.mark.parametrize(
+    "path",
+    [
+        "/",
+        "/static/app.js",
+        "/samples/bank-otp.wav",
+        "/docs",
+        "/redoc",
+        "/openapi.json",
+    ],
+)
+def test_public_web_routes_are_not_exposed(path: str) -> None:
+    client = TestClient(create_app(service=StubDemoService()))
+
+    assert client.get(path).status_code == 404
+
+
+def test_demo_api_contract_remains_available_for_ios() -> None:
     service = StubDemoService()
     client = TestClient(create_app(service=service))
 
-    page = client.get("/")
     started = client.post("/api/demo/bank-otp")
     status = client.get("/api/demo/demo-1")
     deleted = client.delete("/api/demo/demo-1")
 
-    assert page.status_code == 200
-    assert "Rambu" in page.text
-    assert "Simulasi" in page.text
     assert started.status_code == 201
     assert started.json()["id"] == "demo-1"
     assert status.json()["progress"] == 100

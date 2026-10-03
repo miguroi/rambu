@@ -44,7 +44,7 @@ check_requirements() {
   local command
   local private_key_path
   local variable
-  for command in uv swift cloudflared curl; do
+  for command in uv swift cloudflared curl dig; do
     command -v "${command}" >/dev/null 2>&1 || fail "${command} is not installed or not on PATH."
   done
 
@@ -76,6 +76,8 @@ service_is_ready() {
 OWNED_PIDS=""
 LAST_STARTED_PID=""
 LOG_DIRECTORY=""
+PUBLIC_TUNNEL_MAX_ATTEMPTS=2
+PUBLIC_TUNNEL_WAIT_SECONDS=120
 
 start_background_process() {
   local log_file="$1"
@@ -91,6 +93,14 @@ show_log_tail() {
     printf '\nLast output from %s:\n' "${log_file}" >&2
     tail -n 20 "${log_file}" >&2 || true
   fi
+}
+
+stop_background_process() {
+  local pid="$1"
+  if kill -0 "${pid}" 2>/dev/null; then
+    kill "${pid}" 2>/dev/null || true
+  fi
+  wait "${pid}" 2>/dev/null || true
 }
 
 wait_for_service() {
@@ -151,13 +161,79 @@ wait_for_tunnel_url() {
     fi
     if ! kill -0 "${pid}" 2>/dev/null; then
       show_log_tail "${log_file}"
-      fail "Cloudflare Tunnel stopped before providing a public URL."
+      return 1
     fi
     sleep 0.5
   done
 
   show_log_tail "${log_file}"
-  fail "Timed out waiting for the Cloudflare public URL."
+  return 1
+}
+
+resolve_public_tunnel_ipv4() {
+  local hostname="$1"
+  local ip_address
+  local resolver
+  local response
+
+  for resolver in 1.1.1.1 8.8.8.8; do
+    response="$(dig +time=2 +tries=1 "@${resolver}" "${hostname}" A +short 2>/dev/null)" || \
+      response=""
+    ip_address="$({ printf '%s\n' "${response}"; } | awk '
+      /^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$/ && !found { print; found = 1 }
+    ')"
+    if [[ -n "${ip_address}" ]]; then
+      printf '%s\n' "${ip_address}"
+      return 0
+    fi
+  done
+
+  return 1
+}
+
+wait_for_public_tunnel() {
+  local url="$1"
+  local pid="$2"
+  local probe_log="$3"
+  local deadline=$((SECONDS + PUBLIC_TUNNEL_WAIT_SECONDS))
+  local hostname="${url#https://}"
+  local next_progress=$((SECONDS + 15))
+  local public_ip
+  local remaining
+
+  hostname="${hostname%%/*}"
+  printf 'Waiting for Cloudflare public DNS and backend health (up to %ss)...\n' \
+    "${PUBLIC_TUNNEL_WAIT_SECONDS}" >&2
+
+  while true; do
+    if public_ip="$(resolve_public_tunnel_ipv4 "${hostname}")"; then
+      if curl --fail --silent --show-error --max-time 3 \
+        --resolve "${hostname}:443:${public_ip}" "${url}" \
+        >/dev/null 2>"${probe_log}"; then
+        return 0
+      fi
+    else
+      printf 'Public DNS has not published %s yet.\n' "${hostname}" >"${probe_log}"
+    fi
+    if ! kill -0 "${pid}" 2>/dev/null; then
+      break
+    fi
+    if (( SECONDS >= deadline )); then
+      break
+    fi
+    if (( SECONDS >= next_progress )); then
+      remaining=$((deadline - SECONDS))
+      printf '  Still waiting for the tunnel (%ss remaining)...\n' "${remaining}" >&2
+      next_progress=$((SECONDS + 15))
+    fi
+    sleep 1
+  done
+
+  if [[ -s "${probe_log}" ]]; then
+    printf '\nLast public tunnel readiness error:\n' >&2
+    tail -n 5 "${probe_log}" >&2 || true
+  fi
+  return 1
 }
 
 prompt_for_family_code() {
@@ -183,7 +259,10 @@ run_demo() {
   local puck_log
   local puck_token
   local tunnel_log
+  local tunnel_attempt
   local tunnel_pid
+  local tunnel_probe_log
+  local tunnel_ready
   local tunnel_url
 
   check_requirements
@@ -194,6 +273,7 @@ run_demo() {
   bootstrap_log="${LOG_DIRECTORY}/bootstrap.log"
   backend_log="${LOG_DIRECTORY}/backend.log"
   tunnel_log="${LOG_DIRECTORY}/cloudflared.log"
+  tunnel_probe_log="${LOG_DIRECTORY}/cloudflared-readiness.log"
   puck_log="${LOG_DIRECTORY}/puck.log"
   trap cleanup EXIT
   trap 'exit 130' INT TERM
@@ -227,11 +307,30 @@ run_demo() {
     printf '✓ Backend is ready.\n'
   fi
 
-  start_background_process "${tunnel_log}" \
-    cloudflared tunnel --url http://127.0.0.1:8000
-  tunnel_pid="${LAST_STARTED_PID}"
-  tunnel_url="$(wait_for_tunnel_url "${tunnel_pid}" "${tunnel_log}")"
-  wait_for_service "public tunnel" "${tunnel_url}/health" "${tunnel_pid}" "${tunnel_log}"
+  tunnel_ready=""
+  for tunnel_attempt in $(seq 1 "${PUBLIC_TUNNEL_MAX_ATTEMPTS}"); do
+    if (( tunnel_attempt > 1 )); then
+      printf '\nRetrying Cloudflare Quick Tunnel (%s/%s)...\n' \
+        "${tunnel_attempt}" "${PUBLIC_TUNNEL_MAX_ATTEMPTS}" >&2
+    fi
+
+    start_background_process "${tunnel_log}" \
+      cloudflared tunnel --url http://127.0.0.1:8000
+    tunnel_pid="${LAST_STARTED_PID}"
+
+    if tunnel_url="$(wait_for_tunnel_url "${tunnel_pid}" "${tunnel_log}")" && \
+      wait_for_public_tunnel "${tunnel_url}/health" "${tunnel_pid}" "${tunnel_probe_log}"; then
+      tunnel_ready="yes"
+      break
+    fi
+
+    stop_background_process "${tunnel_pid}"
+  done
+
+  if [[ -z "${tunnel_ready}" ]]; then
+    show_log_tail "${tunnel_log}"
+    fail "Cloudflare Quick Tunnel did not become publicly reachable after ${PUBLIC_TUNNEL_MAX_ATTEMPTS} attempts."
+  fi
 
   printf '\nPublic server URL for both iPhones:\n%s\n' "${tunnel_url}"
   printf '\nKeep this terminal open. Anyone with this temporary URL can reach the demo backend.\n'

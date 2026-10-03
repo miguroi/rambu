@@ -32,6 +32,7 @@ def prepare_fake_requirements(tmp_path: Path) -> tuple[Path, dict[str, str]]:
     fake_bin.mkdir()
     for command in ("uv", "swift", "cloudflared", "curl"):
         add_fake_command(fake_bin, command)
+    add_fake_command(fake_bin, "dig", 'printf "%s\\n" "104.16.230.132"')
     langflow = tmp_path / "langflow" / ".venv" / "bin" / "langflow"
     langflow.parent.mkdir(parents=True)
     langflow.write_text("#!/usr/bin/env bash\nexit 0\n")
@@ -284,3 +285,126 @@ def test_launcher_binds_started_backend_to_loopback(tmp_path: Path) -> None:
     assert result.returncode == 0
     assert "--host 127.0.0.1" in backend_arguments.read_text()
     assert "--host 0.0.0.0" not in backend_arguments.read_text()
+
+
+def test_launcher_retries_when_the_first_quick_tunnel_never_becomes_ready(
+    tmp_path: Path,
+) -> None:
+    launcher, environment = prepare_fake_requirements(tmp_path)
+    write_valid_environment(tmp_path)
+    fake_bin = tmp_path / "bin"
+    tunnel_attempts = tmp_path / "tunnel-attempts.txt"
+    environment["RAMBU_TEST_TUNNEL_ATTEMPTS"] = str(tunnel_attempts)
+    add_fake_command(
+        fake_bin,
+        "curl",
+        'case "$*" in\n'
+        '  *"127.0.0.1"*) exit 0 ;;\n'
+        '  *"first-test.trycloudflare.com"*)\n'
+        '    printf "%s\\n" "curl: (6) Could not resolve host: first-test.trycloudflare.com" >&2\n'
+        "    exit 6 ;;\n"
+        '  *"second-test.trycloudflare.com"*) exit 0 ;;\n'
+        "  *) exit 1 ;;\n"
+        "esac",
+    )
+    add_fake_command(
+        fake_bin,
+        "cloudflared",
+        'attempt=0\n'
+        'if test -f "$RAMBU_TEST_TUNNEL_ATTEMPTS"; then attempt="$(cat "$RAMBU_TEST_TUNNEL_ATTEMPTS")"; fi\n'
+        'attempt=$((attempt + 1))\n'
+        'printf "%s\\n" "$attempt" > "$RAMBU_TEST_TUNNEL_ATTEMPTS"\n'
+        'if test "$attempt" -eq 1; then\n'
+        '  printf "%s\\n" "Quick Tunnel: https://first-test.trycloudflare.com" >&2\n'
+        "  exit 1\n"
+        "fi\n"
+        'printf "%s\\n" "Quick Tunnel: https://second-test.trycloudflare.com" >&2\n'
+        "trap 'exit 0' TERM INT\n"
+        "while :; do sleep 1; done",
+    )
+    add_fake_command(
+        fake_bin,
+        "swift",
+        'case " $* " in\n'
+        '  *" pair "*) printf "%s\\n" "paired-token" ;;\n'
+        '  *" listen "*) exit 0 ;;\n'
+        '  *) exit 2 ;;\n'
+        "esac",
+    )
+
+    result = subprocess.run(
+        ["bash", str(launcher)],
+        cwd=tmp_path,
+        env=environment,
+        input="123456\n",
+        capture_output=True,
+        text=True,
+        timeout=10,
+        check=False,
+    )
+
+    assert result.returncode == 0
+    assert tunnel_attempts.read_text().strip() == "2"
+    assert "Retrying Cloudflare Quick Tunnel (2/2)" in result.stderr
+    assert "Could not resolve host: first-test.trycloudflare.com" in result.stderr
+    assert "https://second-test.trycloudflare.com" in result.stdout
+
+
+def test_launcher_uses_public_dns_when_local_dns_has_cached_not_found(
+    tmp_path: Path,
+) -> None:
+    launcher, environment = prepare_fake_requirements(tmp_path)
+    write_valid_environment(tmp_path)
+    fake_bin = tmp_path / "bin"
+    curl_arguments = tmp_path / "public-curl-arguments.txt"
+    environment["RAMBU_TEST_CURL_ARGUMENTS"] = str(curl_arguments)
+    add_fake_command(
+        fake_bin,
+        "curl",
+        'case "$*" in\n'
+        '  *"127.0.0.1"*) exit 0 ;;\n'
+        '  *"public-dns-test.trycloudflare.com"*)\n'
+        '    printf "%s\\n" "$*" > "$RAMBU_TEST_CURL_ARGUMENTS"\n'
+        '    case "$*" in\n'
+        '      *"--resolve public-dns-test.trycloudflare.com:443:104.16.230.132"*) exit 0 ;;\n'
+        "      *)\n"
+        '        printf "%s\\n" "curl: (6) Could not resolve host: public-dns-test.trycloudflare.com" >&2\n'
+        "        exit 6 ;;\n"
+        "    esac ;;\n"
+        "  *) exit 1 ;;\n"
+        "esac",
+    )
+    add_fake_command(
+        fake_bin,
+        "cloudflared",
+        'printf "%s\\n" "Quick Tunnel: https://public-dns-test.trycloudflare.com" >&2\n'
+        "sleep 1\n"
+        "exit 1",
+    )
+    add_fake_command(
+        fake_bin,
+        "swift",
+        'case " $* " in\n'
+        '  *" pair "*) printf "%s\\n" "paired-token" ;;\n'
+        '  *" listen "*) exit 0 ;;\n'
+        '  *) exit 2 ;;\n'
+        "esac",
+    )
+
+    result = subprocess.run(
+        ["bash", str(launcher)],
+        cwd=tmp_path,
+        env=environment,
+        input="123456\n",
+        capture_output=True,
+        text=True,
+        timeout=10,
+        check=False,
+    )
+
+    assert result.returncode == 0
+    assert (
+        "--resolve public-dns-test.trycloudflare.com:443:104.16.230.132"
+        in curl_arguments.read_text()
+    )
+    assert "https://public-dns-test.trycloudflare.com" in result.stdout
