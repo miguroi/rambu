@@ -67,4 +67,16 @@ struct FamilyViewModelTests {
         #expect(second == .alreadyDecided(first))
         #expect(try #require(state.toast).title == "Sinta sudah menjawab lebih dulu")
     }
+
+    @Test("Alert selesai tidak membuat riwayat sementara")
+    func endedRemoteAlertWaitsForAuthoritativeHistory() {
+        let (state, family) = makeFamily()
+        state.history = []
+        var ended = alert()
+        ended.callEnded = true
+
+        family.applyRemoteAlerts([ended])
+
+        #expect(state.history.isEmpty)
+    }
 }

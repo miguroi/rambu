@@ -258,7 +258,21 @@ final class CallViewModel {
             current.protectionStatus = status
             current.isListening = status == .listening || status == .waitingForPuck
             state.session = current
-        } else if var recent = state.recentProtection, recent.sessionID == sessionID {
+        } else {
+            if var finishing = endingSession, finishing.id == sessionID {
+                finishing.protectionStatus = status
+                finishing.isListening = status == .listening || status == .waitingForPuck
+                endingSession = finishing
+                if status == .noSpeech { upsertHistory(for: finishing) }
+            } else if status == .noSpeech,
+                      let index = state.history.firstIndex(where: { $0.id == sessionID }) {
+                state.history[index].level = .safe
+                state.history[index].signals = []
+                state.history[index].evidence = []
+                state.history[index].unassessedReason = "Tidak ada suara yang dapat dianalisis."
+                profile.persist()
+            }
+            guard var recent = state.recentProtection, recent.sessionID == sessionID else { return }
             switch status {
             case .waitingForPuck, .listening:
                 recent.presentation = .finishing
@@ -425,7 +439,14 @@ final class CallViewModel {
 
     private func upsertHistory(for session: CallSession) {
         state.history.removeAll { $0.id == session.id }
-        guard session.level > .safe, session.analysisFailure == nil else { return }
+        let unassessedReason: String?
+        if let failure = session.analysisFailure {
+            unassessedReason = failure.detail
+        } else if session.protectionStatus == .noSpeech {
+            unassessedReason = "Tidak ada suara yang dapat dianalisis."
+        } else {
+            unassessedReason = nil
+        }
         let decision = state.alerts.first { $0.id == session.id }?.decision
         state.history.insert(CallRecord(
             id: session.id,
@@ -434,10 +455,13 @@ final class CallViewModel {
             channel: session.metadata.channel,
             startedAt: session.startedAt,
             duration: max(0, Date.now.timeIntervalSince(session.startedAt)),
-            level: session.level,
-            signals: session.signals,
-            evidence: session.heard.filter { $0.speaker != .parent && $0.isFlagged },
-            decision: decision
+            level: unassessedReason == nil ? session.level : .safe,
+            signals: unassessedReason == nil ? session.signals : [],
+            evidence: unassessedReason == nil
+                ? session.heard.filter { $0.speaker != .parent && $0.isFlagged }
+                : [],
+            decision: decision,
+            unassessedReason: unassessedReason
         ), at: 0)
     }
 

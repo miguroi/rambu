@@ -194,14 +194,17 @@ struct PilotViewModelTests {
     }
     """#
 
-    private func makePilot(persona: Persona = .ratna) -> (AppState, PilotViewModel) {
+    private func makePilot(
+        persona: Persona = .ratna,
+        store: LocalStore? = nil
+    ) -> (AppState, PilotViewModel) {
         let state = AppState(persona: persona, onboardingComplete: true)
         let profile = ProfileViewModel(
             state: state,
             notifier: RambuNotifier(enabled: false),
             narrator: Narrator(enabled: false),
             network: NetworkMonitor(),
-            store: nil
+            store: store
         )
         let family = FamilyViewModel(
             state: state,
@@ -212,6 +215,97 @@ struct PilotViewModelTests {
             present: profile.present
         )
         return (state, PilotViewModel(state: state, pilot: nil, family: family, profile: profile))
+    }
+
+    private func historyDTO(
+        id: UUID = UUID(),
+        title: String = "Riwayat server",
+        startedAt: Date = Date(timeIntervalSince1970: 1_700_000_000),
+        presentation: String = "danger",
+        decision: PilotDecisionDTO? = nil
+    ) -> PilotHistoryRecordDTO {
+        PilotHistoryRecordDTO(
+            id: id,
+            parent: PilotPersonDTO(id: "parent", name: "Bu Sri", relation: "Ibu", role: "parent"),
+            title: title,
+            callerDetail: "+62 812-••••-4417",
+            channel: "cellular",
+            startedAt: startedAt,
+            endedAt: startedAt.addingTimeInterval(45),
+            durationSeconds: 45,
+            outcome: "analyzed",
+            presentation: presentation,
+            signals: presentation == "safe" ? [] : ["secretCode"],
+            evidence: [],
+            decision: decision,
+            failure: nil
+        )
+    }
+
+    @Test("Riwayat server mengganti versi lokal dan mempertahankan rekaman offline")
+    func testRemoteHistoryReplacesMatchingLocalRecordAndKeepsOfflineRecords() throws {
+        let url = FileManager.default.temporaryDirectory
+            .appendingPathComponent("rambu-pilot-history-\(UUID()).json")
+        let store = LocalStore(url: url)
+        defer { store.clear() }
+        let (state, pilot) = makePilot(store: store)
+        let matchingID = UUID()
+        let offlineID = UUID()
+        state.history = [
+            CallRecord(
+                id: matchingID, title: "Versi lokal", callerDetail: "Lokal", channel: .cellular,
+                startedAt: Date(timeIntervalSince1970: 10), duration: 1, level: .safe,
+                signals: [], evidence: [], decision: nil
+            ),
+            CallRecord(
+                id: offlineID, title: "Offline", callerDetail: "Offline", channel: .cellular,
+                startedAt: Date(timeIntervalSince1970: 20), duration: 2, level: .review,
+                signals: [.urgency], evidence: [], decision: nil
+            ),
+        ]
+
+        pilot.applyHistory([historyDTO(id: matchingID, title: "Versi server")])
+
+        #expect(state.history.map(\.id) == [matchingID, offlineID])
+        #expect(state.history.first?.title == "Versi server")
+        #expect(state.history.filter { $0.id == matchingID }.count == 1)
+        #expect(try #require(store.load()).history.map(\.id) == [matchingID, offlineID])
+    }
+
+    @Test("Orang tua dan pengawas menerapkan riwayat server yang sama")
+    func testParentAndGuardianApplyIdenticalRemoteHistory() {
+        let (parentState, parentPilot) = makePilot(persona: .ratna)
+        let (guardianState, guardianPilot) = makePilot(persona: .sinta)
+        parentState.history = []
+        guardianState.history = []
+        let records = [
+            historyDTO(title: "Terbaru", startedAt: Date(timeIntervalSince1970: 200)),
+            historyDTO(title: "Lebih lama", startedAt: Date(timeIntervalSince1970: 100), presentation: "safe"),
+        ]
+
+        parentPilot.applyHistory(records)
+        guardianPilot.applyHistory(records)
+
+        #expect(parentState.history == guardianState.history)
+        #expect(parentState.history.map(\.title) == ["Terbaru", "Lebih lama"])
+    }
+
+    @Test("Keputusan server memperbarui riwayat yang sudah ada")
+    func testRemoteDecisionUpdatesExistingHistory() throws {
+        let (state, pilot) = makePilot()
+        let id = UUID()
+        state.history = [CallRecord(
+            id: id, title: "Lokal", callerDetail: "Nomor", channel: .cellular,
+            startedAt: .now, duration: 4, level: .danger,
+            signals: [.secretCode], evidence: [], decision: nil
+        )]
+        let by = PilotPersonDTO(id: "guardian", name: "Richard", relation: "Anak", role: "guardian")
+        let decision = PilotDecisionDTO(by: by, verdict: "scam", at: .now)
+
+        pilot.applyHistory([historyDTO(id: id, decision: decision)])
+
+        #expect(try #require(state.history.first?.decision).by.name == "Richard")
+        #expect(state.history.first?.decision?.verdict == .scam)
     }
 
     @Test("Profil pilot memilih persona dan mengurutkan pengawas aktif")
@@ -234,9 +328,10 @@ struct PilotViewModelTests {
         #expect(state.pilotRole == "guardian")
     }
 
-    @Test("Alert pilot yang sudah selesai masuk riwayat tanpa notifikasi baru")
+    @Test("Alert pilot yang sudah selesai menunggu riwayat server tanpa notifikasi baru")
     func endedRemoteAlertDoesNotNotifyAgain() {
         let (state, pilot) = makePilot(persona: .sinta)
+        state.history = []
         var alert = FamilyAlert(
             id: UUID(),
             parent: .ratna,
@@ -254,7 +349,7 @@ struct PilotViewModelTests {
 
         pilot.applyAlerts([alert])
 
-        #expect(state.history.contains { $0.id == alert.id })
+        #expect(state.history.isEmpty)
         #expect(state.toast == nil)
     }
 }

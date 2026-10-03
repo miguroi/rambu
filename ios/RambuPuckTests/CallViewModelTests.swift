@@ -99,8 +99,95 @@ struct CallViewModelTests {
             #expect(state.alerts.isEmpty)
 
             call.end()
-            #expect(state.history.count == historyCount)
+            #expect(state.history.count == historyCount + 1)
+            #expect(state.history.first?.signals.isEmpty == true)
+            #expect(state.history.first?.evidence.isEmpty == true)
+            #expect(state.history.first?.unassessedReason == failure.detail)
         }
+    }
+
+    @Test("Telepon aman masuk sebagai riwayat hijau")
+    func testEndingSafeCallAddsGreenHistory() async throws {
+        let (state, call) = makeCall()
+        let historyCount = state.history.count
+
+        await call.start(.neighbourSafe).value
+        call.end()
+
+        let record = try #require(state.history.first)
+        #expect(state.history.count == historyCount + 1)
+        #expect(record.level == .safe)
+        #expect(record.unassessedReason == nil)
+        #expect(record.historyPresentation == .safe)
+    }
+
+    @Test("Telepon gagal masuk sebagai riwayat yang belum dapat dinilai")
+    func testEndingFailedCallAddsUnassessedHistory() async throws {
+        let source = CountingFailureSource(
+            error: .session(code: "analysis_timeout", detail: "Analisis panggilan gagal.")
+        )
+        let (state, call) = makeCall(analysis: source)
+
+        await call.start(.bankOTP).value
+        call.end()
+
+        let record = try #require(state.history.first)
+        #expect(record.historyPresentation == .unassessed)
+        #expect(record.unassessedReason == "Analisis panggilan gagal.")
+        #expect(record.signals.isEmpty)
+        #expect(record.evidence.isEmpty)
+    }
+
+    @Test("Telepon tanpa suara masuk sebagai riwayat yang belum dapat dinilai")
+    func testNoSpeechCallAddsUnassessedHistory() async throws {
+        let source = RecordingCallAnalysisSource()
+        let (state, call) = makeCall(analysis: source)
+        let task = call.start(.neighbourSafe)
+        while source.latestSession == nil { await Task.yield() }
+        source.latestSession?.send(.noSpeech)
+        await Task.yield()
+
+        call.end()
+        await task.value
+
+        let record = try #require(state.history.first)
+        #expect(record.historyPresentation == .unassessed)
+        #expect(record.unassessedReason == "Tidak ada suara yang dapat dianalisis.")
+        #expect(record.signals.isEmpty)
+        #expect(record.evidence.isEmpty)
+    }
+
+    @Test("Riwayat versi TestFlight lama tetap terbaca sebagai hasil penilaian")
+    func testLegacyCallRecordDecodesAsAssessed() throws {
+        struct LegacyRecord: Encodable {
+            let id: UUID
+            let title: String
+            let callerDetail: String
+            let channel: CallChannel
+            let startedAt: Date
+            let duration: TimeInterval
+            let level: RiskLevel
+            let signals: [SignalKind]
+            let evidence: [TranscriptLine]
+            let decision: GuardianDecision?
+        }
+        let legacy = LegacyRecord(
+            id: UUID(),
+            title: "Telepon lama",
+            callerDetail: "Nomor tidak tersedia",
+            channel: .cellular,
+            startedAt: .now,
+            duration: 30,
+            level: .review,
+            signals: [.urgency],
+            evidence: [],
+            decision: nil
+        )
+
+        let record = try JSONDecoder().decode(CallRecord.self, from: JSONEncoder().encode(legacy))
+
+        #expect(record.unassessedReason == nil)
+        #expect(record.historyPresentation == .review)
     }
 
     @Test("Mencoba lagi membuat sesi baru dan menghapus kegagalan lama")

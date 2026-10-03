@@ -22,11 +22,12 @@ struct AppViewModelBehaviorTests {
 
         #expect(model.state.alerts.isEmpty)
         #expect(model.state.session?.level == .safe)
-        // Telepon aman tidak memunculkan push dan tidak masuk riwayat.
+        // Telepon aman tidak memunculkan push, tetapi tetap tercatat hijau.
         #expect(model.state.toast == nil)
         let before = model.state.history.count
         model.call.end()
-        #expect(model.state.history.count == before)
+        #expect(model.state.history.count == before + 1)
+        #expect(model.state.history.first?.historyPresentation == .safe)
     }
 
     @Test("Orang tua menerima push Bahaya yang menyebut kedua pengawas")

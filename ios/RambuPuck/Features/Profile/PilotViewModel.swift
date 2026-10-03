@@ -20,6 +20,7 @@ final class PilotViewModel {
     func start() {
         pilot?.onProfile = { [weak self] value in self?.applyProfile(value) }
         pilot?.onAlerts = { [weak self] values in self?.applyAlerts(values) }
+        pilot?.onHistory = { [weak self] values in self?.applyHistory(values) }
         pilot?.onError = { [weak state] message in state?.pilotError = message }
         state.pilotConnected = pilot?.isConnected == true
         state.pilotInviteCode = pilot?.inviteCode
@@ -120,5 +121,46 @@ final class PilotViewModel {
 
     func applyAlerts(_ values: [FamilyAlert]) {
         family.applyRemoteAlerts(values)
+    }
+
+    func applyHistory(_ values: [PilotHistoryRecordDTO]) {
+        let remote = values.map { value in
+            let level: RiskLevel
+            switch value.presentation {
+            case "danger": level = .danger
+            case "review": level = .review
+            default: level = .safe
+            }
+            let unassessedReason: String?
+            if value.presentation == "unassessed" {
+                unassessedReason = value.failure?.message
+                    ?? (value.outcome == "no_speech"
+                        ? "Tidak ada suara yang dapat dianalisis."
+                        : "Panggilan tidak dapat dianalisis.")
+            } else {
+                unassessedReason = nil
+            }
+            let isUnassessed = unassessedReason != nil
+            return CallRecord(
+                id: value.id,
+                title: value.title,
+                callerDetail: value.callerDetail,
+                channel: value.channel.flatMap(CallChannel.init(rawValue:)) ?? .cellular,
+                startedAt: value.startedAt,
+                duration: value.durationSeconds,
+                level: level,
+                signals: isUnassessed ? [] : value.signals.compactMap(SignalKind.init(rawValue:)),
+                evidence: isUnassessed ? [] : value.evidence.map(\.line),
+                decision: value.decision?.decision,
+                unassessedReason: unassessedReason
+            )
+        }
+        let remoteIDs = Set(remote.map(\.id))
+        let localOnly = state.history.filter { !remoteIDs.contains($0.id) }
+        state.history = (remote + localOnly).sorted { lhs, rhs in
+            if lhs.startedAt == rhs.startedAt { return lhs.id.uuidString < rhs.id.uuidString }
+            return lhs.startedAt > rhs.startedAt
+        }
+        profile.persist()
     }
 }

@@ -143,21 +143,6 @@ final class FamilyViewModel {
             if previous != nil, previous?.decision == nil, let decision = alert.decision {
                 receive(.decided(alertID: alert.id, decision))
             }
-            if alert.callEnded, !state.history.contains(where: { $0.id == alert.id }) {
-                state.history.insert(CallRecord(
-                    id: alert.id,
-                    title: alert.title,
-                    callerDetail: alert.callerDetail,
-                    channel: alert.channel,
-                    startedAt: alert.startedAt,
-                    duration: max(0, Date.now.timeIntervalSince(alert.startedAt)),
-                    level: alert.level,
-                    signals: alert.signals,
-                    evidence: alert.evidence,
-                    decision: alert.decision
-                ), at: 0)
-                profile.persist()
-            }
         }
     }
 

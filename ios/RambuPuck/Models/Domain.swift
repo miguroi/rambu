@@ -271,6 +271,20 @@ struct CallRecord: Identifiable, Hashable, Codable, Sendable {
     var signals: [SignalKind]
     var evidence: [TranscriptLine]
     var decision: GuardianDecision?
+    var unassessedReason: String? = nil
+
+    var historyPresentation: HistoryPresentation {
+        if unassessedReason != nil { return .unassessed }
+        switch level {
+        case .safe: return .safe
+        case .review: return .review
+        case .danger: return .danger
+        }
+    }
+}
+
+enum HistoryPresentation: String, Codable, Hashable, Sendable {
+    case safe, review, danger, unassessed
 }
 
 // MARK: - Puck
