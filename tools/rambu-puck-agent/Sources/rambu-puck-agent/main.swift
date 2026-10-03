@@ -103,6 +103,7 @@ struct RambuPuckAgentMain {
         }
 
         var chunker = PCMChunker()
+        var transcriptProgress = PuckTranscriptProgress()
         var warningGate = PuckWarningGate()
         for try await samples in stream {
             for chunk in chunker.append(samples) {
@@ -111,6 +112,12 @@ struct RambuPuckAgentMain {
                     sequence: chunk.sequence,
                     final: false,
                     wav: WAVEncoder.encode(samples: chunk.samples)
+                )
+                emitTranscript(
+                    transcriptProgress.line(
+                        sequence: chunk.sequence,
+                        cumulativeTranscript: updated.maskedTranscript
+                    )
                 )
                 if let warning = warningGate.warning(for: updated.assessment) {
                     emit(warning)
@@ -129,10 +136,20 @@ struct RambuPuckAgentMain {
                 final: true,
                 wav: WAVEncoder.encode(samples: final.samples)
             )
+            emitTranscript(
+                transcriptProgress.line(
+                    sequence: final.sequence,
+                    cumulativeTranscript: updated.maskedTranscript
+                )
+            )
             if let warning = warningGate.warning(for: updated.assessment) {
                 emit(warning)
             }
         }
+    }
+
+    private static func emitTranscript(_ line: String) {
+        FileHandle.standardOutput.write(Data("\(line)\n".utf8))
     }
 
     private static func emit(_ warning: PuckWarning) {

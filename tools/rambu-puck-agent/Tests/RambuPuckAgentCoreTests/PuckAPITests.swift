@@ -80,6 +80,25 @@ final class PuckAPITests: XCTestCase {
         XCTAssertEqual(session.assessment?.recommendedAction, "Tutup telepon sekarang.")
     }
 
+    func testUploadExposesMaskedTranscriptForLocalDisplay() async throws {
+        let body = Data(
+            #"{"id":"session-1","call_id":"7f011753-8f09-4a45-8812-8a4591a96b3c","channel":null,"status":"listening","puck_connected":true,"masked_transcript":"Tolong berikan [KODE].","assessment":null,"outcome":null,"end_requested":false,"revision":1,"next_sequence":1,"started_at":"2026-10-01T10:00:00Z","end_requested_at":null,"ended_at":null,"failure":null}"#.utf8
+        )
+        let transport = ScriptedTransport(results: [.success((body, response(status: 200)))])
+        let api = PuckAPI(
+            serverURL: URL(string: "http://127.0.0.1:8000")!,
+            token: "puck-secret",
+            retryDelaysNanoseconds: [],
+            transport: { request in try await transport.send(request) }
+        )
+
+        let session = try await api.uploadChunk(
+            sessionID: "session-1", sequence: 0, final: false, wav: Data([1, 2])
+        )
+
+        XCTAssertEqual(session.maskedTranscript, "Tolong berikan [KODE].")
+    }
+
     func testWarningGateWarnsOncePerRiskEscalation() {
         var gate = PuckWarningGate()
         let review = PuckAssessment(

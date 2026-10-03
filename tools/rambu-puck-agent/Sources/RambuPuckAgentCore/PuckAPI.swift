@@ -21,6 +21,7 @@ public struct ProtectionSession: Decodable, Sendable {
     public let status: String
     public let endRequested: Bool
     public let nextSequence: Int
+    public let maskedTranscript: String
     public let assessment: PuckAssessment?
 }
 

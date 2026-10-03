@@ -15,6 +15,26 @@ The iPhone does not record call audio. Keep Rambu open during the call and place
 
 Run every command below from the repository root unless stated otherwise.
 
+## Remote Demo in One Terminal
+
+For the two-iPhone TestFlight demo, validate the local setup first:
+
+```bash
+./tools/run_remote_demo.sh --check
+```
+
+Then start Langflow, the backend, a temporary public Cloudflare tunnel, and the Mac puck from one terminal:
+
+```bash
+./tools/run_remote_demo.sh
+```
+
+The launcher reuses healthy Langflow or backend processes if they are already running. Otherwise it starts them, verifies the Langflow flow, and prints a temporary `https://…trycloudflare.com` server URL. Enter that URL under **Profile → Pilot keluarga** on both iPhones. Create the family on the parent iPhone, then enter its six-digit invitation code in the terminal when prompted.
+
+During a call, the same terminal prints a masked transcription line for every processed audio chunk, for example `🎙 Heard [chunk 2]: Tolong berikan [KODE].`. An empty chunk prints `(no speech detected)`, confirming that audio processing is still active. Sensitive values are masked by the backend before they reach this display.
+
+Keep the terminal open during the demo and press `Ctrl+C` afterward. The launcher stops only the processes it started and prints the location of its diagnostic logs. A Quick Tunnel URL changes on every run and anyone with the URL can reach the demo backend while it is active, so use it only for controlled testing.
+
 ## Run the App
 
 ### 1. Start Langflow

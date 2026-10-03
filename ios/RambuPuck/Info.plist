@@ -33,15 +33,15 @@
 	<string>1</string>
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
-	<key>NSBluetoothAlwaysUsageDescription</key>
-	<string>Rambu memakai Bluetooth untuk terhubung ke Rambu Puck di punggung HP Anda.</string>
-	<key>NSLocalNetworkUsageDescription</key>
-	<string>Rambu terhubung ke server pilot pada jaringan Wi-Fi yang sama.</string>
 	<key>NSAppTransportSecurity</key>
 	<dict>
 		<key>NSAllowsLocalNetworking</key>
 		<true/>
 	</dict>
+	<key>NSBluetoothAlwaysUsageDescription</key>
+	<string>Rambu memakai Bluetooth untuk terhubung ke Rambu Puck di punggung HP Anda.</string>
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>Rambu terhubung ke server pilot pada jaringan Wi-Fi yang sama.</string>
 	<key>NSSupportsLiveActivities</key>
 	<true/>
 	<key>UILaunchScreen</key>
