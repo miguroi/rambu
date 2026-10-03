@@ -108,6 +108,8 @@ class CreateProtectionSessionRequest(BaseModel):
     call_id: UUID
     started_at: datetime
     channel: Literal["cellular", "whatsapp"] | None = None
+    title: str | None = None
+    caller_detail: str | None = None
 
 
 class ProtectionFailure(BaseModel):
@@ -122,6 +124,8 @@ class ProtectionSessionSnapshot(BaseModel):
 
     id: str
     call_id: UUID
+    title: str
+    caller_detail: str
     channel: Literal["cellular", "whatsapp"] | None
     status: Literal["waiting_for_puck", "listening", "completed", "error"]
     puck_connected: bool
@@ -140,6 +144,8 @@ class ProtectionSessionSnapshot(BaseModel):
 PilotRole = Literal["parent", "guardian"]
 PilotRiskLevel = Literal["review", "danger"]
 PilotSignal = Literal["impersonation", "urgency", "secretCode", "transfer", "remoteApp"]
+PilotHistoryPresentation = Literal["safe", "review", "danger", "unassessed"]
+PilotHistoryOutcome = Literal["analyzed", "no_speech", "error"]
 
 
 class CreateFamilyRequest(BaseModel):
@@ -244,6 +250,25 @@ class PilotAlert(BaseModel):
     recipients: list[PilotPerson]
     decision: PilotDecision | None
     call_ended: bool
+
+
+class PilotHistoryRecord(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    id: UUID
+    parent: PilotPerson
+    title: str
+    caller_detail: str
+    channel: Literal["cellular", "whatsapp"] | None
+    started_at: datetime
+    ended_at: datetime
+    duration_seconds: float
+    outcome: PilotHistoryOutcome
+    presentation: PilotHistoryPresentation
+    signals: list[PilotSignal]
+    evidence: list[PilotTranscriptLine]
+    decision: PilotDecision | None
+    failure: ProtectionFailure | None
 
 
 class PilotDecisionResult(BaseModel):

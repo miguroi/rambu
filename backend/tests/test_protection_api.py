@@ -1,11 +1,12 @@
 from pathlib import Path
-from datetime import datetime
+from datetime import UTC, datetime, timedelta
+from uuid import uuid4
 
 from fastapi.testclient import TestClient
 
 from rambu_api.app import create_app
 from rambu_api.langflow_client import LangflowFailure
-from rambu_api.models import RiskAssessment
+from rambu_api.models import ProtectionFailure, RiskAssessment
 from rambu_api.pilot import PilotStore
 from rambu_api.protection import ProtectionService
 
@@ -91,6 +92,42 @@ def build_client(
     return TestClient(app), store, transcriber, protection
 
 
+def finish_store_session(
+    store: PilotStore,
+    parent_token: str,
+    puck_token: str,
+    *,
+    call_id: str,
+    started_at: datetime,
+    assessment: RiskAssessment,
+    title: str,
+) -> None:
+    session = store.create_protection_session(
+        parent_token,
+        call_id,
+        started_at,
+        "cellular",
+        title,
+        "+62 812-••••-4417",
+    )
+    store.active_protection_session(puck_token)
+    store.record_protection_chunk(
+        puck_token,
+        session.id,
+        sequence=0,
+        digest=f"digest-{call_id}",
+        masked_transcript="Halo dari pihak bank.",
+        assessment=assessment,
+        final=True,
+    )
+    ended_at = started_at + timedelta(seconds=45)
+    with store._connection:
+        store._connection.execute(
+            "UPDATE protection_sessions SET ended_at = ? WHERE id = ?",
+            (ended_at.isoformat(), session.id),
+        )
+
+
 def test_high_risk_chunk_pushes_parent_once_when_risk_increases() -> None:
     pushes = RecordingProtectionPushSender()
     client, store, _, _ = build_client(
@@ -139,6 +176,211 @@ def test_high_risk_chunk_pushes_parent_once_when_risk_increases() -> None:
             session_payload()["call_id"],
         )
     ]
+
+
+def test_parent_and_guardian_share_safe_review_danger_and_unassessed_history() -> None:
+    client, store, _, _ = build_client()
+    parent = store.create_family("Ibu Ratna")
+    guardian = store.join_family(parent.invite_code or "", "Richard", "Anak")
+    puck = store.pair_puck(parent.invite_code or "", "Mac")
+    start = datetime(2026, 10, 3, 10, 0, tzinfo=UTC)
+
+    finish_store_session(
+        store,
+        parent.access_token,
+        puck.access_token,
+        call_id="10000000-0000-0000-0000-000000000001",
+        started_at=start,
+        title="Telepon aman",
+        assessment=RiskAssessment(
+            risk_level="low",
+            signals=[],
+            evidence=[],
+            explanation="Tidak ada tanda penipuan.",
+            recommended_action="Tetap waspada.",
+        ),
+    )
+    finish_store_session(
+        store,
+        parent.access_token,
+        puck.access_token,
+        call_id="10000000-0000-0000-0000-000000000002",
+        started_at=start + timedelta(minutes=1),
+        title="Telepon perlu ditinjau",
+        assessment=RiskAssessment(
+            risk_level="needs_review",
+            signals=["impersonation"],
+            evidence=[{"quote": "pihak bank", "signals": ["impersonation"]}],
+            explanation="Penelepon mengaku dari bank.",
+            recommended_action="Verifikasi melalui kanal resmi.",
+        ),
+    )
+    finish_store_session(
+        store,
+        parent.access_token,
+        puck.access_token,
+        call_id="10000000-0000-0000-0000-000000000003",
+        started_at=start + timedelta(minutes=2),
+        title="Telepon bahaya",
+        assessment=RiskAssessment(
+            risk_level="high_risk",
+            signals=["secret_code", "remote_app"],
+            evidence=[
+                {"quote": "Halo", "signals": ["secret_code"]},
+                {"quote": "pihak bank", "signals": ["remote_app"]},
+            ],
+            explanation="Penelepon meminta akses sensitif.",
+            recommended_action="Tutup telepon sekarang.",
+        ),
+    )
+    no_speech = store.create_protection_session(
+        parent.access_token,
+        "10000000-0000-0000-0000-000000000004",
+        start + timedelta(minutes=3),
+        "cellular",
+        "Tidak terdengar",
+        "Nomor tidak tersedia",
+    )
+    store.request_protection_end(parent.access_token, no_speech.id)
+    failed = store.create_protection_session(
+        parent.access_token,
+        "10000000-0000-0000-0000-000000000005",
+        start + timedelta(minutes=4),
+        "cellular",
+        "Analisis gagal",
+        "Nomor tidak tersedia",
+    )
+    store.active_protection_session(puck.access_token)
+    store.fail_protection_session(
+        puck.access_token,
+        failed.id,
+        ProtectionFailure(code="analysis_timeout", message="Analisis panggilan gagal."),
+    )
+
+    parent_response = client.get(
+        "/api/pilot/history", headers=auth(parent.access_token)
+    )
+    guardian_response = client.get(
+        "/api/pilot/history", headers=auth(guardian.access_token)
+    )
+
+    assert parent_response.status_code == 200
+    assert guardian_response.status_code == 200
+    assert guardian_response.json() == parent_response.json()
+    records = {record["title"]: record for record in parent_response.json()}
+    assert records["Telepon aman"]["presentation"] == "safe"
+    assert records["Telepon perlu ditinjau"]["presentation"] == "review"
+    assert records["Telepon bahaya"]["presentation"] == "danger"
+    assert records["Telepon bahaya"]["signals"] == ["secretCode", "remoteApp"]
+    assert records["Telepon bahaya"]["evidence"] == [
+        {
+            "id": 0,
+            "offset": 0.0,
+            "speaker": "unknown",
+            "text": "Halo",
+            "flagged": ["Halo"],
+            "signals": ["secretCode"],
+        },
+        {
+            "id": 1,
+            "offset": 5.0,
+            "speaker": "unknown",
+            "text": "pihak bank",
+            "flagged": ["pihak bank"],
+            "signals": ["remoteApp"],
+        },
+    ]
+    assert records["Telepon bahaya"]["duration_seconds"] == 45.0
+    assert records["Tidak terdengar"]["outcome"] == "no_speech"
+    assert records["Tidak terdengar"]["presentation"] == "unassessed"
+    assert records["Tidak terdengar"]["signals"] == []
+    assert records["Tidak terdengar"]["evidence"] == []
+    assert records["Analisis gagal"]["outcome"] == "error"
+    assert records["Analisis gagal"]["presentation"] == "unassessed"
+    assert records["Analisis gagal"]["failure"] == {
+        "code": "analysis_timeout",
+        "message": "Analisis panggilan gagal.",
+    }
+    assert records["Analisis gagal"]["signals"] == []
+    assert records["Analisis gagal"]["evidence"] == []
+
+
+def test_history_excludes_active_sessions_and_isolates_families() -> None:
+    client, store, _, _ = build_client()
+    first_parent = store.create_family("Ibu Ratna")
+    first_guardian = store.join_family(first_parent.invite_code or "", "Richard", "Anak")
+    first_puck = store.pair_puck(first_parent.invite_code or "", "Mac pertama")
+    second_parent = store.create_family("Bapak Budi")
+    start = datetime(2026, 10, 3, 10, 0, tzinfo=UTC)
+
+    finish_store_session(
+        store,
+        first_parent.access_token,
+        first_puck.access_token,
+        call_id="20000000-0000-0000-0000-000000000001",
+        started_at=start,
+        title="Selesai keluarga pertama",
+        assessment=RiskAssessment(
+            risk_level="low",
+            signals=[],
+            evidence=[],
+            explanation="Aman.",
+            recommended_action="Tetap waspada.",
+        ),
+    )
+    store.create_protection_session(
+        first_parent.access_token,
+        "20000000-0000-0000-0000-000000000002",
+        start + timedelta(minutes=1),
+        "cellular",
+        "Masih aktif",
+        "Nomor tidak tersedia",
+    )
+    other = store.create_protection_session(
+        second_parent.access_token,
+        "20000000-0000-0000-0000-000000000003",
+        start + timedelta(minutes=2),
+        "cellular",
+        "Keluarga lain",
+        "Nomor tidak tersedia",
+    )
+    store.request_protection_end(second_parent.access_token, other.id)
+
+    response = client.get(
+        "/api/pilot/history", headers=auth(first_guardian.access_token)
+    )
+
+    assert response.status_code == 200
+    assert [record["title"] for record in response.json()] == [
+        "Selesai keluarga pertama"
+    ]
+
+
+def test_history_is_newest_first_and_limited_to_one_hundred() -> None:
+    client, store, _, _ = build_client()
+    parent = store.create_family("Ibu Ratna")
+    start = datetime(2026, 10, 1, 10, 0, tzinfo=UTC)
+    call_ids: list[str] = []
+
+    for index in range(101):
+        call_id = str(uuid4())
+        call_ids.append(call_id)
+        session = store.create_protection_session(
+            parent.access_token,
+            call_id,
+            start + timedelta(minutes=index),
+            "cellular",
+            f"Telepon {index}",
+            "Nomor tidak tersedia",
+        )
+        store.request_protection_end(parent.access_token, session.id)
+
+    response = client.get("/api/pilot/history", headers=auth(parent.access_token))
+
+    assert response.status_code == 200
+    assert len(response.json()) == 100
+    assert response.json()[0]["id"] == call_ids[-1]
+    assert response.json()[-1]["id"] == call_ids[1]
 
 
 def test_protection_routes_complete_authenticated_parent_and_puck_flow() -> None:

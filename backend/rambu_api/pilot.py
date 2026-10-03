@@ -12,9 +12,11 @@ from .models import (
     PilotAlert,
     PilotAlertInput,
     PilotDecision,
+    PilotHistoryRecord,
     PilotPerson,
     PilotProfile,
     PilotSession,
+    PilotTranscriptLine,
     ProtectionFailure,
     ProtectionSessionSnapshot,
     RiskAssessment,
@@ -172,6 +174,7 @@ class PilotStore:
                 WHERE status IN ('waiting_for_puck', 'listening');
                 """
             )
+            self._ensure_protection_session_metadata_columns()
 
     def close(self) -> None:
         with self._lock:
@@ -310,6 +313,8 @@ class PilotStore:
         call_id: str,
         started_at: datetime,
         channel: str | None,
+        title: str | None = None,
+        caller_detail: str | None = None,
     ) -> ProtectionSessionSnapshot:
         member = self.authenticate(token)
         if member["role"] != "parent":
@@ -340,14 +345,17 @@ class PilotStore:
                 self._connection.execute(
                     """
                     INSERT INTO protection_sessions (
-                        id, family_id, parent_id, call_id, channel, status, started_at
-                    ) VALUES (?, ?, ?, ?, ?, 'waiting_for_puck', ?)
+                        id, family_id, parent_id, call_id, title, caller_detail,
+                        channel, status, started_at
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, 'waiting_for_puck', ?)
                     """,
                     (
                         session_id,
                         member["family_id"],
                         member["id"],
                         normalized_call_id,
+                        title or "Panggilan terdeteksi",
+                        caller_detail or "Nomor tidak tersedia",
                         channel,
                         _iso(started_at),
                     ),
@@ -606,6 +614,8 @@ class PilotStore:
         return ProtectionSessionSnapshot(
             id=row["id"],
             call_id=row["call_id"],
+            title=row["title"],
+            caller_detail=row["caller_detail"],
             channel=row["channel"],
             status=row["status"],
             puck_connected=row["puck_id"] is not None,
@@ -628,6 +638,26 @@ class PilotStore:
                 else None
             ),
         )
+
+    def _ensure_protection_session_metadata_columns(self) -> None:
+        columns = {
+            row["name"]
+            for row in self._connection.execute("PRAGMA table_info(protection_sessions)")
+        }
+        if "title" not in columns:
+            self._connection.execute(
+                """
+                ALTER TABLE protection_sessions
+                ADD COLUMN title TEXT NOT NULL DEFAULT 'Panggilan terdeteksi'
+                """
+            )
+        if "caller_detail" not in columns:
+            self._connection.execute(
+                """
+                ALTER TABLE protection_sessions
+                ADD COLUMN caller_detail TEXT NOT NULL DEFAULT 'Nomor tidak tersedia'
+                """
+            )
 
     def profile(self, token: str) -> PilotProfile:
         member = self.authenticate(token)
@@ -755,6 +785,108 @@ class PilotStore:
                 (member["family_id"],),
             ).fetchall()
         return [self._alert(row["id"], member["family_id"]) for row in rows]
+
+    def history(self, token: str, limit: int = 100) -> list[PilotHistoryRecord]:
+        member = self.authenticate(token)
+        bounded_limit = max(1, min(limit, 100))
+        with self._lock:
+            rows = self._connection.execute(
+                """
+                SELECT protection_sessions.*, alerts.id AS alert_id
+                FROM protection_sessions
+                LEFT JOIN alerts
+                  ON alerts.id = protection_sessions.call_id
+                 AND alerts.family_id = protection_sessions.family_id
+                WHERE protection_sessions.family_id = ?
+                  AND protection_sessions.status IN ('completed', 'error')
+                ORDER BY protection_sessions.started_at DESC
+                LIMIT ?
+                """,
+                (member["family_id"], bounded_limit),
+            ).fetchall()
+        people = self._family_members(member["family_id"])
+        parent = next(person for person in people if person.role == "parent")
+        return [self._history_record(row, parent, member["family_id"]) for row in rows]
+
+    def _history_record(
+        self, row: sqlite3.Row, parent: PilotPerson, family_id: str
+    ) -> PilotHistoryRecord:
+        assessment = (
+            RiskAssessment.model_validate_json(row["assessment_json"])
+            if row["assessment_json"]
+            else None
+        )
+        failure = (
+            ProtectionFailure.model_validate_json(row["failure_json"])
+            if row["failure_json"]
+            else None
+        )
+        if row["status"] == "error":
+            outcome = "error"
+            presentation = "unassessed"
+            signals: list[str] = []
+            evidence: list[PilotTranscriptLine] = []
+        elif row["outcome"] == "no_speech" or assessment is None:
+            outcome = "no_speech"
+            presentation = "unassessed"
+            signals = []
+            evidence = []
+        else:
+            outcome = "analyzed"
+            presentation = {
+                "low": "safe",
+                "needs_review": "review",
+                "high_risk": "danger",
+            }[assessment.risk_level]
+            signals = [self._pilot_signal(value) for value in assessment.signals]
+            evidence = [
+                PilotTranscriptLine(
+                    id=index,
+                    offset=float(index * 5),
+                    speaker="unknown",
+                    text=item.quote,
+                    flagged=[item.quote],
+                    signals=[self._pilot_signal(value) for value in item.signals],
+                )
+                for index, item in enumerate(assessment.evidence)
+            ]
+        started_at = datetime.fromisoformat(row["started_at"])
+        ended_at = datetime.fromisoformat(row["ended_at"])
+        decision = None
+        if row["alert_id"] is not None:
+            with self._lock:
+                alert = self._connection.execute(
+                    "SELECT * FROM alerts WHERE id = ? AND family_id = ?",
+                    (row["alert_id"], family_id),
+                ).fetchone()
+            if alert is not None and alert["decision_member_id"] is not None:
+                decision = self._decision(alert)
+        return PilotHistoryRecord(
+            id=row["call_id"],
+            parent=parent,
+            title=row["title"],
+            caller_detail=row["caller_detail"],
+            channel=row["channel"],
+            started_at=started_at,
+            ended_at=ended_at,
+            duration_seconds=max(0.0, (ended_at - started_at).total_seconds()),
+            outcome=outcome,
+            presentation=presentation,
+            signals=signals,
+            evidence=evidence,
+            decision=decision,
+            failure=failure,
+        )
+
+    @staticmethod
+    def _pilot_signal(value: str) -> str:
+        return {
+            "impersonation": "impersonation",
+            "urgency": "urgency",
+            "secret_code": "secretCode",
+            "transfer": "transfer",
+            "remote_app": "remoteApp",
+        }[value]
 
     def decide(self, token: str, alert_id: str, verdict: str) -> PilotDecision:
         member = self.authenticate(token)

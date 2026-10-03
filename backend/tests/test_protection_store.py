@@ -1,4 +1,5 @@
 import hashlib
+import sqlite3
 from datetime import UTC, datetime, timedelta
 
 import pytest
@@ -44,15 +45,27 @@ def test_protection_session_is_parent_only_idempotent_and_one_active_per_family(
     guardian = store.join_family(parent.invite_code or "", "Sinta", "Anak")
 
     created = store.create_protection_session(
-        parent.access_token, "7F011753-8F09-4A45-8812-8A4591A96B3C", STARTED_AT, None
+        parent.access_token,
+        "7F011753-8F09-4A45-8812-8A4591A96B3C",
+        STARTED_AT,
+        None,
+        "Panggilan dari bank",
+        "+62 812-••••-4417",
     )
     repeated = store.create_protection_session(
-        parent.access_token, "7F011753-8F09-4A45-8812-8A4591A96B3C", STARTED_AT, None
+        parent.access_token,
+        "7F011753-8F09-4A45-8812-8A4591A96B3C",
+        STARTED_AT,
+        None,
+        "Judul pengganti",
+        "Nomor pengganti",
     )
 
     assert repeated.id == created.id
     assert created.status == "waiting_for_puck"
     assert created.revision == 0
+    assert repeated.title == "Panggilan dari bank"
+    assert repeated.caller_detail == "+62 812-••••-4417"
     with pytest.raises(PilotError, match="aktif"):
         store.create_protection_session(
             parent.access_token, "B2546D82-9466-4015-A663-CA10CCACFFBF", STARTED_AT, None
@@ -61,6 +74,36 @@ def test_protection_session_is_parent_only_idempotent_and_one_active_per_family(
         store.create_protection_session(
             guardian.access_token, "B2546D82-9466-4015-A663-CA10CCACFFBF", STARTED_AT, None
         )
+
+
+def test_existing_database_migrates_history_metadata_without_data_loss(tmp_path) -> None:
+    database = tmp_path / "legacy.sqlite3"
+    original = PilotStore(database)
+    parent = original.create_family("Ibu Ratna")
+    created = original.create_protection_session(
+        parent.access_token,
+        "7F011753-8F09-4A45-8812-8A4591A96B3C",
+        STARTED_AT,
+        "cellular",
+    )
+    original.close()
+
+    with sqlite3.connect(database) as connection:
+        columns = {
+            row[1]
+            for row in connection.execute("PRAGMA table_info(protection_sessions)")
+        }
+        for column in ("title", "caller_detail"):
+            if column in columns:
+                connection.execute(f"ALTER TABLE protection_sessions DROP COLUMN {column}")
+
+    migrated = PilotStore(database)
+    snapshot = migrated.get_protection_session(parent.access_token, created.id)
+
+    assert migrated.profile(parent.access_token).member.name == "Ibu Ratna"
+    assert snapshot.call_id == created.call_id
+    assert snapshot.title == "Panggilan terdeteksi"
+    assert snapshot.caller_detail == "Nomor tidak tersedia"
 
 
 def test_puck_can_claim_only_its_family_active_session() -> None:

@@ -24,6 +24,7 @@ from .models import (
     PilotAlertInput,
     PilotDecisionInput,
     PilotDecisionResult,
+    PilotHistoryRecord,
     PilotInvite,
     PilotProfile,
     PilotSession,
@@ -477,6 +478,17 @@ def create_app(
     def list_alerts(authorization: str | None = Header(default=None)) -> list[PilotAlert]:
         try:
             return pilots.alerts(token_from(authorization))
+        except HTTPException:
+            raise
+        except Exception as error:
+            raise pilot_error(error) from error
+
+    @app.get("/api/pilot/history", response_model=list[PilotHistoryRecord])
+    def list_history(
+        authorization: str | None = Header(default=None),
+    ) -> list[PilotHistoryRecord]:
+        try:
+            return pilots.history(token_from(authorization))
         except HTTPException:
             raise
         except Exception as error:

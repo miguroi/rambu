@@ -49,6 +49,8 @@ class ProtectionService:
             str(request.call_id),
             request.started_at,
             request.channel,
+            request.title,
+            request.caller_detail,
         )
 
     def get_parent_session(
