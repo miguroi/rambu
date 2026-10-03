@@ -67,3 +67,5 @@ xcuserdata/
 *.xcuserstate
 *.xcresult
 .build/
+.worktrees/
+.superpowers/
