@@ -78,14 +78,11 @@ struct RambuPuckAgentMain {
                 print("Protection session \(session.id) completed.")
             } else if detectAudio {
                 let preRoll = try await waitForAudioActivation()
-                let session: ProtectionSession
-                if let existing = try await api.activeSession() {
-                    session = existing
-                    print("Audio detected. Joining the protection session created by the iPhone.")
-                } else {
-                    print("Audio detected. Starting WhatsApp protection from the puck.")
-                    session = try await api.createSession(callID: UUID(), startedAt: .now)
-                }
+                print("Audio detected. Starting or joining WhatsApp protection.")
+                let session = try await api.startOrJoinSession(
+                    callID: UUID(),
+                    startedAt: .now
+                )
                 try await record(
                     session: session,
                     api: api,

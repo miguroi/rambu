@@ -170,6 +170,21 @@ public struct PuckAPI: Sendable {
         return try decode(ProtectionSession.self, from: data)
     }
 
+    public func startOrJoinSession(callID: UUID, startedAt: Date) async throws -> ProtectionSession {
+        if let active = try await activeSession() {
+            return active
+        }
+        do {
+            return try await createSession(callID: callID, startedAt: startedAt)
+        } catch let error as PuckAPIError {
+            guard case .server(status: 409, detail: _) = error,
+                  let active = try await activeSession() else {
+                throw error
+            }
+            return active
+        }
+    }
+
     public func uploadChunk(
         sessionID: String,
         sequence: Int,

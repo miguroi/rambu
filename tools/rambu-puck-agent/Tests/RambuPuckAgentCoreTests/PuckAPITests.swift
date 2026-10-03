@@ -93,6 +93,32 @@ final class PuckAPITests: XCTestCase {
         XCTAssertEqual(json["caller_detail"], "Kontak WhatsApp")
     }
 
+    func testStartOrJoinRecoversWhenIPhoneCreatesSessionDuringPuckRequest() async throws {
+        let missing = Data(#"{"detail":"Tidak ada sesi perlindungan aktif."}"#.utf8)
+        let conflict = Data(#"{"detail":"Keluarga sudah memiliki sesi perlindungan aktif."}"#.utf8)
+        let transport = ScriptedTransport(results: [
+            .success((missing, response(status: 404))),
+            .success((conflict, response(status: 409))),
+            .success((sessionJSON(id: "iphone-session", status: "listening"), response(status: 200))),
+        ])
+        let api = PuckAPI(
+            serverURL: URL(string: "http://127.0.0.1:8000")!,
+            token: "puck-secret",
+            retryDelaysNanoseconds: [],
+            transport: { request in try await transport.send(request) }
+        )
+
+        let session = try await api.startOrJoinSession(callID: UUID(), startedAt: .now)
+
+        XCTAssertEqual(session.id, "iphone-session")
+        let paths = await transport.requests.compactMap(\.url?.path)
+        XCTAssertEqual(paths, [
+            "/api/pucks/sessions/active",
+            "/api/pucks/sessions",
+            "/api/pucks/sessions/active",
+        ])
+    }
+
     func testUploadDecodesRiskAssessmentForLocalWarning() async throws {
         let body = Data(
             #"{"id":"session-1","call_id":"7f011753-8f09-4a45-8812-8a4591a96b3c","channel":null,"status":"listening","puck_connected":true,"masked_transcript":"Halo","assessment":{"risk_level":"high_risk","signals":["secret_code","transfer"],"evidence":[],"explanation":"Permintaan kode dan transfer.","recommended_action":"Tutup telepon sekarang."},"outcome":null,"end_requested":false,"revision":1,"next_sequence":1,"started_at":"2026-10-01T10:00:00Z","end_requested_at":null,"ended_at":null,"failure":null}"#.utf8
