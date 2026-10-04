@@ -39,6 +39,8 @@ struct RambuPuckAgentMain {
                 try await pair(code: code, name: name)
             case .listen(let detectAudio):
                 try await listen(detectAudio: detectAudio)
+            case .manual:
+                try await listenManually()
             }
         } catch {
             FileHandle.standardError.write(Data("Error: \(error)\n".utf8))
@@ -96,6 +98,29 @@ struct RambuPuckAgentMain {
         }
     }
 
+    private static func listenManually() async throws {
+        let configuration = try AgentConfiguration(
+            environment: ProcessInfo.processInfo.environment,
+            command: .listen
+        )
+        let api = PuckAPI(serverURL: configuration.serverURL, token: configuration.puckToken)
+        print("Rambu demo control is ready.")
+        while !Task.isCancelled {
+            print("Press Enter after the call is answered to start protection.")
+            guard readLine() != nil else { return }
+            let session = try await api.startOrJoinSession(callID: UUID(), startedAt: .now)
+            print("Protection started. Press Enter after the call ends.")
+            try await record(
+                session: session,
+                api: api,
+                initialSamples: [],
+                endsAfterSilence: false,
+                stopsOnEnter: true
+            )
+            print("Protection session \(session.id) completed.")
+        }
+    }
+
     private static func waitForAudioActivation() async throws -> [Int16] {
         let capture = MicrophoneCapture()
         let stream = try await capture.start()
@@ -113,29 +138,38 @@ struct RambuPuckAgentMain {
         session: ProtectionSession,
         api: PuckAPI,
         initialSamples: [Int16],
-        endsAfterSilence: Bool
+        endsAfterSilence: Bool,
+        stopsOnEnter: Bool = false
     ) async throws {
         print("Active call found. Capturing external audio with the Mac microphone.")
         let capture = MicrophoneCapture()
         let stream = try await capture.start()
         let signal = StopSignal()
-        let monitor = Task {
-            do {
-                while !Task.isCancelled {
-                    try await Task.sleep(for: .milliseconds(500))
-                    guard let current = try await api.activeSession() else {
-                        await signal.request()
-                        return
+        let monitor: Task<Void, Never>
+        if stopsOnEnter {
+            monitor = Task.detached {
+                _ = readLine()
+                await signal.request()
+            }
+        } else {
+            monitor = Task {
+                do {
+                    while !Task.isCancelled {
+                        try await Task.sleep(for: .milliseconds(500))
+                        guard let current = try await api.activeSession() else {
+                            await signal.request()
+                            return
+                        }
+                        if current.id != session.id || current.endRequested {
+                            await signal.request()
+                            return
+                        }
                     }
-                    if current.id != session.id || current.endRequested {
-                        await signal.request()
-                        return
-                    }
+                } catch is CancellationError {
+                    return
+                } catch {
+                    await signal.fail(String(describing: error))
                 }
-            } catch is CancellationError {
-                return
-            } catch {
-                await signal.fail(String(describing: error))
             }
         }
         defer {
@@ -230,6 +264,7 @@ struct RambuPuckAgentMain {
             Usage:
               rambu-puck-agent pair --code 123456 --name "Mac puck"
               rambu-puck-agent listen
+              rambu-puck-agent listen --manual
               rambu-puck-agent listen --detect-audio
 
             Required environment:

@@ -3,6 +3,7 @@ import Foundation
 public enum CLIArguments: Equatable, Sendable {
     case pair(code: String, name: String)
     case listen(detectAudio: Bool)
+    case manual
     case help
 
     public static func parse(_ arguments: [String]) throws -> CLIArguments {
@@ -13,6 +14,9 @@ public enum CLIArguments: Equatable, Sendable {
         if command == "listen" {
             if arguments.count == 1 {
                 return .listen(detectAudio: false)
+            }
+            if arguments == ["listen", "--manual"] {
+                return .manual
             }
             guard arguments == ["listen", "--detect-audio"] else {
                 throw CLIError.invalidArguments

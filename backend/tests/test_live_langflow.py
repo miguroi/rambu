@@ -37,4 +37,4 @@ def test_live_langflow_returns_expected_valid_assessment(transcript: str, expect
     result = live_client().analyze(transcript, final=True)
 
     assert result.risk_level == expected
-    assert validate_assessment(result, transcript) is result
+    assert validate_assessment(result, transcript) == result

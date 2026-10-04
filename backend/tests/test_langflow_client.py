@@ -108,6 +108,64 @@ def test_prunes_top_level_signals_that_have_no_supporting_evidence() -> None:
 
 
 @pytest.mark.parametrize(
+    "transcript",
+    [
+        "Tolong sebutkan kode OTP yang baru masuk.",
+        "Bacakan PIN itu sekarang.",
+        "Kode OTP-nya berikan kepada saya.",
+        "Jangan khawatir. Berikan kode OTP kepada saya.",
+    ],
+)
+def test_explicit_secret_code_requests_are_always_high_risk(transcript: str) -> None:
+    response = assessment(
+        risk_level="needs_review",
+        signals=["secret_code"],
+        evidence=[{"quote": transcript, "signals": ["secret_code"]}],
+    )
+    client = LangflowClient(
+        "http://localhost:7861",
+        "rambu",
+        "secret",
+        transport=lambda *_: envelope(response),
+    )
+
+    result = client.analyze(transcript, final=False)
+
+    assert result.risk_level == "high_risk"
+    assert result.signals == ["secret_code"]
+    assert result.evidence[0].quote in transcript
+    assert "akhiri" in result.recommended_action.lower()
+
+
+@pytest.mark.parametrize(
+    "transcript",
+    [
+        "Kode OTP akan masuk melalui SMS.",
+        "Jangan berikan kode OTP kepada siapa pun.",
+        "Saya menolak menyebutkan PIN saya.",
+    ],
+)
+def test_secret_code_mentions_without_an_active_request_are_not_forced_red(
+    transcript: str,
+) -> None:
+    response = assessment(
+        risk_level="needs_review",
+        signals=["secret_code"],
+        evidence=[{"quote": transcript, "signals": ["secret_code"]}],
+    )
+    client = LangflowClient(
+        "http://localhost:7861",
+        "rambu",
+        "secret",
+        transport=lambda *_: envelope(response),
+    )
+
+    result = client.analyze(transcript, final=False)
+
+    assert result.risk_level == "needs_review"
+
+
+@pytest.mark.parametrize(
     ("final", "expected_mode"),
     [(False, "live"), (True, "final")],
 )

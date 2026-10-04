@@ -197,8 +197,9 @@ def test_launcher_prints_tunnel_url_and_keeps_puck_on_local_backend(tmp_path: Pa
         '  *" pair "*)\n'
         '    case " $* " in *" --code 123456 "*) printf "%s\\n" "paired-token" ;; *) exit 9 ;; esac\n'
         "    ;;\n"
-        '  *" listen --detect-audio "*) printf "%s\\n%s\\n" "$RAMBU_SERVER_URL" "$RAMBU_PUCK_TOKEN" > "$RAMBU_TEST_CAPTURE" ;;\n'
-        '  *" listen "*) exit 8 ;;\n'
+        '  *" listen --manual "*) printf "%s\\n%s\\n" "$RAMBU_SERVER_URL" "$RAMBU_PUCK_TOKEN" > "$RAMBU_TEST_CAPTURE" ;;\n'
+        '  *" listen --detect-audio "*) exit 8 ;;\n'
+        '  *" listen "*) exit 7 ;;\n'
         "  *) exit 2 ;;\n"
         "esac",
     )

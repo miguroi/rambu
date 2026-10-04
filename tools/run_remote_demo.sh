@@ -349,10 +349,10 @@ run_demo() {
   fi
   [[ -n "${puck_token}" ]] || fail "Mac puck pairing returned an empty token."
 
-  printf '\n✓ Mac puck paired. Waiting for a call. Press Ctrl+C to stop everything.\n\n'
+  printf '\n✓ Mac puck paired. Demo controls are ready. Press Ctrl+C to stop everything.\n\n'
   RAMBU_SERVER_URL="http://127.0.0.1:8000" \
     RAMBU_PUCK_TOKEN="${puck_token}" \
-    swift run --package-path tools/rambu-puck-agent rambu-puck-agent listen --detect-audio \
+    swift run --package-path tools/rambu-puck-agent rambu-puck-agent listen --manual \
     2> >(tee -a "${puck_log}" >&2)
 }
 
