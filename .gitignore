@@ -13,6 +13,8 @@
 *.keystore
 Secrets.xcconfig
 *.xcconfig.local
+deploy/pilot/.env
+*tunnel-token*
 
 # Python
 __pycache__/
@@ -25,6 +27,10 @@ htmlcov/
 coverage.xml
 backend/dist/
 backend/data/
+*.sqlite3
+*.sqlite3-*
+backups/
+model-cache/
 
 # JavaScript tooling
 node_modules/
@@ -67,5 +73,6 @@ xcuserdata/
 *.xcuserstate
 *.xcresult
 .build/
+*.app
 .worktrees/
 .superpowers/

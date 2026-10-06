@@ -1,0 +1,113 @@
+name: rambu-pilot
+
+services:
+  backend:
+    build:
+      context: ../..
+      dockerfile: deploy/pilot/backend.Dockerfile
+    image: rambu/backend:pilot
+    restart: unless-stopped
+    environment:
+      LANGFLOW_URL: http://langflow:7860
+      LANGFLOW_FLOW_ID: ${LANGFLOW_FLOW_ID}
+      LANGFLOW_API_KEY: ${LANGFLOW_API_KEY}
+      RAMBU_WHISPER_MODEL: ${RAMBU_WHISPER_MODEL:-small}
+      RAMBU_WHISPER_DEVICE: cuda
+      RAMBU_WHISPER_COMPUTE_TYPE: float16
+      RAMBU_WHISPER_DEVICE_INDEX: "0"
+      RAMBU_DATABASE_PATH: /app/backend/data/rambu.sqlite3
+      HF_HOME: /var/cache/rambu-models
+      APNS_TEAM_ID: ${APNS_TEAM_ID}
+      APNS_KEY_ID: ${APNS_KEY_ID}
+      APNS_PRIVATE_KEY_PATH: /run/secrets/AuthKey.p8
+      APNS_BUNDLE_ID: ${APNS_BUNDLE_ID:-id.rambu.puck}
+      APNS_ENVIRONMENT: production
+      NVIDIA_VISIBLE_DEVICES: "0"
+      NVIDIA_DRIVER_CAPABILITIES: compute,utility
+    volumes:
+      - /srv/rambu/data:/app/backend/data
+      - /srv/rambu/model-cache:/var/cache/rambu-models
+      - /srv/rambu/secrets/AuthKey.p8:/run/secrets/AuthKey.p8:ro
+    ports:
+      - "${RAMBU_BIND_ADDRESS:-127.0.0.1}:${RAMBU_BIND_PORT:-8000}:8000"
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              device_ids: ["0"]
+              capabilities: [gpu]
+    depends_on:
+      langflow:
+        condition: service_healthy
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=5)"
+      interval: 15s
+      timeout: 10s
+      retries: 12
+      start_period: 120s
+    networks:
+      - private
+      - edge
+
+  langflow:
+    build:
+      context: ../..
+      dockerfile: deploy/pilot/langflow.Dockerfile
+    image: rambu/langflow:1.12.3
+    restart: unless-stopped
+    environment:
+      LANGFLOW_HOST: 0.0.0.0
+      LANGFLOW_PORT: "7860"
+      LANGFLOW_CONFIG_DIR: /app/langflow
+      LANGFLOW_SAVE_DB_IN_CONFIG_DIR: "true"
+      LANGFLOW_AUTO_LOGIN: "false"
+      LANGFLOW_ENABLE_SIGNUP: "false"
+      LANGFLOW_API_KEY_SOURCE: env
+      LANGFLOW_API_KEY: ${LANGFLOW_API_KEY}
+      LANGFLOW_SUPERUSER: ${LANGFLOW_SUPERUSER:-rambu}
+      LANGFLOW_SUPERUSER_PASSWORD: ${LANGFLOW_SUPERUSER_PASSWORD}
+      LANGFLOW_SECRET_KEY: ${LANGFLOW_SECRET_KEY}
+    volumes:
+      - /srv/rambu/data/langflow:/app/langflow
+      - ${RAMBU_ENV_FILE:-./.env}:/run/secrets/rambu.env:ro
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request; urllib.request.urlopen('http://127.0.0.1:7860/health', timeout=5)"
+      interval: 10s
+      timeout: 10s
+      retries: 18
+      start_period: 30s
+    networks:
+      - private
+
+  cloudflared:
+    image: cloudflare/cloudflared:2025.11.1
+    restart: unless-stopped
+    command:
+      - tunnel
+      - --no-autoupdate
+      - run
+      - --token-file
+      - /run/secrets/cloudflare-tunnel-token
+    volumes:
+      - /srv/rambu/secrets/cloudflare-tunnel-token:/run/secrets/cloudflare-tunnel-token:ro
+    depends_on:
+      backend:
+        condition: service_healthy
+    labels:
+      com.rambu.tunnel-origin: "http://backend:8000"
+      com.rambu.tunnel-health: "http://backend:8000/health"
+    networks:
+      - edge
+
+networks:
+  private:
+  edge:
