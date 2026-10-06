@@ -8,6 +8,7 @@ let package = Package(
     products: [
         .library(name: "RambuPuckAgentCore", targets: ["RambuPuckAgentCore"]),
         .executable(name: "rambu-puck-agent", targets: ["rambu-puck-agent"]),
+        .executable(name: "RambuPuckController", targets: ["RambuPuckControllerApp"]),
     ],
     targets: [
         .target(name: "RambuPuckAgentCore"),
@@ -18,7 +19,14 @@ let package = Package(
         .target(
             name: "RambuPuckController",
             dependencies: ["RambuPuckAgentCore"],
-            linkerSettings: [.linkedFramework("Security")]
+            linkerSettings: [
+                .linkedFramework("Carbon"),
+                .linkedFramework("Security"),
+            ]
+        ),
+        .executableTarget(
+            name: "RambuPuckControllerApp",
+            dependencies: ["RambuPuckController", "RambuPuckAgentCore"]
         ),
         .testTarget(
             name: "RambuPuckAgentCoreTests",
