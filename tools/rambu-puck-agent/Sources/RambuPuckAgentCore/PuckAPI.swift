@@ -1,6 +1,6 @@
 import Foundation
 
-public enum PuckRiskLevel: String, Decodable, Sendable {
+public enum PuckRiskLevel: String, Decodable, Equatable, Sendable {
     case low
     case needsReview = "needs_review"
     case highRisk = "high_risk"
