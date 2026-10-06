@@ -174,7 +174,11 @@ def test_default_startup_probes_and_propagates_failure(monkeypatch) -> None:
             )
 
     service = FailingProbeService()
-    monkeypatch.setattr(app_module, "_default_service", lambda _settings: service)
+    monkeypatch.setattr(
+        app_module,
+        "_default_service",
+        lambda _settings, _whisper_settings: service,
+    )
     application = create_app(settings=object())
 
     with pytest.raises(LangflowFailure, match="Langflow tidak dapat dihubungi"):

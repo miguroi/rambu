@@ -103,6 +103,9 @@ class DemoService:
         self._executor.shutdown(wait=True, cancel_futures=True)
 
     def probe(self) -> None:
+        probe = getattr(self.transcriber, "probe", None)
+        if probe is not None:
+            probe()
         self.analyzer.probe()
 
     def analyze_chunk(self, audio: bytes, final: bool) -> ChunkAnalysisResponse:

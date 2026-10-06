@@ -7,7 +7,7 @@ from typing import Protocol
 from fastapi import BackgroundTasks, Body, FastAPI, Header, HTTPException, Response
 from fastapi.responses import JSONResponse
 
-from .config import LangflowSettings
+from .config import LangflowSettings, WhisperSettings
 from .demo import DemoService, default_scenarios, delay_from_environment
 from .langflow_client import LangflowClient, LangflowFailure
 from .apns import PushSender, push_sender_from_environment
@@ -83,10 +83,18 @@ class DemoServiceContract(Protocol):
     def analyze_chunk(self, audio: bytes, final: bool) -> ChunkAnalysisResponse: ...
 
 
-def _default_service(settings: LangflowSettings) -> DemoService:
+def _default_service(
+    settings: LangflowSettings,
+    whisper_settings: WhisperSettings,
+) -> DemoService:
     return DemoService(
         scenarios=default_scenarios(),
-        transcriber=FasterWhisperTranscriber(os.getenv("RAMBU_WHISPER_MODEL", "small")),
+        transcriber=FasterWhisperTranscriber(
+            whisper_settings.model_name,
+            device=whisper_settings.device,
+            compute_type=whisper_settings.compute_type,
+            device_index=whisper_settings.device_index,
+        ),
         analyzer=LangflowClient(
             settings.url,
             settings.flow_id,
@@ -134,7 +142,8 @@ def create_app(
         try:
             if demo_service is None:
                 configuration = settings or LangflowSettings.from_environment(os.environ)
-                demo_service = _default_service(configuration)
+                whisper_configuration = WhisperSettings.from_environment(os.environ)
+                demo_service = _default_service(configuration, whisper_configuration)
                 demo_service.probe()
                 protection = ProtectionService(
                     pilots,

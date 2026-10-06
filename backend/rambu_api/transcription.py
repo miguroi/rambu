@@ -1,16 +1,32 @@
 import wave
 from pathlib import Path
-from typing import Protocol
+from typing import Any, Callable, Protocol
 
 
 class Transcriber(Protocol):
+    def probe(self) -> None: ...
     def transcribe(self, path: Path) -> str: ...
 
 
 class FasterWhisperTranscriber:
-    def __init__(self, model_name: str = "small") -> None:
+    def __init__(
+        self,
+        model_name: str = "small",
+        *,
+        device: str = "cpu",
+        compute_type: str = "int8",
+        device_index: int = 0,
+        model_factory: Callable[..., Any] | None = None,
+    ) -> None:
         self.model_name = model_name
+        self.device = device
+        self.compute_type = compute_type
+        self.device_index = device_index
+        self._model_factory = model_factory
         self._model = None
+
+    def probe(self) -> None:
+        self._load_model()
 
     def transcribe(self, path: Path) -> str:
         # Runtime puck chunks are WAV. Dataset evaluation also accepts formats
@@ -21,19 +37,27 @@ class FasterWhisperTranscriber:
             if duration < 0.75:
                 return ""
 
-        if self._model is None:
-            from faster_whisper import WhisperModel
+        model = self._load_model()
 
-            self._model = WhisperModel(
-                self.model_name,
-                device="cpu",
-                compute_type="int8",
-            )
-
-        segments, _ = self._model.transcribe(
+        segments, _ = model.transcribe(
             str(path),
             language="id",
             vad_filter=True,
             beam_size=5,
         )
         return " ".join(segment.text.strip() for segment in segments).strip()
+
+    def _load_model(self) -> Any:
+        if self._model is None:
+            factory = self._model_factory
+            if factory is None:
+                from faster_whisper import WhisperModel
+
+                factory = WhisperModel
+            self._model = factory(
+                self.model_name,
+                device=self.device,
+                compute_type=self.compute_type,
+                device_index=self.device_index,
+            )
+        return self._model
