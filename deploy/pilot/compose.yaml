@@ -2,6 +2,7 @@ name: rambu-pilot
 
 services:
   backend:
+    platform: linux/amd64
     build:
       context: ../..
       dockerfile: deploy/pilot/backend.Dockerfile
@@ -55,6 +56,7 @@ services:
       - edge
 
   langflow:
+    platform: linux/amd64
     build:
       context: ../..
       dockerfile: deploy/pilot/langflow.Dockerfile
@@ -89,6 +91,7 @@ services:
       - private
 
   cloudflared:
+    platform: linux/amd64
     image: cloudflare/cloudflared:2025.11.1
     restart: unless-stopped
     command:

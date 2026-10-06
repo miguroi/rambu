@@ -47,6 +47,7 @@ def test_compose_pins_runtime_images_and_gpu_zero() -> None:
     compose = COMPOSE.read_text()
     blocks = _service_blocks(compose)
 
+    assert all("platform: linux/amd64" in blocks[name] for name in blocks)
     assert "restart: unless-stopped" in blocks["backend"]
     assert "restart: unless-stopped" in blocks["langflow"]
     assert "restart: unless-stopped" in blocks["cloudflared"]
