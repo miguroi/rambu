@@ -71,12 +71,16 @@ struct RambuPuckAgentMain {
         }
         while !Task.isCancelled {
             if let session = try await api.activeSession() {
-                try await record(
-                    session: session,
-                    api: api,
-                    initialSamples: [],
-                    endsAfterSilence: detectAudio
-                )
+                if detectAudio {
+                    try await diagnosticRecord(
+                        session: session,
+                        api: api,
+                        initialSamples: [],
+                        endsAfterSilence: true
+                    )
+                } else {
+                    _ = try await protectWithEngine(api: api, stopsOnEnter: false)
+                }
                 print("Protection session \(session.id) completed.")
             } else if detectAudio {
                 let preRoll = try await waitForAudioActivation()
@@ -85,7 +89,7 @@ struct RambuPuckAgentMain {
                     callID: UUID(),
                     startedAt: .now
                 )
-                try await record(
+                try await diagnosticRecord(
                     session: session,
                     api: api,
                     initialSamples: preRoll,
@@ -108,17 +112,48 @@ struct RambuPuckAgentMain {
         while !Task.isCancelled {
             print("Press Enter after the call is answered to start protection.")
             guard readLine() != nil else { return }
-            let session = try await api.startOrJoinSession(callID: UUID(), startedAt: .now)
-            print("Protection started. Press Enter after the call ends.")
-            try await record(
-                session: session,
-                api: api,
-                initialSamples: [],
-                endsAfterSilence: false,
-                stopsOnEnter: true
-            )
-            print("Protection session \(session.id) completed.")
+            let sessionID = try await protectWithEngine(api: api, stopsOnEnter: true)
+            print("Protection session \(sessionID) completed.")
         }
+    }
+
+    private static func protectWithEngine(
+        api: PuckAPI,
+        stopsOnEnter: Bool
+    ) async throws -> String {
+        let engine = PuckProtectionEngine(api: api)
+        let events = Task {
+            for await event in engine.events {
+                switch event {
+                case .transcript(let line):
+                    emitTranscript(line)
+                case .warning(let warning):
+                    emit(warning)
+                case .state:
+                    break
+                }
+            }
+        }
+        defer { events.cancel() }
+
+        try await engine.start(callID: UUID(), startedAt: .now)
+        guard case .listening(let sessionID) = await engine.currentState() else {
+            throw AgentRuntimeError.monitoring("Protection did not enter the listening state.")
+        }
+        print("Active call found. Capturing external audio with the Mac microphone.")
+
+        if stopsOnEnter {
+            print("Protection started. Press Enter after the call ends.")
+            _ = await Task.detached { readLine() }.value
+        } else {
+            while !Task.isCancelled {
+                try await Task.sleep(for: .milliseconds(500))
+                guard let current = try await api.activeSession() else { break }
+                if current.id != sessionID || current.endRequested { break }
+            }
+        }
+        try await engine.end()
+        return sessionID
     }
 
     private static func waitForAudioActivation() async throws -> [Int16] {
@@ -134,7 +169,9 @@ struct RambuPuckAgentMain {
         throw AgentRuntimeError.monitoring("Microphone capture ended before audio was detected.")
     }
 
-    private static func record(
+    // Automatic sound activation remains a diagnostic-only command. The normal
+    // CLI and menu app both use PuckProtectionEngine's explicit Start/End flow.
+    private static func diagnosticRecord(
         session: ProtectionSession,
         api: PuckAPI,
         initialSamples: [Int16],

@@ -2,12 +2,17 @@
 @preconcurrency import AVFoundation
 import Foundation
 
-enum MicrophoneCaptureError: Error, CustomStringConvertible {
+public protocol AudioCapturing: Sendable {
+    func start() async throws -> AsyncThrowingStream<[Int16], Error>
+    func stop()
+}
+
+public enum MicrophoneCaptureError: Error, CustomStringConvertible, Sendable {
     case permissionDenied
     case outputFormatUnavailable
     case conversionFailed(String)
 
-    var description: String {
+    public var description: String {
         switch self {
         case .permissionDenied:
             return "Microphone permission was denied in macOS System Settings."
@@ -19,12 +24,14 @@ enum MicrophoneCaptureError: Error, CustomStringConvertible {
     }
 }
 
-final class MicrophoneCapture: @unchecked Sendable {
+public final class MicrophoneCapture: AudioCapturing, @unchecked Sendable {
     private let engine = AVAudioEngine()
     private var continuation: AsyncThrowingStream<[Int16], Error>.Continuation?
     private var isRunning = false
 
-    func start() async throws -> AsyncThrowingStream<[Int16], Error> {
+    public init() {}
+
+    public func start() async throws -> AsyncThrowingStream<[Int16], Error> {
         guard await AVCaptureDevice.requestAccess(for: .audio) else {
             throw MicrophoneCaptureError.permissionDenied
         }
@@ -40,11 +47,11 @@ final class MicrophoneCapture: @unchecked Sendable {
             throw MicrophoneCaptureError.outputFormatUnavailable
         }
 
-        let stream = AsyncThrowingStream<[Int16], Error> { continuation in
-            self.continuation = continuation
-        }
-        input.installTap(onBus: 0, bufferSize: 2_048, format: inputFormat) { [weak self] buffer, _ in
-            guard let self else { return }
+        let pair = AsyncThrowingStream<[Int16], Error>.makeStream()
+        let stream = pair.stream
+        let streamContinuation = pair.continuation
+        self.continuation = streamContinuation
+        input.installTap(onBus: 0, bufferSize: 2_048, format: inputFormat) { buffer, _ in
             do {
                 let samples = try Self.convert(
                     buffer,
@@ -52,10 +59,10 @@ final class MicrophoneCapture: @unchecked Sendable {
                     outputFormat: outputFormat
                 )
                 if !samples.isEmpty {
-                    continuation?.yield(samples)
+                    streamContinuation.yield(samples)
                 }
             } catch {
-                continuation?.finish(throwing: error)
+                streamContinuation.finish(throwing: error)
             }
         }
         engine.prepare()
@@ -65,13 +72,13 @@ final class MicrophoneCapture: @unchecked Sendable {
             return stream
         } catch {
             input.removeTap(onBus: 0)
-            self.continuation?.finish(throwing: error)
+            streamContinuation.finish(throwing: error)
             self.continuation = nil
             throw error
         }
     }
 
-    func stop() {
+    public func stop() {
         guard isRunning else { return }
         engine.inputNode.removeTap(onBus: 0)
         engine.stop()
