@@ -13,7 +13,7 @@ public enum PuckProtectionState: Equatable, Sendable {
 public enum PuckProtectionEvent: Equatable, Sendable {
     case state(PuckProtectionState)
     case transcript(String)
-    case warning(PuckWarning)
+    case warning(severity: PuckRiskLevel, warning: PuckWarning)
 }
 
 public enum PuckProtectionEngineError: Error, CustomStringConvertible, Sendable {
@@ -189,8 +189,9 @@ public actor PuckProtectionEngine {
                 cumulativeTranscript: updated.maskedTranscript
             )
         ))
-        if let warning = warningGate.warning(for: updated.assessment) {
-            eventContinuation.yield(.warning(warning))
+        if let assessment = updated.assessment,
+           let warning = warningGate.warning(for: assessment) {
+            eventContinuation.yield(.warning(severity: assessment.riskLevel, warning: warning))
         }
     }
 

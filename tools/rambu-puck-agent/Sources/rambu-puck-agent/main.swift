@@ -127,7 +127,7 @@ struct RambuPuckAgentMain {
                 switch event {
                 case .transcript(let line):
                     emitTranscript(line)
-                case .warning(let warning):
+                case .warning(_, let warning):
                     emit(warning)
                 case .state:
                     break

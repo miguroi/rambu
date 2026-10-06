@@ -64,6 +64,13 @@ public struct PairedPuck: Decodable, Sendable {
     public let displayName: String
     public let accessToken: String
 
+    public init(puckID: String, familyID: String, displayName: String, accessToken: String) {
+        self.puckID = puckID
+        self.familyID = familyID
+        self.displayName = displayName
+        self.accessToken = accessToken
+    }
+
     private enum CodingKeys: String, CodingKey {
         case puckID = "puckId"
         case familyID = "familyId"

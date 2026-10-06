@@ -15,9 +15,18 @@ let package = Package(
             name: "rambu-puck-agent",
             dependencies: ["RambuPuckAgentCore"]
         ),
+        .target(
+            name: "RambuPuckController",
+            dependencies: ["RambuPuckAgentCore"],
+            linkerSettings: [.linkedFramework("Security")]
+        ),
         .testTarget(
             name: "RambuPuckAgentCoreTests",
             dependencies: ["RambuPuckAgentCore"]
+        ),
+        .testTarget(
+            name: "RambuPuckControllerTests",
+            dependencies: ["RambuPuckController", "RambuPuckAgentCore"]
         ),
     ]
 )
