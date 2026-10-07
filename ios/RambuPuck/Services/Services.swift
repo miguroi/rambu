@@ -33,11 +33,14 @@ protocol CallAnalysisSession: Sendable {
 }
 
 protocol CallAnalysisSource: Sendable {
+    var usesAuthoritativeRemoteAlerts: Bool { get }
     func assessments(for call: CallContext) -> AsyncThrowingStream<ChunkAssessment, Error>
     func start(for call: CallContext) async throws -> any CallAnalysisSession
 }
 
 extension CallAnalysisSource {
+    var usesAuthoritativeRemoteAlerts: Bool { false }
+
     func start(for call: CallContext) async throws -> any CallAnalysisSession {
         LegacyCallAnalysisSession(assessments: assessments(for: call))
     }

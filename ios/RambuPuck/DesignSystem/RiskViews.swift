@@ -121,45 +121,61 @@ struct HighlightedText: View {
     }
 }
 
-/// Kalimat penelepon sebagai gelembung chat, supaya langsung terbaca sebagai "yang dia ucapkan".
+/// Selected automatic-transcription excerpt, not a verified quote or a speaker-timed recording.
 struct EvidenceCard: View {
     let line: TranscriptLine
     var level: RiskLevel = .danger
 
     var body: some View {
-        HStack(alignment: .top, spacing: 10) {
-            Image(systemName: "person.fill")
-                .font(.footnote)
-                .foregroundStyle(Brand.ink3)
-                .frame(width: 30, height: 30)
-                .background(Brand.hairline, in: .circle)
-                .accessibilityHidden(true)
-            VStack(alignment: .leading, spacing: 6) {
-                HighlightedText(text: line.text, phrases: line.flagged, tint: level.tint, ink: level.ink)
-                    .font(.body)
+        VStack(alignment: .leading, spacing: 10) {
+            Text(line.text.split(whereSeparator: \.isWhitespace).joined(separator: " "))
+                .font(.body).foregroundStyle(Brand.ink)
+                .fixedSize(horizontal: false, vertical: true)
+            if !line.signals.isEmpty {
+                Text("Ditandai Rambu: " + line.signals.map(\.title).joined(separator: ", "))
+                    .font(.caption).foregroundStyle(Brand.ink2)
                     .fixedSize(horizontal: false, vertical: true)
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 12)
-                    .background(.white, in: UnevenRoundedRectangle(topLeadingRadius: 6, bottomLeadingRadius: 20,
-                                                                  bottomTrailingRadius: 20, topTrailingRadius: 20,
-                                                                  style: .continuous))
-                    .shadow(color: Brand.ink.opacity(0.05), radius: 8, y: 3)
-                HStack(spacing: 6) {
-                    if let first = line.signals.first {
-                        Image(systemName: first.symbol)
-                        Text(first.title)
-                    }
-                    Spacer(minLength: 0)
-                    Text(Fmt.offset(line.offset)).monospacedDigit()
-                        .foregroundStyle(Brand.ink3)
-                        .accessibilityLabel("detik ke \(Int(line.offset))")
-                }
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(level.ink)
-                .padding(.horizontal, 6)
             }
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .card(padding: 16)
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("Penelepon: \(line.text)")
+    }
+}
+
+/// Keep every stored excerpt accessible verbatim, including overlaps omitted from the short view.
+struct CallEvidenceSection: View {
+    let evidence: [TranscriptLine]
+    let level: RiskLevel
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            SectionHeader(title: "Bagian yang ditandai Rambu")
+            Text("Cuplikan dari transkripsi otomatis. Kata-kata bisa salah terbaca; penanda adalah hasil analisis Rambu.")
+                .font(.subheadline).foregroundStyle(Brand.ink2)
+            if evidence.isEmpty {
+                Text("Cuplikan percakapan belum tersedia.")
+                    .font(.body).foregroundStyle(Brand.ink2)
+            } else {
+                ForEach(TranscriptLine.groupedForDisplay(evidence)) { EvidenceCard(line: $0, level: level) }
+                DisclosureGroup("Lihat transkripsi otomatis") {
+                    VStack(alignment: .leading, spacing: 16) {
+                        Text("Semua cuplikan yang tersimpan, bukan transkripsi lengkap panggilan. Teks di bawah tidak diubah.")
+                            .font(.footnote).foregroundStyle(Brand.ink2)
+                        ForEach(Array(evidence.enumerated()), id: \.offset) { index, line in
+                            VStack(alignment: .leading, spacing: 6) {
+                                Text("Cuplikan \(index + 1)")
+                                    .font(.caption.weight(.semibold)).foregroundStyle(Brand.ink2)
+                                Text(line.text).font(.body).foregroundStyle(Brand.ink)
+                                    .fixedSize(horizontal: false, vertical: true)
+                                    .textSelection(.enabled)
+                            }
+                        }
+                    }
+                    .padding(.top, 12)
+                }
+                .font(.subheadline).tint(Brand.teal)
+            }
+        }
     }
 }

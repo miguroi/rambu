@@ -206,7 +206,7 @@ struct BackendCallAnalysisSource: CallAnalysisSource {
             let line = TranscriptLine(
                 id: nextLineID,
                 offset: TimeInterval(nextLineID * 5),
-                speaker: .caller,
+                speaker: .unknown,
                 text: evidence.quote,
                 flagged: [evidence.quote],
                 signals: evidenceSignals

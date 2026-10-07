@@ -55,7 +55,6 @@
 		C5F8141288FA49B3E0A96368 /* Illustrations.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0C3F4F81427499DA7905F205 /* Illustrations.swift */; };
 		C77EFB6842B87DEB060C0946 /* Support.swift in Sources */ = {isa = PBXBuildFile; fileRef = 70D9204B33F579FD3246A5D6 /* Support.swift */; };
 		C869ACA58E303F53C0F1C15F /* PilotSetupView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FC0C312C22648E7173AA45F2 /* PilotSetupView.swift */; };
-		CABA98908EE7419C4B419AF4 /* PuckViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = A68455BBE5D4A4EF1A7C27D7 /* PuckViews.swift */; };
 		CF6C1FEC36A542614581EFBF /* PracticeViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1895E2E895061C7B2730C99 /* PracticeViews.swift */; };
 		D32AB0A138E33C90D9CF4041 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 07FB2AA968E7685E5A7F9560 /* Assets.xcassets */; };
 		D8700001363B381322D5280F /* Services.swift in Sources */ = {isa = PBXBuildFile; fileRef = 254EDE427C00FEAD4D6BF286 /* Services.swift */; };
@@ -146,7 +145,6 @@
 		9E1C235124B472B6340D7ACB /* GuardianOnboarding.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GuardianOnboarding.swift; sourceTree = "<group>"; };
 		A14FC06D1DC47049CD2579C5 /* TutorialViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TutorialViews.swift; sourceTree = "<group>"; };
 		A341DD11FE777AEBCF01573B /* ProfileViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileViewModel.swift; sourceTree = "<group>"; };
-		A68455BBE5D4A4EF1A7C27D7 /* PuckViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PuckViews.swift; sourceTree = "<group>"; };
 		A7D33791D1EB9FEAA1608D50 /* QuickCallGuardians.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuickCallGuardians.swift; sourceTree = "<group>"; };
 		AC01F61E0E715FC4C1E3A6CB /* RambuPuckApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RambuPuckApp.swift; sourceTree = "<group>"; };
 		AC43E5662306F9A230B35F44 /* AppViewModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppViewModelTests.swift; sourceTree = "<group>"; };
@@ -302,7 +300,6 @@
 				D858B5F3344B8F452868A857 /* CallViewModel.swift */,
 				B7CDCE6EF63A63200F0B2FB4 /* CallViews.swift */,
 				D39AD886929DFFEA490113F8 /* ParentViews.swift */,
-				A68455BBE5D4A4EF1A7C27D7 /* PuckViews.swift */,
 			);
 			path = Parent;
 			sourceTree = "<group>";
@@ -537,7 +534,6 @@
 				E934C20C3166E000727A4A3E /* ProfileViews.swift in Sources */,
 				FE82FF0316C631667D189263 /* ProtectionAPI.swift in Sources */,
 				A609E87338AA956CFD2AAFA6 /* ProtectionCallAnalysisSource.swift in Sources */,
-				CABA98908EE7419C4B419AF4 /* PuckViews.swift in Sources */,
 				4F2CE3D39E879D0D3F80A419 /* PushBanner.swift in Sources */,
 				3BA1CE3A7FC7411FC0D4B796 /* QuickCallGuardians.swift in Sources */,
 				AB064A7B899635EFC2A78A56 /* RambuAppDelegate.swift in Sources */,
@@ -589,7 +585,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_ENTITLEMENTS = RambuPuckWidgets/RambuPuckWidgetsRelease.entitlements;
-				CURRENT_PROJECT_VERSION = 3;
+				CURRENT_PROJECT_VERSION = 4;
 				DEVELOPMENT_TEAM = X343JBU8CX;
 				INFOPLIST_FILE = RambuPuckWidgets/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -613,7 +609,7 @@
 				CODE_SIGN_ENTITLEMENTS = RambuPuck/RambuPuck.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 3;
+				CURRENT_PROJECT_VERSION = 4;
 				DEVELOPMENT_TEAM = X343JBU8CX;
 				INFOPLIST_FILE = RambuPuck/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -704,7 +700,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = RambuPuck/RambuPuck.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
-				CURRENT_PROJECT_VERSION = 3;
+				CURRENT_PROJECT_VERSION = 4;
 				DEVELOPMENT_TEAM = X343JBU8CX;
 				INFOPLIST_FILE = RambuPuck/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -721,7 +717,7 @@
 		C2650449F639975E68A4DC07 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				CURRENT_PROJECT_VERSION = 3;
+				CURRENT_PROJECT_VERSION = 4;
 				DEVELOPMENT_TEAM = X343JBU8CX;
 				INFOPLIST_FILE = RambuPuckWidgets/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (

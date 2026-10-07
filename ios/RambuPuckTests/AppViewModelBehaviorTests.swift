@@ -8,6 +8,7 @@ struct AppViewModelBehaviorTests {
         AppViewModel(
             persona: persona,
             onboardingComplete: true,
+            allowsDemoControls: true,
             analysis: ScenarioAnalysis(interval: .zero, initialDelay: .zero),
             liveActivities: false,
             notifications: false,
@@ -209,7 +210,7 @@ struct AppViewModelBehaviorTests {
             speech: false
         )
         model.handleIncoming(URL(string: "rambu://gabung?kode=482913")!)
-        #expect(model.state.onboardingStep == .enterCode)
+        #expect(model.state.onboardingStep == .guardianProfile)
         #expect(model.state.pendingInviteCode == "482913")
     }
 
@@ -226,8 +227,9 @@ struct AppViewModelBehaviorTests {
         let feedback = try #require(model.feedback as? LocalDetectionFeedback)
         #expect(feedback.reported == [id])
         let record = try #require(model.state.history.first { $0.id == id })
-        #expect(record.incidentSummary.contains("Sinta menandai aman"))
-        #expect(record.incidentSummary.contains("menyuruh pasang aplikasi"))
+        #expect(record.decision?.by.name == "Sinta")
+        #expect(record.decision?.verdict == .safe)
+        #expect(record.incidentSummary.contains("aplikasi"))
     }
 
     @Test("Pengawas bisa menjaga lebih dari satu orang tua")

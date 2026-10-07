@@ -37,7 +37,10 @@ final class ProfileViewModel {
 
     func renameGuardian(_ persona: Persona, name: String, relation: String) {
         let index = persona == .richard ? 1 : 0
-        guard state.guardians.indices.contains(index) else { return }
+        guard state.guardians.indices.contains(index) else {
+            state.guardianDraft = state.guardianDraft.renamed(name, relation: relation)
+            return
+        }
         state.guardians[index] = state.guardians[index].renamed(name, relation: relation)
         persist()
     }
@@ -50,7 +53,7 @@ final class ProfileViewModel {
 
     @discardableResult
     func addProtectedParent(code: String) -> Person? {
-        guard code.count == 6 else { return nil }
+        guard state.allowsDemoControls, code.count == 6 else { return nil }
         let samples = [
             Person(id: "hadi", name: "Pak Hadi", initial: "H", relation: "Ayah", colorHex: 0x8A5A12),
             Person(id: "lies", name: "Oma Lies", initial: "L", relation: "Nenek", colorHex: 0xA23B72),
@@ -97,6 +100,7 @@ final class ProfileViewModel {
     }
 
     func reconnectPuck() async {
+        guard state.allowsDemoControls else { return }
         try? await Task.sleep(for: .seconds(1.2))
         state.bluetoothOn = true
         state.puck.isConnected = true

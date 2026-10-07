@@ -5,6 +5,7 @@ import Testing
 private actor PilotHTTPStub: HTTPDataSession {
     private let responses: [String: Data]
     private var requestedPaths: [String] = []
+    private var requestBodies: [String: Data] = [:]
 
     init(responses: [String: String]) {
         self.responses = responses.mapValues { Data($0.utf8) }
@@ -13,6 +14,7 @@ private actor PilotHTTPStub: HTTPDataSession {
     func data(for request: URLRequest) async throws -> (Data, URLResponse) {
         let path = request.url?.path ?? ""
         requestedPaths.append(path)
+        requestBodies[path] = request.httpBody
         guard let data = responses[path], let url = request.url,
               let response = HTTPURLResponse(
                 url: url,
@@ -26,10 +28,67 @@ private actor PilotHTTPStub: HTTPDataSession {
     }
 
     func paths() -> [String] { requestedPaths }
+    func body(for path: String) -> Data? { requestBodies[path] }
 }
 
 @MainActor
+@Suite(.serialized)
 struct PilotViewModelTests {
+    @Test("Infrastructure diagnostics are not exposed as family error messages")
+    func hidesInfrastructureDiagnostics() {
+        let diagnostic = "The origin web server returned an invalid response to Cloudflare. private-token"
+        let message = PilotAPIError.server(diagnostic).localizedDescription
+        #expect(!message.contains("Cloudflare"))
+        #expect(!message.contains("private-token"))
+        #expect(message.contains("Coba lagi"))
+    }
+
+    @Test("A successfully refreshed profile clears the previous error without losing membership")
+    func successfulProfileClearsOldError() throws {
+        let (state, pilot) = makePilot()
+        state.pilotError = "Perbarui keluarga gagal"
+        let decoder = JSONDecoder()
+        decoder.keyDecodingStrategy = .convertFromSnakeCase
+        pilot.applyProfile(try decoder.decode(PilotProfileDTO.self, from: Data(Self.profileJSON.utf8)))
+        #expect(state.pilotError == nil)
+        #expect(state.pilotConnected)
+        #expect(state.guardians.first?.name == "Richard")
+    }
+
+    @Test("Renewal retains the server expiry with the invitation in stored credentials")
+    func renewalKeepsExpiry() async throws {
+        let store = PilotCredentialStore()
+        let previous = store.load()
+        defer { if let previous { store.save(previous) } else { store.clear() } }
+        let stub = PilotHTTPStub(responses: [
+            "/api/pilot/invites": #"{"code":"715204","expires_at":"2026-10-07T14:10:00Z"}"#,
+        ])
+        let sync = PilotSync(session: stub, initialCredentials: Self.credentials)
+        _ = try await sync.renewInvite()
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .iso8601
+        let stored = try #require(store.load())
+        let data = try encoder.encode(stored)
+        let payload = try #require(JSONSerialization.jsonObject(with: data) as? [String: Any])
+        #expect(payload["inviteCode"] as? String == "715204")
+        #expect(payload["inviteExpiresAt"] as? String == "2026-10-07T14:10:00Z")
+    }
+    @Test("Parent-generated invitation is sent with the child's own identity")
+    func createsAndJoinsWithServerInvitation() async throws {
+        let stub = PilotHTTPStub(responses: [
+            "/api/pilot/families": #"{"family_id":"family-1","member":{"id":"parent-1","name":"Bu Sri","relation":"Orang tua","role":"parent"},"access_token":"test-parent-token","invite_code":"715204","invite_expires_at":null}"#,
+            "/api/pilot/families/join": #"{"family_id":"family-1","member":{"id":"guardian-1","name":"Dewi","relation":"Anak","role":"guardian"},"access_token":"test-guardian-token","invite_code":null,"invite_expires_at":null}"#,
+        ])
+        let api = try PilotAPI(serverURL: "https://rambu.test", session: stub)
+        let parent = try await api.createFamily(parentName: "Bu Sri")
+        let child = try await api.joinFamily(code: try #require(parent.inviteCode), name: "Dewi", relation: "Anak")
+        #expect(parent.familyID == child.familyID)
+        #expect(child.member.role == "guardian")
+        let body = try #require(await stub.body(for: "/api/pilot/families/join"))
+        let payload = try #require(JSONSerialization.jsonObject(with: body) as? [String: String])
+        #expect(payload["code"] == "715204")
+        #expect(payload["name"] == "Dewi")
+    }
     @Test("Respons buat keluarga membaca family_id dari backend")
     func decodesCreateFamilyResponse() throws {
         let data = Data(#"""

@@ -9,6 +9,7 @@ struct PilotCredentials: Codable, Sendable {
     let member: PilotPersonDTO
     let accessToken: String
     var inviteCode: String?
+    var inviteExpiresAt: Date? = nil
 }
 
 struct PilotCredentialStore: Sendable {
@@ -131,7 +132,7 @@ struct PilotTranscriptLineDTO: Codable, Sendable {
         TranscriptLine(
             id: id,
             offset: offset,
-            speaker: Speaker(rawValue: speaker) ?? .caller,
+            speaker: Speaker(rawValue: speaker) ?? .unknown,
             text: text,
             flagged: flagged,
             signals: signals.compactMap(SignalKind.init(rawValue:))
@@ -239,9 +240,22 @@ enum PilotAPIError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .invalidServerURL: "Alamat server tidak valid."
-        case .invalidResponse: "Respons server tidak dapat dibaca."
-        case .server(let message): message
+        case .invalidResponse: "Belum dapat menerima data keluarga. Coba lagi."
+        case .server(let message):
+            switch message {
+            case "Kode undangan harus 6 angka.": "Masukkan kode undangan 6 angka."
+            case "Kode undangan tidak ditemukan.": "Kode tidak ditemukan. Periksa kembali kode dari orang tua."
+            case "Kode undangan sudah kedaluwarsa.": "Kode sudah kedaluwarsa. Minta orang tua membuat kode baru."
+            case "Token perangkat tidak valid.", "Token perangkat diperlukan.": "Akses keluarga sudah tidak berlaku. Hubungkan keluarga kembali."
+            case "Keluarga ini sudah memiliki terlalu banyak pengawas.": "Jumlah pendamping sudah mencapai batas."
+            default: "Belum dapat terhubung ke server. Coba lagi."
+            }
         }
+    }
+
+    static func displayMessage(for error: Error) -> String {
+        if let error = error as? PilotAPIError { return error.localizedDescription }
+        return "Belum dapat terhubung ke server. Periksa koneksi internet lalu coba lagi."
     }
 }
 
@@ -388,7 +402,8 @@ final class PilotSync {
 
     var isConnected: Bool { credentials != nil }
     var inviteCode: String? { credentials?.inviteCode }
-    var serverURL: String { credentials?.serverURL ?? UserDefaults.standard.string(forKey: "pilotServerURL") ?? "http://127.0.0.1:8000" }
+    var inviteExpiresAt: Date? { credentials?.inviteExpiresAt }
+    var serverURL: String { credentials?.serverURL ?? UserDefaults.standard.string(forKey: "pilotServerURL") ?? "https://rambu-api.sfatimah.com" }
 
     func start() {
         guard credentials != nil, pollTask == nil else { return }
@@ -422,6 +437,7 @@ final class PilotSync {
         let invite = try await PilotAPI(serverURL: credentials.serverURL, session: session)
             .renewInvite(token: credentials.accessToken)
         credentials.inviteCode = invite.code
+        credentials.inviteExpiresAt = invite.expiresAt
         self.credentials = credentials
         credentialStore.save(credentials)
         return invite.code
@@ -455,7 +471,7 @@ final class PilotSync {
             await refreshAlerts(quietly: true)
             return result.accepted ? .accepted(result.decision.decision) : .alreadyDecided(result.decision.decision)
         } catch {
-            onError?(error.localizedDescription)
+            onError?(PilotAPIError.displayMessage(for: error))
             return nil
         }
     }
@@ -487,7 +503,7 @@ final class PilotSync {
             onAlerts?(alertValues.map(\.alert))
             onHistory?(historyValues)
         } catch {
-            if !quietly { onError?(error.localizedDescription) }
+            if !quietly { onError?("Keluarga belum dapat diperbarui. \(PilotAPIError.displayMessage(for: error))") }
         }
     }
 
@@ -498,7 +514,7 @@ final class PilotSync {
                 .alerts(token: credentials.accessToken)
             onAlerts?(values.map(\.alert))
         } catch {
-            if !quietly { onError?(error.localizedDescription) }
+            if !quietly { onError?(PilotAPIError.displayMessage(for: error)) }
         }
     }
 
@@ -508,7 +524,8 @@ final class PilotSync {
             familyID: session.familyID,
             member: session.member,
             accessToken: session.accessToken,
-            inviteCode: session.inviteCode
+            inviteCode: session.inviteCode,
+            inviteExpiresAt: session.inviteExpiresAt
         )
         credentials = value
         credentialStore.save(value)
@@ -529,7 +546,7 @@ final class PilotSync {
     }
 
     private func report(_ error: Error) {
-        onError?(error.localizedDescription)
+        onError?(PilotAPIError.displayMessage(for: error))
     }
 
     private func receivePushToken(_ token: String) {

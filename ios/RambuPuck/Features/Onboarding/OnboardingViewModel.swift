@@ -14,8 +14,10 @@ final class OnboardingViewModel {
 
     func complete(as persona: Persona) {
         state.persona = persona
-        state.puck = .demo
-        state.history = CallRecord.seed(decider: state.person(for: .richard))
+        if state.allowsDemoControls {
+            state.puck = .demo
+            state.history = CallRecord.seed(decider: state.person(for: .richard))
+        }
         state.onboardingComplete = true
         state.onboardingStep = .welcome
         state.pendingInviteCode = nil
@@ -24,6 +26,7 @@ final class OnboardingViewModel {
 
     func handleInvite(code: String) {
         state.pendingInviteCode = code
-        state.onboardingStep = .enterCode
+        state.persona = .sinta
+        state.onboardingStep = state.allowsDemoControls ? .enterCode : .guardianProfile
     }
 }

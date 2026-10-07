@@ -9,7 +9,7 @@ struct CallViewModelTests {
         escalationDelay: Duration = .seconds(60),
         speakerCheckDelay: Duration = .seconds(3)
     ) -> (AppState, CallViewModel) {
-        let state = AppState(onboardingComplete: true)
+        let state = AppState(onboardingComplete: true, allowsDemoControls: true)
         let profile = ProfileViewModel(
             state: state,
             notifier: RambuNotifier(enabled: false),
@@ -221,5 +221,36 @@ struct CallViewModelTests {
         #expect(session.metadata.fixtureID == nil)
         #expect(session.metadata.callerDetail == "Nomor tidak tersedia")
         #expect(state.isCallScreenPresented == false)
+    }
+
+    @Test("Backend-authoritative protection does not create a second phone alert")
+    func authoritativeProtectionDoesNotRepublishAlert() async throws {
+        let line = TranscriptLine(
+            id: 0,
+            offset: 0,
+            speaker: .unknown,
+            text: "Sebutkan kode OTP dari SMS.",
+            flagged: ["kode OTP"],
+            signals: [.secretCode]
+        )
+        let source = RecordingCallAnalysisSource(
+            finishStatus: .completed,
+            finishAssessment: ChunkAssessment(
+                line: line,
+                level: .danger,
+                signals: [.secretCode]
+            ),
+            usesAuthoritativeRemoteAlerts: true
+        )
+        let (state, call) = makeCall(analysis: source)
+        let listening = call.start(.bankOTP)
+        while source.latestSession == nil { await Task.yield() }
+
+        call.end()
+        await listening.value
+
+        #expect(state.alerts.isEmpty)
+        #expect(state.history.first?.level == .danger)
+        #expect(state.toast?.level == .danger)
     }
 }

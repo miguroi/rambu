@@ -16,10 +16,6 @@ struct CallStatusView: View {
                                             unanswered: model.unanswered.contains(session.id))
                         hero(status)
                         guardiansLine(status)
-                        VStack(alignment: .leading, spacing: 10) {
-                            SectionHeader(title: "Ragu? Telepon dulu")
-                            QuickCallGuardians()
-                        }
                     } else {
                         ContentUnavailableView("Telepon sudah selesai", systemImage: "phone.down.fill")
                     }
@@ -46,9 +42,11 @@ struct CallStatusView: View {
 
     private func hero(_ status: Status) -> some View {
         VStack(spacing: 14) {
-            MascotView(pose: status.level.mascotPose, sign: status.level)
-                .frame(height: 170)
-            RiskBadge(level: status.level, large: true)
+            Label(status.presentation.title, systemImage: status.presentation.symbol)
+                .font(.headline)
+                .foregroundStyle(status.presentation.glyph)
+                .padding(.horizontal, 14).padding(.vertical, 8)
+                .background(status.presentation.tint, in: .capsule)
             Text(status.title)
                 .font(Brand.display(.largeTitle))
                 .foregroundStyle(Brand.ink)
@@ -61,7 +59,7 @@ struct CallStatusView: View {
         }
         .frame(maxWidth: .infinity)
         .padding(22)
-        .background(status.level.soft, in: .rect(cornerRadius: 32, style: .continuous))
+        .background(status.presentation.soft, in: .rect(cornerRadius: 16, style: .continuous))
     }
 
     private func guardiansLine(_ status: Status) -> some View {
@@ -82,19 +80,31 @@ struct CallStatusView: View {
         let title: String
         let detail: String
         let guardianNote: String
+        let presentation: HistoryPresentation
 
         @MainActor
         init(session: CallSession, alert: FamilyAlert?, unanswered: Bool) {
+            if let decision = alert?.decision {
+                presentation = decision.verdict == .scam ? .danger : .safe
+            } else if session.analysisFailure != nil || session.protectionStatus == .noSpeech {
+                presentation = .unassessed
+            } else if session.level == .danger {
+                presentation = .danger
+            } else if session.level == .review {
+                presentation = .review
+            } else {
+                presentation = session.protectionStatus == .completed ? .safe : .unassessed
+            }
             if let decision = alert?.decision {
                 let scam = decision.verdict == .scam
                 level = scam ? .danger : .safe
                 title = scam ? "Tutup telepon sekarang" : "Aman, kata \(decision.by.name)"
                 detail = scam ? "\(decision.by.name) yakin ini penipuan." : "Tetap jangan beri kode atau transfer."
                 guardianNote = "\(decision.by.name) sudah menjawab."
-            } else if let failure = session.analysisFailure {
+            } else if session.analysisFailure != nil {
                 level = .review
-                title = failure.title
-                detail = failure.detail
+                title = "Analisis belum berhasil"
+                detail = "Hasil panggilan ini belum tersedia. Periksa koneksi lalu coba lagi."
                 guardianNote = "Analisis berhenti dan tidak menghasilkan penilaian aman."
             } else if unanswered {
                 level = session.level
@@ -110,20 +120,20 @@ struct CallStatusView: View {
                 level = .safe
                 switch session.protectionStatus {
                 case .waitingForPuck:
-                    title = "Menunggu Rambu Puck"
+                    title = "Menunggu analisis"
                     detail = "Audio belum dianalisis."
                 case .listening where !session.speakerOn:
                     title = "Nyalakan loudspeaker"
-                    detail = "Rambu Puck belum bisa mendengar percakapan."
+                    detail = "Percakapan belum terdengar jelas."
                 case .listening:
                     title = "Rambu sedang mendengarkan"
-                    detail = "Audio dari Puck sedang dianalisis."
+                    detail = "Percakapan sedang dianalisis."
                 case .completed:
                     title = "Analisis selesai"
                     detail = "Tidak ada tanda penipuan yang terdeteksi."
                 case .noSpeech:
                     title = "Tidak ada audio yang dianalisis"
-                    detail = "Rambu Puck tidak menerima percakapan yang dapat ditranskripsi."
+                    detail = "Tidak ada suara yang dapat dianalisis pada sesi ini."
                 }
                 guardianNote = "Pengawas dikabari kalau ada tanda penipuan."
             }

@@ -9,16 +9,16 @@ struct ParentProfileStep: View {
 
     var body: some View {
         StepScaffold(
-            progress: (1, 5),
+            progress: (1, 3),
             title: "Siapa nama Anda?",
             message: "Nama ini muncul di HP keluarga."
         ) {
             NameField(title: "Nama panggilan", text: $name, prompt: "Contoh: Ibu Ratna")
-            DemoPrefillNote()
+            if model.allowsDemoControls { DemoPrefillNote() }
         } actions: {
             Button {
                 profile.renameParent(name)
-                model.onboardingStep = .pairPuck
+                model.onboardingStep = model.allowsDemoControls ? .pairPuck : .consent
             } label: { WideLabel(title: "Lanjut") }
                 .primaryAction()
                 .disabled(name.trimmingCharacters(in: .whitespaces).isEmpty)
@@ -119,14 +119,14 @@ struct ConsentStep: View {
     @State private var asking = false
 
     private let points: [(symbol: String, title: String, detail: String)] = [
-        ("speaker.wave.3.fill", "Hanya dari loudspeaker", "Telepon di telinga tidak terdengar."),
-        ("text.quote", "Hanya kalimat mencurigakan", "Itu saja yang dikirim ke keluarga."),
+        ("speaker.wave.3.fill", "Gunakan speaker saat menelepon", "Percakapan perlu terdengar jelas agar dapat dianalisis."),
+        ("text.quote", "Keluarga melihat cuplikan", "Cuplikan percakapan membantu pendamping menilai peringatan."),
         ("bell.badge.fill", "Peringatan lewat notifikasi", "Muncul di atas layar saat menelepon."),
         ("hand.raised.fill", "Anda yang memutuskan", "Rambu tidak menutup telepon Anda."),
     ]
 
     var body: some View {
-        StepScaffold(progress: (3, 5), title: "Sebelum mulai") {
+        StepScaffold(progress: (2, 3), title: "Sebelum mulai") {
             VStack(spacing: 12) {
                 ForEach(points, id: \.title) { point in
                     HStack(spacing: 16) {
@@ -155,7 +155,7 @@ struct ConsentStep: View {
                     asking = false
                     model.onboardingStep = .invite
                 }
-            } label: { WideLabel(title: "Saya setuju", systemImage: "checkmark") }
+            } label: { WideLabel(title: "Lanjut", systemImage: "checkmark") }
                 .primaryAction()
                 .disabled(asking)
         }

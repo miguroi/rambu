@@ -127,6 +127,50 @@ struct TranscriptLine: Identifiable, Hashable, Codable, Sendable {
     let signals: [SignalKind]
 
     var isFlagged: Bool { !signals.isEmpty }
+
+    static func groupedForDisplay(_ lines: [TranscriptLine]) -> [TranscriptLine] {
+        // Group only exact or clearly contained excerpts. Keep every original in storage.
+        // Short phrases and differing negations are deliberately not treated as overlap.
+        let negations: Set<String> = ["jangan", "tidak", "bukan", "tak", "belum", "tanpa", "enggak", "nggak", "gak", "ga", "ngga", "ndak"]
+        func words(_ line: TranscriptLine) -> [String] {
+            line.text.lowercased().components(separatedBy: .alphanumerics.inverted).filter { !$0.isEmpty }
+        }
+        var result: [TranscriptLine] = []
+        for line in lines {
+            let current = words(line)
+            guard !current.isEmpty else { continue }
+            if let index = result.firstIndex(where: { existing in
+                guard existing.speaker == line.speaker, Set(existing.signals) == Set(line.signals) else { return false }
+                let previous = words(existing)
+                if previous == current { return true }
+                guard min(previous.count, current.count) >= 4,
+                      Set(previous).intersection(negations) == Set(current).intersection(negations) else { return false }
+                let a = " " + previous.joined(separator: " ") + " "
+                let b = " " + current.joined(separator: " ") + " "
+                return a.contains(b) || b.contains(a)
+            }) {
+                if current.count > words(result[index]).count { result[index] = line }
+            } else {
+                result.append(line)
+            }
+        }
+        return result
+    }
+}
+
+struct InviteValidity {
+    let expiresAt: Date?
+    let now: Date
+
+    var canShare: Bool { expiresAt.map { $0 > now } ?? false }
+
+    var message: String {
+        guard let expiresAt else { return "Buat kode baru untuk membagikan undangan." }
+        let remaining = expiresAt.timeIntervalSince(now)
+        guard remaining > 0 else { return "Kode kedaluwarsa" }
+        if remaining < 60 { return "Berlaku kurang dari 1 menit lagi" }
+        return "Berlaku \(Int(ceil(remaining / 60))) menit lagi"
+    }
 }
 
 struct Scenario: Identifiable, Hashable, Sendable {
@@ -273,6 +317,12 @@ struct CallRecord: Identifiable, Hashable, Codable, Sendable {
     var decision: GuardianDecision?
     var unassessedReason: String? = nil
 
+    var displayReason: String? {
+        guard let unassessedReason else { return nil }
+        return unassessedReason == "Tidak ada suara yang dapat dianalisis."
+            ? unassessedReason : "Analisis belum berhasil. Hasil panggilan ini belum tersedia."
+    }
+
     var historyPresentation: HistoryPresentation {
         if unassessedReason != nil { return .unassessed }
         switch level {
@@ -376,7 +426,7 @@ struct PuckState: Hashable, Codable, Sendable {
 
 // MARK: - Navigasi
 
-enum ParentTab: Hashable { case home, history, puck }
+enum ParentTab: Hashable { case home, history }
 enum GuardianTab: Hashable { case home, history }
 
 enum OnboardingStep: String, Hashable, Sendable {
@@ -481,36 +531,25 @@ enum Fmt {
 // MARK: - Ringkasan kejadian
 
 extension CallRecord {
-    /// Ringkasan singkat untuk riwayat. Di produk nyata teks ini dibuat backend
-    /// (watsonx Orchestrate) dari transkrip dan keputusan. Prototipe menyusunnya dari data yang sama.
+    /// Interpretation of detected categories. Metadata and caregiver decisions are shown separately.
     var incidentSummary: String {
-        if let unassessedReason {
-            return "\(channel.label) \(Fmt.duration(duration)) dari \(callerDetail). \(unassessedReason)"
+        if let displayReason {
+            return displayReason
         }
-        let actions = signals.map(\.summaryPhrase)
-        let listed = actions.formatted(.list(type: .and).locale(Fmt.locale))
-        let what = actions.isEmpty ? "Tidak ada tanda penipuan." : "Penelepon \(listed)."
-        let outcome: String
-        if let decision {
-            outcome = decision.verdict == .scam
-                ? "\(decision.by.name) menandai penipuan pukul \(Fmt.clock(decision.at))."
-                : "\(decision.by.name) menandai aman pukul \(Fmt.clock(decision.at))."
-        } else {
-            outcome = "Belum ada pengawas yang menjawab."
-        }
-        return "\(channel.label) \(Fmt.duration(duration)) dari \(callerDetail). \(what) \(outcome)"
+        guard !signals.isEmpty else { return "Tidak terdeteksi tanda penipuan pada percakapan yang dianalisis." }
+        let listed = signals.map(\.summaryLabel).formatted(.list(type: .and).locale(Fmt.locale))
+        return "Rambu mendeteksi indikasi \(listed)."
     }
 }
 
 extension SignalKind {
-    /// Frasa kerja untuk kalimat ringkasan, misalnya "Penelepon mengaku dari lembaga".
-    var summaryPhrase: String {
+    var summaryLabel: String {
         switch self {
-        case .impersonation: "mengaku dari lembaga"
-        case .urgency: "mendesak"
-        case .secretCode: "meminta kode OTP atau PIN"
-        case .transfer: "meminta transfer uang"
-        case .remoteApp: "menyuruh pasang aplikasi"
+        case .impersonation: "penyamaran sebagai lembaga"
+        case .urgency: "desakan untuk segera bertindak"
+        case .secretCode: "permintaan kode OTP atau PIN"
+        case .transfer: "permintaan transfer uang"
+        case .remoteApp: "permintaan memasang aplikasi"
         }
     }
 }

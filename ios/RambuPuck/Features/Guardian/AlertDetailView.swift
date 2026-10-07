@@ -14,13 +14,7 @@ struct AlertDetail: View {
                 VStack(alignment: .leading, spacing: 24) {
                     AlertHeader(alert: alert)
 
-                    VStack(alignment: .leading, spacing: 14) {
-                        SectionHeader(title: "Kata penelepon")
-                        ForEach(alert.evidence) { EvidenceCard(line: $0, level: alert.level) }
-                        Label("Hanya kalimat ini yang dikirim", systemImage: "lock.fill")
-                            .font(.footnote).foregroundStyle(Brand.ink3)
-                            .padding(.leading, 40)
-                    }
+                    CallEvidenceSection(evidence: alert.evidence, level: alert.level)
 
                     VStack(alignment: .leading, spacing: 12) {
                         SectionHeader(title: "Penerima")
@@ -60,11 +54,6 @@ private struct AlertHeader: View {
                             .font(.subheadline).foregroundStyle(Brand.ink2)
                     }
                     Spacer(minLength: 0)
-                    MascotView(pose: alert.level.mascotPose, sign: alert.level)
-                        .frame(width: 76)
-                }
-                FlowLayout(spacing: 6) {
-                    ForEach(alert.signals, id: \.self) { SignalChip(kind: $0, level: alert.level, onTint: true) }
                 }
             }
             .padding(20)

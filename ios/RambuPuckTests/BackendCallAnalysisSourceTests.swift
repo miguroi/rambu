@@ -145,6 +145,7 @@ struct BackendCallAnalysisSourceTests {
         #expect(chunks[0].level == .review)
         #expect(chunks[0].signals == [.impersonation])
         #expect(chunks[0].line.text == "Saya dari bank.")
+        #expect(chunks[0].line.speaker == .unknown)
         #expect(chunks[1].level == .danger)
         #expect(chunks[1].signals == [.secretCode])
         #expect(chunks[1].line.text == "berikan OTP [KODE]")

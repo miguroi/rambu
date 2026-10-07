@@ -30,6 +30,7 @@ final class AppState {
 
     var parent: Person = .ratna
     var guardians: [Person] = Person.guardians
+    var guardianDraft = Person(id: "guardian-draft", name: "", initial: "", relation: "Anak", colorHex: 0x006F63)
     var extraParents: [Person] = []
 
     var session: CallSession?
@@ -53,9 +54,10 @@ final class AppState {
     var pendingInviteCode: String?
     var pilotConnected = false
     var pilotInviteCode: String?
+    var pilotInviteExpiresAt: Date?
     var pilotRole: String?
     var pilotError: String?
-    var pilotServerURL = UserDefaults.standard.string(forKey: "pilotServerURL") ?? "http://127.0.0.1:8000"
+    var pilotServerURL = UserDefaults.standard.string(forKey: "pilotServerURL") ?? "https://rambu-api.sfatimah.com"
 
     var simulateOffline = false
     var bluetoothOn = true
@@ -72,8 +74,12 @@ final class AppState {
         self.persona = persona
         self.onboardingComplete = onboardingComplete
         self.allowsDemoControls = allowsDemoControls
-        puck = onboardingComplete ? .demo : .unpaired
-        history = CallRecord.seed(now: now)
+        puck = allowsDemoControls && onboardingComplete ? .demo : .unpaired
+        history = allowsDemoControls ? CallRecord.seed(now: now) : []
+        if !allowsDemoControls {
+            parent = Person(id: "parent-draft", name: "", initial: "", relation: "Orang tua", colorHex: 0x006F63)
+            guardians = []
+        }
     }
 
     var currentPerson: Person { person(for: persona) }
@@ -81,8 +87,8 @@ final class AppState {
     func person(for persona: Persona) -> Person {
         switch persona {
         case .ratna: parent
-        case .sinta: guardians.first ?? .sinta
-        case .richard: guardians.dropFirst().first ?? .richard
+        case .sinta: guardians.first ?? (allowsDemoControls ? .sinta : guardianDraft)
+        case .richard: guardians.dropFirst().first ?? (allowsDemoControls ? .richard : guardianDraft)
         }
     }
 
@@ -122,7 +128,7 @@ final class AppState {
         var values: [SystemIssue] = []
         if !notificationsAuthorized && !hidesNotificationIssue { values.append(.notificationsOff) }
         if !isOnline || simulateOffline { values.append(.offline) }
-        if persona.isParent {
+        if persona.isParent && allowsDemoControls {
             if !bluetoothOn {
                 values.append(.bluetoothOff)
             } else if !puck.isConnected {
@@ -156,5 +162,11 @@ final class AppState {
         history = saved.history
         puck = saved.puck
         narrationEnabled = saved.narrationEnabled
+        if !allowsDemoControls {
+            history.removeAll { $0.isSampleRecord }
+            guardians.removeAll { ["sinta", "richard"].contains($0.id) }
+            extraParents.removeAll { ["hadi", "lies"].contains($0.id) }
+            puck = .unpaired
+        }
     }
 }

@@ -102,8 +102,9 @@ enum InviteLink {
         URL(string: "\(webBase)?kode=\(code)")!
     }
 
-    static func message(code: String, parentName: String) -> String {
-        "Bantu jaga \(parentName) dari penipuan lewat Rambu. Buka tautan ini: \(url(code: code).absoluteString) (kode \(code))"
+    static func message(code: String, parentName: String, expiresAt: Date? = nil) -> String {
+        let expiry = expiresAt.map { " Kode berlaku sampai pukul \(Fmt.clock($0))." } ?? ""
+        return "\(parentName) mengundang Anda menjadi pendamping di Rambu. Kode undangan: \(code). Buka Rambu, pilih Saya pendamping, lalu masukkan kode ini.\(expiry)"
     }
 
     static func whatsAppURL(code: String, parentName: String) -> URL {

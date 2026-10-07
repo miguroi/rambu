@@ -4,6 +4,8 @@ import SwiftUI
 
 struct OnboardingFlow: View {
     @Environment(AppState.self) private var model
+    @Environment(OnboardingViewModel.self) private var onboarding
+    @Environment(ProfileViewModel.self) private var profile
 
     var body: some View {
         NavigationStack {
@@ -15,8 +17,25 @@ struct OnboardingFlow: View {
                 case .guardianProfile: GuardianProfileStep()
                 case .pairPuck: PairPuckStep()
                 case .consent: ConsentStep()
-                case .invite: InviteGuardiansStep()
-                case .enterCode: EnterCodeStep()
+                case .invite:
+                    if model.allowsDemoControls { InviteGuardiansStep() }
+                    else {
+                        StepScaffold(progress: (3, 3), title: "Undang keluarga") {
+                            FamilySetupContent { onboarding.complete(as: .ratna) }
+                        } actions: { EmptyView() }
+                    }
+                case .enterCode:
+                    if model.allowsDemoControls { EnterCodeStep() }
+                    else {
+                        StepScaffold(progress: (2, 2), title: "Hubungkan dengan orang tua") {
+                            FamilySetupContent {
+                                Task {
+                                    await profile.requestNotifications()
+                                    onboarding.complete(as: .sinta)
+                                }
+                            }
+                        } actions: { EmptyView() }
+                    }
                 case .practiceCall: PracticeCallStep()
                 case .practiceAlert: PracticeAlertStep()
                 case .waiting: GuardianWaitingStep()
@@ -37,13 +56,14 @@ struct OnboardingFlow: View {
 
     private func goBack() {
         switch model.onboardingStep {
-        case .tutorial, .enterCode: model.onboardingStep = .welcome
-        case .parentProfile: model.onboardingStep = .tutorial
+        case .tutorial: model.onboardingStep = .welcome
+        case .enterCode: model.onboardingStep = model.allowsDemoControls ? .welcome : .guardianProfile
+        case .parentProfile: model.onboardingStep = model.allowsDemoControls ? .tutorial : .welcome
         case .pairPuck: model.onboardingStep = .parentProfile
-        case .consent: model.onboardingStep = .pairPuck
+        case .consent: model.onboardingStep = model.allowsDemoControls ? .pairPuck : .parentProfile
         case .invite: model.onboardingStep = .consent
         case .practiceCall: model.onboardingStep = .invite
-        case .guardianProfile: model.onboardingStep = .enterCode
+        case .guardianProfile: model.onboardingStep = model.allowsDemoControls ? .enterCode : .welcome
         case .practiceAlert: model.onboardingStep = .guardianProfile
         case .waiting: model.onboardingStep = .practiceAlert
         case .welcome: break
@@ -176,10 +196,10 @@ struct WelcomeStep: View {
                     .accessibilityLabel("Seorang ibu menelepon dengan raut cemas di rumah")
 
                 VStack(alignment: .leading, spacing: 10) {
-                    Text("Kenali tanda, hindari tipu daya.")
+                    Text("Bantu keluarga mengenali penipuan telepon.")
                         .font(Brand.display(.largeTitle))
                         .foregroundStyle(Brand.ink)
-                    Text("Puck di punggung HP ikut mendengar telepon. Ada tanda penipuan, keluarga langsung tahu.")
+                    Text("Rambu menganalisis percakapan dan memberi peringatan saat ada tanda penipuan.")
                         .font(.body)
                         .foregroundStyle(Brand.ink2)
                 }
@@ -193,12 +213,18 @@ struct WelcomeStep: View {
         .scrollBounceBehavior(.basedOnSize)
         .safeAreaBar(edge: .bottom) {
             VStack(spacing: 10) {
-                Button { model.onboardingStep = .tutorial } label: {
-                    WideLabel(title: "Saya ingin dilindungi", systemImage: "shield.lefthalf.filled")
+                Button {
+                    model.persona = .ratna
+                    model.onboardingStep = model.allowsDemoControls ? .tutorial : .parentProfile
+                } label: {
+                    WideLabel(title: "Saya orang tua", systemImage: "shield.lefthalf.filled")
                 }
                 .primaryAction()
-                Button { model.onboardingStep = .enterCode } label: {
-                    WideLabel(title: "Saya menjaga keluarga", systemImage: "person.2.fill")
+                Button {
+                    model.persona = .sinta
+                    model.onboardingStep = model.allowsDemoControls ? .enterCode : .guardianProfile
+                } label: {
+                    WideLabel(title: "Saya pendamping", systemImage: "person.2.fill")
                 }
                 .secondaryAction()
             }
@@ -206,6 +232,7 @@ struct WelcomeStep: View {
             .padding(.bottom, 8)
         }
         .task {
+            guard model.allowsDemoControls else { return }
             try? await Task.sleep(for: .seconds(0.9))
             withAnimation(reduceMotion ? nil : .spring(duration: 0.6, bounce: 0.3)) { showPush = true }
         }

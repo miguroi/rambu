@@ -74,8 +74,6 @@ private struct AlertHeroCard: View {
                             .font(.subheadline).foregroundStyle(Brand.ink2)
                     }
                     Spacer(minLength: 0)
-                    MascotView(pose: alert.level.mascotPose, sign: alert.level)
-                        .frame(width: 70)
                 }
 
                 FlowLayout(spacing: 6) {
@@ -100,7 +98,6 @@ private struct AlertHeroCard: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(alert.level.soft)
         .clipShape(.rect(cornerRadius: 28, style: .continuous))
-        .shadow(color: alert.level.tint.opacity(0.25), radius: 16, y: 8)
         .accessibilityElement(children: .combine)
         .accessibilityHint("Buka peringatan")
     }
@@ -117,27 +114,18 @@ private struct ProtectedParentCard: View {
                 VStack(alignment: .leading, spacing: 3) {
                     Text(model.parent.name).font(.headline).foregroundStyle(Brand.ink)
                     if model.session != nil {
-                        Label {
-                            Text("Sedang menelepon")
-                        } icon: {
-                            Image(systemName: "waveform")
-                                .symbolEffect(.variableColor.iterative, isActive: true)
-                        }
+                        Label("Sesi analisis aktif", systemImage: "waveform")
                         .font(.subheadline.weight(.semibold))
                         .foregroundStyle(Brand.teal)
                     } else {
-                        Text("Tidak menelepon").font(.subheadline).foregroundStyle(Brand.ink2)
+                        Text("Tidak ada sesi analisis aktif").font(.subheadline).foregroundStyle(Brand.ink2)
                     }
                 }
                 Spacer(minLength: 0)
-                Label("\(model.puck.battery)%", systemImage: model.puck.batterySymbol)
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(Brand.ink3)
-                    .accessibilityLabel("Baterai puck \(model.puck.battery) persen")
             }
 
+            if !others.isEmpty {
             Divider()
-
             HStack(spacing: 10) {
                 AvatarStack(people: [model.currentPerson] + others, size: 34)
                 VStack(alignment: .leading, spacing: 1) {
@@ -147,6 +135,7 @@ private struct ProtectedParentCard: View {
                         .font(.footnote).foregroundStyle(Brand.ink2)
                 }
                 Spacer(minLength: 0)
+            }
             }
         }
         .card()
@@ -164,7 +153,7 @@ private struct OtherParentRow: View {
             Avatar(person: person, size: 44)
             VStack(alignment: .leading, spacing: 2) {
                 Text(person.name).font(.headline).foregroundStyle(Brand.ink)
-                Text("\(person.relation), tidak menelepon").font(.subheadline).foregroundStyle(Brand.ink2)
+                Text(person.relation).font(.subheadline).foregroundStyle(Brand.ink2)
             }
             Spacer(minLength: 0)
             Image(systemName: "checkmark.shield.fill").foregroundStyle(Brand.safe)
@@ -178,12 +167,12 @@ private struct OtherParentRow: View {
 private struct QuietState: View {
     var body: some View {
         HStack(spacing: 16) {
-            MascotBuddy(sign: .safe, greeting: "Aman terkendali")
-                .frame(width: 84)
+            Image(systemName: "bell")
+                .font(.title2).foregroundStyle(Brand.teal)
             VStack(alignment: .leading, spacing: 4) {
-                Text("Semua tenang")
+                Text("Belum ada peringatan")
                     .font(Brand.display(.title3)).foregroundStyle(Brand.ink)
-                Text("Anda dikabari kalau ada tanda penipuan.")
+                Text("Peringatan akan muncul saat analisis menemukan tanda penipuan.")
                     .font(.subheadline).foregroundStyle(Brand.ink2)
                     .fixedSize(horizontal: false, vertical: true)
             }

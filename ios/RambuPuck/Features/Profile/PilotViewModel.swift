@@ -24,6 +24,7 @@ final class PilotViewModel {
         pilot?.onError = { [weak state] message in state?.pilotError = message }
         state.pilotConnected = pilot?.isConnected == true
         state.pilotInviteCode = pilot?.inviteCode
+        state.pilotInviteExpiresAt = pilot?.inviteExpiresAt
         state.pilotRole = pilot?.credentials?.member.role
         pilot?.start()
     }
@@ -36,9 +37,10 @@ final class PilotViewModel {
             state.pilotConnected = true
             state.pilotRole = "parent"
             state.pilotInviteCode = code
+            state.pilotInviteExpiresAt = pilot.inviteExpiresAt
             return true
         } catch {
-            state.pilotError = error.localizedDescription
+            state.pilotError = "Kode undangan belum berhasil dibuat. \(PilotAPIError.displayMessage(for: error))"
             return false
         }
     }
@@ -57,11 +59,12 @@ final class PilotViewModel {
             state.pilotConnected = true
             state.pilotRole = "guardian"
             state.pilotInviteCode = nil
+            state.pilotInviteExpiresAt = nil
             state.persona = .sinta
             profile.persist()
             return true
         } catch {
-            state.pilotError = error.localizedDescription
+            state.pilotError = PilotAPIError.displayMessage(for: error)
             return false
         }
     }
@@ -71,8 +74,9 @@ final class PilotViewModel {
         state.pilotError = nil
         do {
             state.pilotInviteCode = try await pilot.renewInvite()
+            state.pilotInviteExpiresAt = pilot.inviteExpiresAt
         } catch {
-            state.pilotError = error.localizedDescription
+            state.pilotError = "Kode baru belum berhasil dibuat. \(PilotAPIError.displayMessage(for: error))"
         }
     }
 
@@ -80,6 +84,7 @@ final class PilotViewModel {
         pilot?.disconnect()
         state.pilotConnected = false
         state.pilotInviteCode = nil
+        state.pilotInviteExpiresAt = nil
         state.pilotRole = nil
         state.pilotError = nil
     }
@@ -116,6 +121,8 @@ final class PilotViewModel {
         state.pilotConnected = true
         state.pilotRole = value.member.role
         state.pilotInviteCode = pilot?.inviteCode
+        state.pilotInviteExpiresAt = pilot?.inviteExpiresAt
+        state.pilotError = nil
         profile.persist()
     }
 
@@ -133,10 +140,9 @@ final class PilotViewModel {
             }
             let unassessedReason: String?
             if value.presentation == "unassessed" {
-                unassessedReason = value.failure?.message
-                    ?? (value.outcome == "no_speech"
+                unassessedReason = (value.outcome == "no_speech"
                         ? "Tidak ada suara yang dapat dianalisis."
-                        : "Panggilan tidak dapat dianalisis.")
+                        : "Analisis belum berhasil. Hasil panggilan ini belum tersedia.")
             } else {
                 unassessedReason = nil
             }

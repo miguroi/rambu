@@ -27,7 +27,7 @@ struct ProfileView: View {
                     VStack(spacing: 10) {
                         Avatar(person: me, size: 72)
                         Text(me.name).font(Brand.display(.title2)).foregroundStyle(Brand.ink)
-                        Text(model.persona.isParent ? "Dilindungi Rambu" : "Pengawas")
+                        Text(model.persona.isParent ? "Orang tua" : "Pendamping")
                             .font(.subheadline).foregroundStyle(Brand.ink2)
                     }
                     .frame(maxWidth: .infinity)
@@ -35,6 +35,9 @@ struct ProfileView: View {
                 }
 
                 Section("Nama") {
+                    if model.pilotConnected {
+                        Text(me.name)
+                    } else {
                     TextField("Nama panggilan", text: $name)
                         .font(.body.weight(.semibold))
                         .textInputAutocapitalization(.words)
@@ -46,11 +49,12 @@ struct ProfileView: View {
                         }
                         .onChange(of: relation) { saveName() }
                     }
+                    }
                 }
 
-                if model.persona.isParent {
+                if model.allowsDemoControls && model.persona.isParent {
                     guardiansSection
-                } else {
+                } else if model.allowsDemoControls {
                     parentsSection
                 }
 
@@ -74,19 +78,20 @@ struct ProfileView: View {
                 Section {
                     Button { showPilot = true } label: {
                         HStack {
-                            Label("Pilot keluarga", systemImage: "iphone.gen3.radiowaves.left.and.right")
+                            Label("Keluarga", systemImage: "person.2")
                             Spacer()
                             Text(model.pilotConnected ? "Terhubung" : "Belum")
                                 .foregroundStyle(model.pilotConnected ? Brand.safeInk : Brand.ink3)
                         }
                     }
                 } header: {
-                    Text("Dua HP")
+                    Text("Hubungkan keluarga")
                 } footer: {
-                    Text("Hubungkan HP orang tua dan pengawas melalui server Rambu.")
+                    Text("Orang tua membuat kode undangan. Pendamping memasukkan kode itu di HP-nya.")
                 }
 
-                Section("Bantuan") {
+                if model.allowsDemoControls {
+                    Section("Bantuan") {
                     Button { showTutorial = true } label: {
                         Label("Ulangi tutorial", systemImage: "play.circle.fill")
                     }
@@ -94,6 +99,7 @@ struct ProfileView: View {
                         Button(role: .destructive) { confirmClear = true } label: {
                             Label("Hapus riwayat", systemImage: "trash")
                         }
+                    }
                     }
                 }
 
@@ -105,7 +111,7 @@ struct ProfileView: View {
                     }
                     Button("Keluar dan mulai ulang", role: .destructive) { confirmReset = true }
                 } footer: {
-                    Text(model.pilotConnected ? "Profil disimpan di HP; peringatan pilot disinkronkan lewat server." : "Semua data tersimpan di HP ini saja.")
+                    Text("Profil disimpan di HP ini. Keluarga, peringatan, dan hasil analisis disinkronkan saat terhubung.")
                 }
             }
             .navigationTitle("Profil")
@@ -134,7 +140,7 @@ struct ProfileView: View {
             .confirmationDialog("Keluar dan mulai ulang?", isPresented: $confirmReset, titleVisibility: .visible) {
                 Button("Keluar", role: .destructive) { app.resetDemo() }
             } message: {
-                Text("Nama, pengawas, dan riwayat di HP ini dihapus.")
+                Text("Profil dan riwayat lokal di HP ini dihapus. Data keluarga di server tetap tersimpan.")
             }
         }
     }
@@ -176,6 +182,7 @@ struct ProfileView: View {
     }
 
     private func saveName() {
+        guard !model.pilotConnected else { return }
         if model.persona.isParent {
             profile.renameParent(name)
         } else {
@@ -227,31 +234,30 @@ struct InviteActions: View {
     @State private var copied = false
 
     var body: some View {
-        let link = InviteLink.url(code: code)
-        VStack(alignment: .leading, spacing: 12) {
-            DigitBoxes(digits: code)
-            Label("Berlaku 10 menit", systemImage: "clock")
-                .font(.subheadline).foregroundStyle(Brand.ink3)
-
-            Link(destination: InviteLink.whatsAppURL(code: code, parentName: model.parent.name)) {
-                WideLabel(title: "Kirim lewat WhatsApp", systemImage: "paperplane.fill")
-            }
-            .primaryAction(Color(hex: 0x1FA855))
-
-            HStack(spacing: 10) {
+        TimelineView(.periodic(from: .now, by: 1)) { context in
+            let validity = InviteValidity(expiresAt: model.pilotInviteExpiresAt, now: context.date)
+            let message = InviteLink.message(code: code, parentName: model.parent.name, expiresAt: model.pilotInviteExpiresAt)
+            VStack(alignment: .leading, spacing: 12) {
+                DigitBoxes(digits: code).opacity(validity.canShare ? 1 : 0.5)
+                Label(validity.message, systemImage: "clock")
+                    .font(.subheadline).foregroundStyle(Brand.ink2)
+                ShareLink(item: message) {
+                    WideLabel(title: "Bagikan kode", systemImage: "square.and.arrow.up")
+                }
+                .primaryAction()
+                .disabled(!validity.canShare)
                 Button {
-                    UIPasteboard.general.string = InviteLink.message(code: code, parentName: model.parent.name)
+                    UIPasteboard.general.string = code
                     withAnimation(.smooth) { copied = true }
                 } label: {
-                    WideLabel(title: copied ? "Tersalin" : "Salin tautan", systemImage: copied ? "checkmark" : "link")
+                    Label(copied ? "Kode tersalin" : "Salin kode", systemImage: copied ? "checkmark" : "doc.on.doc")
+                        .frame(minHeight: 44)
                 }
-                .secondaryAction()
-                ShareLink(item: link, message: Text(InviteLink.message(code: code, parentName: model.parent.name))) {
-                    WideLabel(title: "Lainnya", systemImage: "square.and.arrow.up")
-                }
-                .secondaryAction()
+                .buttonStyle(.plain).foregroundStyle(Brand.teal)
+                .disabled(!validity.canShare)
             }
         }
+        .onChange(of: code) { _, _ in copied = false }
     }
 }
 

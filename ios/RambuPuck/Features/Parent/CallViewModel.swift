@@ -136,10 +136,12 @@ final class CallViewModel {
         }
 
         upsertHistory(for: session)
-        if let index = state.alerts.firstIndex(where: { $0.id == session.id }) {
-            state.alerts[index].callEnded = true
+        if !analysis.usesAuthoritativeRemoteAlerts {
+            if let index = state.alerts.firstIndex(where: { $0.id == session.id }) {
+                state.alerts[index].callEnded = true
+            }
+            pilot.end(session.id)
         }
-        pilot.end(session.id)
 
         var final = activityState(for: session)
         final.isListening = false
@@ -290,8 +292,8 @@ final class CallViewModel {
         record(failure, sessionID: sessionID)
         profile.present(Toast(
             id: "analysis-lifecycle-\(sessionID?.uuidString ?? UUID().uuidString)",
-            title: failure.title,
-            body: failure.detail,
+            title: state.allowsDemoControls ? failure.title : "Analisis belum berhasil",
+            body: state.allowsDemoControls ? failure.detail : "Hasil panggilan ini belum tersedia. Periksa koneksi lalu coba lagi.",
             level: .review,
             alertID: nil
         ))
@@ -313,8 +315,8 @@ final class CallViewModel {
         }
         profile.present(Toast(
             id: "analysis-error-\(sessionID)",
-            title: failure.title,
-            body: failure.detail,
+            title: state.allowsDemoControls ? failure.title : "Analisis belum berhasil",
+            body: state.allowsDemoControls ? failure.detail : "Hasil panggilan ini belum tersedia. Periksa koneksi lalu coba lagi.",
             level: .review,
             alertID: nil
         ))
@@ -410,17 +412,20 @@ final class CallViewModel {
             )
         }
 
-        let isFirstAlert = !state.alerts.contains { $0.id == current.id }
-        if current.level > previous || chunk.line.isFlagged {
+        let publishesLocally = !analysis.usesAuthoritativeRemoteAlerts
+        let isFirstAlert = publishesLocally && !state.alerts.contains { $0.id == current.id }
+        if publishesLocally, current.level > previous || chunk.line.isFlagged {
             let alert = makeAlert(from: current)
             family.publish(alert)
             pilot.publish(alert)
         }
         if ended {
-            if let index = state.alerts.firstIndex(where: { $0.id == current.id }) {
-                state.alerts[index].callEnded = true
+            if publishesLocally {
+                if let index = state.alerts.firstIndex(where: { $0.id == current.id }) {
+                    state.alerts[index].callEnded = true
+                }
+                pilot.end(current.id)
             }
-            pilot.end(current.id)
             upsertHistory(for: current)
         } else if isFirstAlert {
             scheduleEscalation(for: current.id)

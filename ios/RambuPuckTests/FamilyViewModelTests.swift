@@ -5,7 +5,7 @@ import Testing
 @MainActor
 struct FamilyViewModelTests {
     private func makeFamily(persona: Persona = .sinta) -> (AppState, FamilyViewModel) {
-        let state = AppState(persona: persona, onboardingComplete: true)
+        let state = AppState(persona: persona, onboardingComplete: true, allowsDemoControls: true)
         let profile = ProfileViewModel(
             state: state,
             notifier: RambuNotifier(enabled: false),

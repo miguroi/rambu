@@ -56,9 +56,9 @@ struct GuardianProfileStep: View {
 
     var body: some View {
         StepScaffold(
-            progress: (2, 3),
+            progress: (1, 2),
             title: "Siapa Anda?",
-            message: "\(model.parent.name) melihat nama ini sebelum mengizinkan."
+            message: "Nama ini akan terlihat di HP orang tua."
         ) {
             NameField(title: "Nama Anda", text: $name, prompt: "Contoh: Sinta")
 
@@ -79,12 +79,12 @@ struct GuardianProfileStep: View {
                     }
                 }
             }
-            DemoPrefillNote()
+            if model.allowsDemoControls { DemoPrefillNote() }
         } actions: {
             Button {
                 profile.renameGuardian(.sinta, name: name, relation: relation)
-                model.onboardingStep = .practiceAlert
-            } label: { WideLabel(title: "Kirim permintaan") }
+                model.onboardingStep = model.allowsDemoControls ? .practiceAlert : .enterCode
+            } label: { WideLabel(title: "Lanjut") }
                 .primaryAction()
                 .disabled(name.trimmingCharacters(in: .whitespaces).isEmpty)
         }

@@ -9,7 +9,7 @@ struct ProfileViewModelTests {
         let url = FileManager.default.temporaryDirectory.appendingPathComponent("rambu-profile-\(UUID()).json")
         let store = LocalStore(url: url)
         defer { store.clear() }
-        let state = AppState(onboardingComplete: true)
+        let state = AppState(onboardingComplete: true, allowsDemoControls: true)
         let profile = ProfileViewModel(
             state: state,
             notifier: RambuNotifier(enabled: false),

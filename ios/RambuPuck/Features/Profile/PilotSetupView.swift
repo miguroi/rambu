@@ -1,148 +1,188 @@
 import SwiftUI
 
-/// Setup intentionally lives behind Profile: the ordinary one-phone demo remains usable,
-/// while a pilot can connect two physical phones to the same backend.
 struct PilotSetupView: View {
-    @Environment(AppState.self) private var model
-    @Environment(PilotViewModel.self) private var pilot
     @Environment(\.dismiss) private var dismiss
-    @State private var code = ""
-    @State private var busy = false
-    @FocusState private var codeFocused: Bool
 
     var body: some View {
         NavigationStack {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 20) {
-                    connectionCard
+            ScrollView { FamilySetupContent().padding(24) }
+                .background(Brand.canvas)
+                .navigationTitle("Keluarga")
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .confirmationAction) {
+                        Button("Selesai") { dismiss() }
+                    }
+                }
+        }
+    }
+}
 
+/// The real invitation flow is shared by onboarding and family settings.
+struct FamilySetupContent: View {
+    @Environment(AppState.self) private var model
+    @Environment(PilotViewModel.self) private var pilot
+    @State private var code = ""
+    @State private var busy = false
+    @State private var showInvitation = false
+    @State private var confirmLeave = false
+    var onContinue: (() -> Void)? = nil
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 24) {
+            if let error = model.pilotError {
+                VStack(alignment: .leading, spacing: 8) {
+                    Label(error, systemImage: "exclamationmark.circle")
+                        .font(.subheadline).foregroundStyle(Brand.ink2)
+                        .fixedSize(horizontal: false, vertical: true)
                     if model.pilotConnected {
-                        connectedContent
-                    } else {
-                        setupContent
-                    }
-
-                    if let error = model.pilotError {
-                        Label(error, systemImage: "exclamationmark.triangle.fill")
-                            .font(.subheadline)
-                            .foregroundStyle(Brand.dangerInk)
-                            .padding(14)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .background(Brand.dangerSoft, in: .rect(cornerRadius: 16))
+                        Button("Perbarui keluarga") { perform { await pilot.refresh() } }
+                            .frame(minHeight: 44).disabled(busy)
                     }
                 }
-                .padding(24)
+                .padding(16)
+                .background(Brand.hairline.opacity(0.5), in: .rect(cornerRadius: 12))
+                .accessibilityElement(children: .contain)
             }
-            .background(Brand.canvas)
-            .navigationTitle("Pilot dua HP")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Selesai", systemImage: "checkmark") { dismiss() }
-                }
-            }
-        }
-        .presentationDetents([.large])
-    }
-
-    private var connectionCard: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Label(model.pilotConnected ? "Terhubung ke server" : "Server pilot",
-                  systemImage: model.pilotConnected ? "checkmark.icloud.fill" : "server.rack")
-                .font(.headline)
-                .foregroundStyle(model.pilotConnected ? Brand.safeInk : Brand.ink)
-            TextField("http://alamat-mac:8000", text: Bindable(model).pilotServerURL)
-                .textInputAutocapitalization(.never)
-                .autocorrectionDisabled()
-                .keyboardType(.URL)
-                .font(.body.monospaced())
-                .padding(12)
-                .background(.white, in: .rect(cornerRadius: 12))
-                .disabled(model.pilotConnected)
-            Text("Simulator: 127.0.0.1. iPhone fisik: gunakan alamat Wi-Fi Mac dan jalankan backend dengan --host 0.0.0.0.")
-                .font(.footnote)
-                .foregroundStyle(Brand.ink3)
-        }
-        .card()
-    }
-
-    @ViewBuilder
-    private var setupContent: some View {
-        if model.persona.isParent {
-            VStack(alignment: .leading, spacing: 12) {
-                Text("Buat keluarga pilot").font(Brand.display(.title3)).foregroundStyle(Brand.ink)
-                Text("Server membuat kode undangan yang berlaku 10 menit.")
+            if model.pilotConnected {
+                connectedContent
+            } else if model.persona.isParent {
+                Text("Buat kode undangan, lalu kirim ke anak atau anggota keluarga yang akan mendampingi Anda.")
                     .foregroundStyle(Brand.ink2)
-                Button { createFamily() } label: {
-                    WideLabel(title: busy ? "Menghubungkan…" : "Buat kode", systemImage: "person.2.badge.plus")
+                Button {
+                    perform { _ = await pilot.createFamily() }
+                } label: {
+                    WideLabel(title: busy ? "Membuat kode…" : "Buat kode undangan", systemImage: "person.badge.plus")
                 }
                 .primaryAction()
                 .disabled(busy)
-            }
-        } else {
-            VStack(alignment: .leading, spacing: 12) {
-                Text("Gabung sebagai pengawas").font(Brand.display(.title3)).foregroundStyle(Brand.ink)
-                Text("Masukkan kode dari HP orang tua.").foregroundStyle(Brand.ink2)
-                ZStack {
-                    TextField("", text: $code)
-                        .keyboardType(.numberPad)
-                        .textContentType(.oneTimeCode)
-                        .focused($codeFocused)
-                        .opacity(0.01)
-                        .onChange(of: code) { _, value in code = String(value.filter(\.isNumber).prefix(6)) }
-                    DigitBoxes(digits: code, showsCursor: codeFocused)
-                        .contentShape(.rect)
-                        .onTapGesture { codeFocused = true }
-                }
-                Button { joinFamily() } label: {
-                    WideLabel(title: busy ? "Menghubungkan…" : "Gabung", systemImage: "link")
+            } else {
+                Text("Masukkan kode undangan dari HP orang tua.").foregroundStyle(Brand.ink2)
+                TextField("Kode 6 angka", text: $code)
+                    .keyboardType(.numberPad)
+                    .textContentType(.oneTimeCode)
+                    .font(.title2.monospacedDigit())
+                    .padding(16)
+                    .background(.white, in: .rect(cornerRadius: 12))
+                    .accessibilityLabel("Kode undangan enam angka")
+                    .onChange(of: code) { _, value in
+                        code = String(value.filter(\.isNumber).prefix(6))
+                    }
+                Button {
+                    perform {
+                        if await pilot.joinFamily(code: code), let onContinue { onContinue() }
+                    }
+                } label: {
+                    WideLabel(title: busy ? "Menghubungkan…" : "Hubungkan", systemImage: "link")
                 }
                 .primaryAction()
                 .disabled(busy || code.count != 6)
             }
-        }
-    }
-
-    @ViewBuilder
-    private var connectedContent: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            Label(model.pilotRole == "parent" ? "Perangkat orang tua" : "Perangkat pengawas",
-                  systemImage: model.pilotRole == "parent" ? "shield.fill" : "eye.fill")
-                .font(.headline)
-                .foregroundStyle(Brand.teal)
-
-            if model.pilotRole == "parent", let code = model.pilotInviteCode {
-                InviteActions(code: code)
-                Button("Buat kode baru", systemImage: "arrow.clockwise") {
-                    Task { await pilot.renewInvite() }
+            DisclosureGroup("Pengaturan lanjutan") {
+                VStack(alignment: .leading, spacing: 10) {
+                    TextField("Alamat server", text: Bindable(model).pilotServerURL)
+                        .textInputAutocapitalization(.never).autocorrectionDisabled()
+                        .keyboardType(.URL).padding(12)
+                        .background(.white, in: .rect(cornerRadius: 12))
+                        .disabled(model.pilotConnected || busy)
+                    Text("Kedua HP harus menggunakan alamat server yang sama.")
+                        .font(.footnote).foregroundStyle(Brand.ink2)
                 }
-                .font(.subheadline.weight(.semibold))
+                .padding(.top, 12)
             }
-
-            Button("Sinkronkan sekarang", systemImage: "arrow.triangle.2.circlepath") {
-                Task { await pilot.refresh() }
-            }
-            .secondaryAction()
-
-            Button("Putuskan dari pilot", role: .destructive) { pilot.disconnect() }
-                .frame(maxWidth: .infinity)
+            .font(.subheadline).disabled(busy)
         }
-        .card()
-    }
-
-    private func createFamily() {
-        busy = true
-        Task {
-            _ = await pilot.createFamily()
-            busy = false
+        .onAppear {
+            code = model.pendingInviteCode ?? ""
+            showInvitation = model.pilotRole == "parent" && model.guardians.isEmpty
+        }
+        .onChange(of: model.pilotConnected) { _, connected in
+            showInvitation = connected && model.pilotRole == "parent" && model.guardians.isEmpty
+        }
+        .confirmationDialog("Keluar dari keluarga di HP ini?", isPresented: $confirmLeave, titleVisibility: .visible) {
+            Button("Keluar dari keluarga", role: .destructive) { pilot.disconnect() }
+            Button("Batal", role: .cancel) { }
+        } message: {
+            Text("HP ini berhenti menyinkronkan peringatan keluarga. Data keluarga di server tidak dihapus.")
         }
     }
 
-    private func joinFamily() {
-        busy = true
-        Task {
-            _ = await pilot.joinFamily(code: code)
-            busy = false
+    private var connectedContent: some View {
+        VStack(alignment: .leading, spacing: 20) {
+            if model.pilotRole == "parent" {
+                if model.guardians.isEmpty {
+                    Text("Undang pendamping Anda")
+                        .font(Brand.display(.title2)).foregroundStyle(Brand.ink)
+                    Text("Bagikan kode ke anak atau anggota keluarga. Mereka memasukkannya di Rambu pada HP mereka.")
+                        .foregroundStyle(Brand.ink2)
+                } else {
+                    Text("Pendamping Anda")
+                        .font(Brand.display(.title2)).foregroundStyle(Brand.ink)
+                    VStack(alignment: .leading, spacing: 16) {
+                        ForEach(model.guardians) { person in
+                            HStack(spacing: 12) {
+                                Avatar(person: person, size: 44)
+                                VStack(alignment: .leading, spacing: 3) {
+                                    Text(person.name).font(.headline).foregroundStyle(Brand.ink)
+                                    Text(person.relation).font(.subheadline).foregroundStyle(Brand.ink2)
+                                }
+                            }
+                            .accessibilityElement(children: .combine)
+                        }
+                    }
+                    Text("Peringatan panggilan Anda dibagikan kepada pendamping ini.")
+                        .font(.subheadline).foregroundStyle(Brand.ink2)
+                    Button {
+                        showInvitation.toggle()
+                    } label: {
+                        WideLabel(title: showInvitation ? "Tutup undangan" : "Undang pendamping lain", systemImage: "person.badge.plus")
+                    }
+                    .primaryAction().disabled(busy)
+                }
+                if showInvitation {
+                    VStack(alignment: .leading, spacing: 12) {
+                        if !model.guardians.isEmpty {
+                            Text("Pendamping baru memasukkan kode ini di HP-nya.")
+                                .font(.subheadline).foregroundStyle(Brand.ink2)
+                        }
+                        if let code = model.pilotInviteCode, !code.isEmpty { InviteActions(code: code).disabled(busy) }
+                        Button(busy ? "Membuat kode…" : "Buat kode baru", systemImage: "arrow.clockwise") {
+                            perform { await pilot.renewInvite() }
+                        }
+                        .frame(minHeight: 44).disabled(busy)
+                    }
+                }
+            } else {
+                Text("Yang Anda dampingi")
+                    .font(Brand.display(.title2)).foregroundStyle(Brand.ink)
+                HStack(spacing: 12) {
+                    Avatar(person: model.parent, size: 44)
+                    Text(model.parent.name).font(.headline).foregroundStyle(Brand.ink)
+                }
+                .accessibilityElement(children: .combine)
+                Text("Anda menerima peringatan saat Rambu mendeteksi tanda penipuan dalam panggilannya.")
+                    .font(.subheadline).foregroundStyle(Brand.ink2)
+            }
+            if let onContinue {
+                Button("Selesai") { onContinue() }.primaryAction()
+            } else {
+                DisclosureGroup("Kelola keluarga") {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Button("Perbarui keluarga", systemImage: "arrow.triangle.2.circlepath") {
+                            perform { await pilot.refresh() }
+                        }.frame(minHeight: 44).disabled(busy)
+                        Button("Keluar dari keluarga", role: .destructive) { confirmLeave = true }
+                            .frame(minHeight: 44).disabled(busy)
+                    }
+                    .padding(.top, 8)
+                }
+                .font(.subheadline)
+            }
         }
+    }
+
+    private func perform(_ operation: @escaping @MainActor () async -> Void) {
+        busy = true
+        Task { await operation(); busy = false }
     }
 }

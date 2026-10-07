@@ -133,6 +133,7 @@ final class RecordingCallAnalysisSource: CallAnalysisSource, @unchecked Sendable
     private let lock = NSLock()
     private let finishStatus: ProtectionStatus?
     private let finishAssessment: ChunkAssessment?
+    let usesAuthoritativeRemoteAlerts: Bool
     private var contexts: [CallContext] = []
     private var sessions: [RecordingCallAnalysisSession] = []
 
@@ -141,10 +142,12 @@ final class RecordingCallAnalysisSource: CallAnalysisSource, @unchecked Sendable
 
     init(
         finishStatus: ProtectionStatus? = nil,
-        finishAssessment: ChunkAssessment? = nil
+        finishAssessment: ChunkAssessment? = nil,
+        usesAuthoritativeRemoteAlerts: Bool = false
     ) {
         self.finishStatus = finishStatus
         self.finishAssessment = finishAssessment
+        self.usesAuthoritativeRemoteAlerts = usesAuthoritativeRemoteAlerts
     }
 
     func start(for call: CallContext) async throws -> any CallAnalysisSession {

@@ -9,6 +9,7 @@ struct ProtectionCallAnalysisSource: CallAnalysisSource {
     let connection: @Sendable () -> ProtectionConnection?
     let session: any HTTPDataSession
     let pollInterval: Duration
+    let usesAuthoritativeRemoteAlerts = true
 
     init(
         serverURL: String,

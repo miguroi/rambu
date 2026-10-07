@@ -35,7 +35,6 @@ shots=(
   "12-beranda-gangguan|issues|2|fast"
   "13-profil-orang-tua|profile|2|fast"
   "14-riwayat|history|2|fast"
-  "15-puck|puck|2|fast"
   "16-telepon-loudspeaker-mati|speaker-off|3|fast"
   "17-telepon-perlu-dicek|call:kurir-aplikasi|3|normal"
   "18-telepon-bahaya|call:bank-otp|6|fast"

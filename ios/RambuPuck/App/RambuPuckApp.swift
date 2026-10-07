@@ -85,7 +85,7 @@ enum DemoLaunch {
         let scene = env["RAMBU_SCENE"]
         let usesStore = !isTesting && scene == nil && env["RAMBU_SKIP_ONBOARDING"] == nil
         let credentialStore = PilotCredentialStore()
-        let pilotSync = isTesting ? nil : PilotSync(credentialStore: credentialStore)
+        let pilotSync = isTesting || scene != nil ? nil : PilotSync(credentialStore: credentialStore)
         let serverURL = pilotSync?.serverURL ?? "http://127.0.0.1:8000"
         let connection: @Sendable () -> ProtectionConnection? = {
             guard let credentials = credentialStore.load(),
@@ -105,8 +105,8 @@ enum DemoLaunch {
 
         let app = AppViewModel(
             persona: Persona(rawValue: env["RAMBU_PERSONA"] ?? "") ?? .ratna,
-            onboardingComplete: env["RAMBU_SKIP_ONBOARDING"] == "1" || (scene != nil && !(scene!.hasPrefix("onboarding"))),
-            allowsDemoControls: scene != nil,
+            onboardingComplete: env["RAMBU_SKIP_ONBOARDING"] == "1" || (scene != nil && !(scene!.hasPrefix("onboarding")) && !(scene!.hasPrefix("setup-"))),
+            allowsDemoControls: scene != nil && !(scene!.hasPrefix("setup-")),
             analysis: scene == nil
                 ? productionAnalysis(connection: connection)
                 : analysisSource(serverURL: serverURL),
@@ -142,12 +142,20 @@ enum DemoLaunch {
         let scenario = Scenario.all.first { $0.id == parts.dropFirst().first } ?? .bankOTP
 
         switch key {
+        case "setup-parent":
+            model.onboardingStep = .parentProfile
+        case "setup-child":
+            model.persona = .sinta
+            model.onboardingStep = .guardianProfile
+        case "setup-code":
+            model.persona = .sinta
+            model.onboardingStep = .enterCode
+        case "setup-invite":
+            model.onboardingStep = .invite
         case "onboarding":
             model.onboardingStep = OnboardingStep(rawValue: parts.dropFirst().first ?? "") ?? .welcome
         case "history":
             model.parentTab = .history
-        case "puck":
-            model.parentTab = .puck
         case "profile":
             model.showProfile = true
         case "guardian-profile":

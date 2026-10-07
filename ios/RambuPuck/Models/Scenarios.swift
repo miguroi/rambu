@@ -119,6 +119,14 @@ extension Scenario {
 }
 
 extension CallRecord {
+    /// Match the complete bundled fixture, so real calls with a similar title stay intact.
+    var isSampleRecord: Bool {
+        guard let sample = Self.seed().first else { return false }
+        return title == sample.title && callerDetail == sample.callerDetail
+            && channel == sample.channel && duration == sample.duration
+            && signals == sample.signals && evidence == sample.evidence
+    }
+
     /// Riwayat awal supaya layar riwayat tidak kosong saat demo pertama. Hanya telepon berisiko yang disimpan.
     static func seed(now: Date = .now, decider: Person = .richard) -> [CallRecord] {
         [

@@ -125,11 +125,11 @@ struct CallDetail: View {
                     }
 
                     if record.decision?.verdict == .safe {
-                        Label("Ditandai aman. Dipakai untuk memperbaiki deteksi Rambu.", systemImage: "arrow.triangle.2.circlepath")
+                        Label("Pendamping menandai panggilan ini aman.", systemImage: "checkmark.circle")
                             .font(.footnote).foregroundStyle(Brand.ink3)
                     }
 
-                    if let reason = record.unassessedReason {
+                    if let reason = record.displayReason {
                         HStack(spacing: 12) {
                             Image(systemName: record.historyPresentation.symbol)
                                 .font(.title2.weight(.semibold))
@@ -144,7 +144,7 @@ struct CallDetail: View {
                     } else if record.signals.isEmpty {
                         HStack(spacing: 12) {
                             MascotView(pose: .calm, animated: false).frame(width: 56)
-                            Text("Tidak ada tanda penipuan.")
+                            Text("Tidak terdeteksi tanda penipuan.")
                                 .font(.body).foregroundStyle(Brand.ink2)
                                 .fixedSize(horizontal: false, vertical: true)
                         }
@@ -153,10 +153,9 @@ struct CallDetail: View {
                         FlowLayout(spacing: 6) {
                             ForEach(record.signals, id: \.self) { SignalChip(kind: $0, level: record.level) }
                         }
-                        VStack(alignment: .leading, spacing: 14) {
-                            SectionHeader(title: "Kata penelepon")
-                            ForEach(record.evidence) { EvidenceCard(line: $0, level: record.level) }
-                        }
+                    }
+                    if !record.evidence.isEmpty || (record.displayReason == nil && !record.signals.isEmpty) {
+                        CallEvidenceSection(evidence: record.evidence, level: record.level)
                     }
                 }
                 .padding(20)
@@ -204,13 +203,13 @@ private struct HistoryTile: View {
     }
 }
 
-/// Ringkasan kejadian dalam satu paragraf. Nyata: dibuat backend (watsonx Orchestrate).
+/// Brief interpretation of the detected signals, separate from automatic-transcription excerpts.
 private struct SummaryCard: View {
     let record: CallRecord
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Label("Ringkasan", systemImage: "text.alignleft")
+            Label("Ringkasan Rambu", systemImage: "text.alignleft")
                 .font(.subheadline.weight(.semibold))
                 .foregroundStyle(Brand.teal)
             Text(record.incidentSummary)
