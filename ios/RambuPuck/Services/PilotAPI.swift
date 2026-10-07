@@ -6,7 +6,7 @@ import Security
 struct PilotCredentials: Codable, Sendable {
     let serverURL: String
     let familyID: String
-    let member: PilotPersonDTO
+    var member: PilotPersonDTO
     let accessToken: String
     var inviteCode: String?
     var inviteExpiresAt: Date? = nil
@@ -66,13 +66,14 @@ struct PilotPersonDTO: Codable, Sendable {
     let name: String
     let relation: String
     let role: String
+    var phoneNumber: String? = nil
 
     var person: Person {
         let palette: [UInt32] = [0x1E6E9E, 0x6347A8, 0xA23B72, 0x8A5A12]
         let stableIndex = id.utf8.reduce(0) { (result, byte) in (result + Int(byte)) % palette.count }
         let color = role == "parent" ? UInt32(0x006F63) : palette[stableIndex]
         let initial = name.split(separator: " ").last?.first.map { String($0).uppercased() } ?? "?"
-        return Person(id: id, name: name, initial: initial, relation: relation, colorHex: color)
+        return Person(id: id, name: name, initial: initial, relation: relation, colorHex: color, phoneNumber: phoneNumber)
     }
 }
 
@@ -97,12 +98,14 @@ struct PilotProfileDTO: Codable, Sendable {
     let member: PilotPersonDTO
     let parent: PilotPersonDTO
     let guardians: [PilotPersonDTO]
+    var sessionStatus: String? = nil
 
     private enum CodingKeys: String, CodingKey {
         case familyID = "familyId"
         case member
         case parent
         case guardians
+        case sessionStatus
     }
 }
 
@@ -113,7 +116,7 @@ struct PilotInviteDTO: Codable, Sendable {
 
 struct PilotTranscriptLineDTO: Codable, Sendable {
     let id: Int
-    let offset: TimeInterval
+    let offset: TimeInterval?
     let speaker: String
     let text: String
     let flagged: [String]
@@ -172,7 +175,7 @@ struct PilotAlertDTO: Codable, Sendable {
             channel: CallChannel(rawValue: channel) ?? .cellular,
             startedAt: startedAt,
             raisedAt: raisedAt,
-            level: level == "danger" ? .danger : .review,
+            level: .danger,
             signals: signals.compactMap(SignalKind.init(rawValue:)),
             evidence: evidence.map(\.line),
             recipients: recipients.map(\.person),
@@ -230,6 +233,7 @@ private struct CreateFamilyBody: Encodable { let parentName: String }
 private struct JoinFamilyBody: Encodable { let code: String; let name: String; let relation: String }
 private struct DecisionBody: Encodable { let verdict: String }
 private struct PushTokenBody: Encodable { let token: String; let environment: String }
+private struct ContactBody: Encodable { let phoneNumber: String }
 private struct APIMessage: Decodable { let detail: String }
 
 enum PilotAPIError: LocalizedError {
@@ -283,6 +287,10 @@ struct PilotAPI: Sendable {
 
     func profile(token: String) async throws -> PilotProfileDTO {
         try await request("api/pilot/profile", token: token, body: Optional<String>.none)
+    }
+
+    func updateContact(phoneNumber: String, token: String) async throws -> PilotProfileDTO {
+        try await request("api/pilot/profile", method: "PUT", token: token, body: ContactBody(phoneNumber: phoneNumber))
     }
 
     func renewInvite(token: String) async throws -> PilotInviteDTO {
@@ -380,6 +388,7 @@ final class PilotSync {
     var onProfile: ((PilotProfileDTO) -> Void)?
     var onHistory: (([PilotHistoryRecordDTO]) -> Void)?
     var onError: ((String) -> Void)?
+    var onServerStatus: ((PilotServerStatus) -> Void)?
 
     private(set) var credentials: PilotCredentials?
     private let credentialStore: PilotCredentialStore
@@ -387,6 +396,7 @@ final class PilotSync {
     private var pollTask: Task<Void, Never>?
     private var operationTask: Task<Void, Never>?
     private var pushToken: String?
+    private var connectionGeneration = 0
 
     init(
         credentialStore: PilotCredentialStore = PilotCredentialStore(),
@@ -432,6 +442,16 @@ final class PilotSync {
         await refresh()
     }
 
+    func updatePhoneNumber(_ phoneNumber: String) async throws -> PilotProfileDTO {
+        guard var credentials else { throw PilotAPIError.invalidResponse }
+        let value = try await PilotAPI(serverURL: credentials.serverURL, session: session)
+            .updateContact(phoneNumber: phoneNumber, token: credentials.accessToken)
+        credentials.member = value.member
+        self.credentials = credentials
+        credentialStore.save(credentials)
+        return value
+    }
+
     func renewInvite() async throws -> String {
         guard var credentials else { throw PilotAPIError.server("Hubungkan server terlebih dahulu.") }
         let invite = try await PilotAPI(serverURL: credentials.serverURL, session: session)
@@ -444,12 +464,14 @@ final class PilotSync {
     }
 
     func disconnect() {
+        connectionGeneration += 1
         pollTask?.cancel()
         pollTask = nil
         operationTask?.cancel()
         operationTask = nil
         credentials = nil
         credentialStore.clear()
+        onServerStatus?(.unknown)
     }
 
     func publish(_ alert: FamilyAlert) {
@@ -493,32 +515,41 @@ final class PilotSync {
 
     private func refresh(quietly: Bool) async {
         guard let credentials else { return }
+        let generation = connectionGeneration
         do {
             let api = try PilotAPI(serverURL: credentials.serverURL, session: session)
             async let profile = api.profile(token: credentials.accessToken)
             async let alerts = api.alerts(token: credentials.accessToken)
             async let history = api.history(token: credentials.accessToken)
             let (profileValue, alertValues, historyValues) = try await (profile, alerts, history)
+            guard generation == connectionGeneration, !Task.isCancelled else { return }
+            onServerStatus?(.reachable)
             onProfile?(profileValue)
             onAlerts?(alertValues.map(\.alert))
             onHistory?(historyValues)
         } catch {
-            if !quietly { onError?("Keluarga belum dapat diperbarui. \(PilotAPIError.displayMessage(for: error))") }
+            guard generation == connectionGeneration, !Task.isCancelled else { return }
+            onServerStatus?(.unavailable)
+            onError?("Keluarga belum dapat diperbarui. \(PilotAPIError.displayMessage(for: error))")
         }
     }
 
     private func refreshAlerts(quietly: Bool) async {
         guard let credentials else { return }
+        let generation = connectionGeneration
         do {
             let values = try await PilotAPI(serverURL: credentials.serverURL, session: session)
                 .alerts(token: credentials.accessToken)
+            guard generation == connectionGeneration, !Task.isCancelled else { return }
             onAlerts?(values.map(\.alert))
         } catch {
+            guard generation == connectionGeneration, !Task.isCancelled else { return }
             if !quietly { onError?(PilotAPIError.displayMessage(for: error)) }
         }
     }
 
     private func configure(serverURL: String, session: PilotSessionDTO) {
+        connectionGeneration += 1
         let value = PilotCredentials(
             serverURL: serverURL.trimmingCharacters(in: .whitespacesAndNewlines),
             familyID: session.familyID,

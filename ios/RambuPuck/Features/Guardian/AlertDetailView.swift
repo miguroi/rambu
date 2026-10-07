@@ -16,9 +16,11 @@ struct AlertDetail: View {
 
                     CallEvidenceSection(evidence: alert.evidence, level: alert.level)
 
-                    VStack(alignment: .leading, spacing: 12) {
-                        SectionHeader(title: "Penerima")
-                        RecipientsCard(alert: alert)
+                    if alert.decision == nil {
+                        VStack(alignment: .leading, spacing: 12) {
+                            SectionHeader(title: "Penerima")
+                            RecipientsCard(alert: alert)
+                        }
                     }
                 }
                 .padding(.horizontal, 20)
@@ -41,7 +43,7 @@ private struct AlertHeader: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            LevelBand(level: alert.level, callEnded: alert.callEnded, startedAt: alert.startedAt)
+            LevelBand(level: alert.level, callEnded: alert.callEnded, detectedAt: alert.raisedAt, handled: alert.decision != nil)
             VStack(alignment: .leading, spacing: 14) {
                 HStack(alignment: .top, spacing: 8) {
                     VStack(alignment: .leading, spacing: 4) {
@@ -141,7 +143,7 @@ private struct DecisionBar: View {
         .alert("Telepon \(alert.parent.name)", isPresented: $callInfo) {
             Button("Oke", role: .cancel) {}
         } message: {
-            Text("Di HP asli, telepon Anda masuk sebagai panggilan tunggu, jadi \(alert.parent.name) bisa langsung beralih. Simulator tidak bisa menelepon.")
+            Text("Panggilan tidak dapat dibuka. Coba melalui aplikasi Telepon; simulator tidak mendukung panggilan.")
         }
     }
 
@@ -160,9 +162,9 @@ private struct DecisionBar: View {
             .font(.title3)
             .frame(width: 40)
             VStack(alignment: .leading, spacing: 2) {
-                Text(mine ? "Terkirim ke \(alert.parent.name)" : "\(decision.by.name) sudah menjawab")
+                Text("\(mine ? "Anda" : decision.by.name) menandai \(decision.verdict.pastTitle)")
                     .font(.headline).foregroundStyle(Brand.ink)
-                Text(mine ? "Anda: \(decision.verdict.pastTitle)" : "\(decision.verdict.pastTitle.capitalized). Cukup satu jawaban.")
+                Text("Terkirim ke \(alert.parent.name) · \(Fmt.clock(decision.at))")
                     .font(.subheadline).foregroundStyle(Brand.ink2)
             }
             Spacer(minLength: 0)
@@ -175,38 +177,45 @@ private struct DecisionBar: View {
         .shadow(color: Brand.ink.opacity(0.08), radius: 12, y: 4)
         .accessibilityElement(children: .combine)
 
-        Button {
-            let url = URL(string: "tel:+620000000000")!
-            openURL(url) { accepted in if !accepted { callInfo = true } }
-        } label: {
-            WideLabel(title: "Telepon \(alert.parent.name)", systemImage: "phone.fill")
+        let parent = model.parent.id == alert.parent.id ? model.parent : alert.parent
+        if let url = parent.telephoneURL {
+            Button {
+                openURL(url) { accepted in if !accepted { callInfo = true } }
+            } label: {
+                WideLabel(title: "Telepon \(parent.name)", systemImage: "phone.fill")
+            }
+            .primaryAction(scam ? Brand.danger : Brand.teal)
         }
-        .primaryAction(scam ? Brand.danger : Brand.teal)
     }
 }
 
 // MARK: - Pita tingkat risiko
 
-/// Pita berwarna penuh di atas kartu: kuning untuk Waspada, merah untuk Bahaya.
+/// Risk and time since the warning was first detected, not call duration.
 struct LevelBand: View {
     let level: RiskLevel
     let callEnded: Bool
-    let startedAt: Date
+    let detectedAt: Date
+    var handled = false
 
     var body: some View {
-        HStack(spacing: 8) {
-            Image(systemName: level.symbol)
-            Text(level.title)
-            Spacer()
-            if callEnded {
-                Label("Selesai", systemImage: "phone.down.fill").font(.subheadline.weight(.semibold))
-            } else {
-                HStack(spacing: 5) {
-                    Circle().fill(level.glyph).frame(width: 7, height: 7)
-                    Text(startedAt, style: .timer).monospacedDigit()
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 8) {
+                Image(systemName: level.symbol)
+                Text(level.title)
+                Spacer()
+                if callEnded {
+                    Label("Panggilan selesai", systemImage: "phone.down.fill")
+                        .font(.subheadline.weight(.semibold))
+                } else if handled {
+                    Label("Ditangani", systemImage: "checkmark")
+                        .font(.subheadline.weight(.semibold))
                 }
-                .font(.subheadline.weight(.semibold))
-                .accessibilityLabel("Panggilan masih berlangsung")
+            }
+            TimelineView(.periodic(from: .now, by: 1)) { context in
+                Text("Terdeteksi \(Fmt.duration(max(0, context.date.timeIntervalSince(detectedAt)))) lalu")
+                    .font(.subheadline).monospacedDigit()
+                    .fixedSize(horizontal: false, vertical: true)
             }
         }
         .font(.headline)

@@ -116,11 +116,11 @@ struct AppViewModelBehaviorTests {
         }
     }
 
-    @Test("Dua tanda berbeda langsung dianggap Bahaya")
+    @Test("Setiap tanda penipuan memakai kategori merah; tanpa tanda tetap hijau")
     func riskRules() {
         #expect(RiskRules.level(for: []) == .safe)
-        #expect(RiskRules.level(for: [.impersonation]) == .review)
-        #expect(RiskRules.level(for: [.urgency]) == .review)
+        #expect(RiskRules.level(for: [.impersonation]) == .danger)
+        #expect(RiskRules.level(for: [.urgency]) == .danger)
         #expect(RiskRules.level(for: [.secretCode]) == .danger)
         #expect(RiskRules.level(for: [.impersonation, .urgency]) == .danger)
     }

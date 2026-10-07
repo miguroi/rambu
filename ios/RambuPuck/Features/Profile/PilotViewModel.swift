@@ -22,6 +22,7 @@ final class PilotViewModel {
         pilot?.onAlerts = { [weak self] values in self?.applyAlerts(values) }
         pilot?.onHistory = { [weak self] values in self?.applyHistory(values) }
         pilot?.onError = { [weak state] message in state?.pilotError = message }
+        pilot?.onServerStatus = { [weak state] status in state?.pilotServerStatus = status }
         state.pilotConnected = pilot?.isConnected == true
         state.pilotInviteCode = pilot?.inviteCode
         state.pilotInviteExpiresAt = pilot?.inviteExpiresAt
@@ -69,6 +70,26 @@ final class PilotViewModel {
         }
     }
 
+    func savePhoneNumber(_ input: String) async -> Bool {
+        guard let pilot, state.pilotConnected else {
+            state.pilotError = "Hubungkan keluarga sebelum menyimpan nomor telepon."
+            return false
+        }
+        let number = PhoneNumber.normalized(input)
+        guard input.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || number != nil else {
+            state.pilotError = "Nomor belum valid. Gunakan 08… atau kode negara seperti +62… tanpa simbol tambahan."
+            return false
+        }
+        state.pilotError = nil
+        do {
+            applyProfile(try await pilot.updatePhoneNumber(number ?? ""))
+            return true
+        } catch {
+            state.pilotError = "Nomor belum tersimpan. \(PilotAPIError.displayMessage(for: error))"
+            return false
+        }
+    }
+
     func renewInvite() async {
         guard let pilot else { return }
         state.pilotError = nil
@@ -86,6 +107,8 @@ final class PilotViewModel {
         state.pilotInviteCode = nil
         state.pilotInviteExpiresAt = nil
         state.pilotRole = nil
+        state.pilotServerStatus = .unknown
+        state.familySessionStatus = nil
         state.pilotError = nil
     }
 
@@ -119,6 +142,8 @@ final class PilotViewModel {
             state.persona = .ratna
         }
         state.pilotConnected = true
+        state.pilotServerStatus = .reachable
+        state.familySessionStatus = value.sessionStatus.flatMap(FamilySessionStatus.init(rawValue:))
         state.pilotRole = value.member.role
         state.pilotInviteCode = pilot?.inviteCode
         state.pilotInviteExpiresAt = pilot?.inviteExpiresAt
@@ -135,7 +160,7 @@ final class PilotViewModel {
             let level: RiskLevel
             switch value.presentation {
             case "danger": level = .danger
-            case "review": level = .review
+            case "review": level = .danger
             default: level = .safe
             }
             let unassessedReason: String?
@@ -162,7 +187,7 @@ final class PilotViewModel {
             )
         }
         let remoteIDs = Set(remote.map(\.id))
-        let localOnly = state.history.filter { !remoteIDs.contains($0.id) }
+        let localOnly = state.pilotConnected ? [] : state.history.filter { !remoteIDs.contains($0.id) }
         state.history = (remote + localOnly).sorted { lhs, rhs in
             if lhs.startedAt == rhs.startedAt { return lhs.id.uuidString < rhs.id.uuidString }
             return lhs.startedAt > rhs.startedAt

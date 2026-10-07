@@ -159,6 +159,7 @@ struct ProtectionCallAnalysisSourceTests {
 
         #expect(chunks.count == 1)
         #expect(chunks.first?.line.speaker == .unknown)
+        #expect(chunks.first?.line.offset == nil)
         #expect(await statuses == [.waitingForPuck, .listening, .completed])
         let requests = ProtectionURLProtocol.requests()
         let create = try #require(requests.first)

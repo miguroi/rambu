@@ -39,7 +39,13 @@ final class AppViewModel {
             allowsDemoControls: allowsDemoControls,
             now: now
         )
-        if let saved = store?.load() { state.restore(saved) }
+        if let saved = store?.load() {
+            state.restore(saved)
+            // Existing authenticated families will replace any legacy draft on refresh.
+            if !allowsDemoControls, pilot?.isConnected == true {
+                state.onboardingComplete = saved.onboardingComplete
+            }
+        }
 
         let notifier = RambuNotifier(enabled: notifications)
         let profile = ProfileViewModel(

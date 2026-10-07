@@ -1,6 +1,32 @@
 import Foundation
 import Observation
 
+enum PilotServerStatus: Sendable {
+    case unknown, reachable, unavailable
+
+    var message: String {
+        switch self {
+        case .unknown: "Memeriksa koneksi server…"
+        case .reachable: "Server dapat dihubungi"
+        case .unavailable: "Tidak dapat terhubung ke server"
+        }
+    }
+}
+
+enum FamilySessionStatus: String, Sendable {
+    case unknown, idle, waitingForPuck = "waiting_for_puck", listening, finishing
+
+    var message: String {
+        switch self {
+        case .unknown: "Status belum tersedia"
+        case .idle: "Tidak ada sesi analisis aktif"
+        case .waitingForPuck: "Menunggu analisis"
+        case .listening: "Analisis sedang berjalan"
+        case .finishing: "Menyelesaikan analisis"
+        }
+    }
+}
+
 enum ProtectionPresentation: Equatable, Sendable {
     case setupRequired
     case monitoring
@@ -53,6 +79,8 @@ final class AppState {
     var isOnline = true
     var pendingInviteCode: String?
     var pilotConnected = false
+    var pilotServerStatus: PilotServerStatus = .unknown
+    var familySessionStatus: FamilySessionStatus?
     var pilotInviteCode: String?
     var pilotInviteExpiresAt: Date?
     var pilotRole: String?
@@ -83,6 +111,12 @@ final class AppState {
     }
 
     var currentPerson: Person { person(for: persona) }
+
+    var guardianSessionStatus: FamilySessionStatus {
+        if allowsDemoControls { return session == nil ? .idle : .listening }
+        guard pilotConnected, isOnline, pilotServerStatus == .reachable else { return .unknown }
+        return familySessionStatus ?? .unknown
+    }
 
     func person(for persona: Persona) -> Person {
         switch persona {
@@ -116,7 +150,7 @@ final class AppState {
     }
 
     var featuredAlert: FamilyAlert? {
-        alerts.first { $0.decision == nil } ?? alerts.first { !$0.callEnded }
+        alerts.first { $0.decision == nil }
     }
 
     func otherGuardians(than person: Person) -> [Person] {
@@ -163,10 +197,14 @@ final class AppState {
         puck = saved.puck
         narrationEnabled = saved.narrationEnabled
         if !allowsDemoControls {
+            if parent.id == Person.ratna.id {
+                parent = Person(id: "parent-draft", name: "", initial: "", relation: "Orang tua", colorHex: 0x006F63)
+            }
             history.removeAll { $0.isSampleRecord }
             guardians.removeAll { ["sinta", "richard"].contains($0.id) }
             extraParents.removeAll { ["hadi", "lies"].contains($0.id) }
             puck = .unpaired
+            if currentPerson.name.isEmpty { onboardingComplete = false }
         }
     }
 }

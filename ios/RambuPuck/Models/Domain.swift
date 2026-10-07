@@ -19,8 +19,27 @@ struct Person: Identifiable, Hashable, Codable, Sendable {
     let initial: String
     let relation: String
     let colorHex: UInt32
+    var phoneNumber: String? = nil
 
     var color: Color { Color(hex: colorHex) }
+
+    var telephoneURL: URL? {
+        guard let phoneNumber, let normalized = PhoneNumber.normalized(phoneNumber) else { return nil }
+        return URL(string: "tel:\(normalized)")
+    }
+}
+
+enum PhoneNumber {
+    static func normalized(_ input: String) -> String? {
+        let value = input.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !value.isEmpty, value.count <= 40,
+              value.range(of: "^[+0-9 ()\\-.]+$", options: .regularExpression) != nil else { return nil }
+        var compact = value.filter { !" ()-.".contains($0) }
+        if compact.hasPrefix("0") { compact = "+62" + compact.dropFirst() }
+        else if compact.hasPrefix("62") { compact = "+" + compact }
+        guard compact.range(of: "^\\+[1-9][0-9]{7,14}$", options: .regularExpression) != nil else { return nil }
+        return compact
+    }
 }
 
 extension Person {
@@ -35,7 +54,7 @@ extension Person {
         let trimmed = newName.trimmingCharacters(in: .whitespacesAndNewlines)
         let name = trimmed.isEmpty ? self.name : trimmed
         let initial = name.split(separator: " ").last?.first.map { String($0).uppercased() } ?? self.initial
-        return Person(id: id, name: name, initial: initial, relation: newRelation ?? relation, colorHex: colorHex)
+        return Person(id: id, name: name, initial: initial, relation: newRelation ?? relation, colorHex: colorHex, phoneNumber: phoneNumber)
     }
 }
 
@@ -80,7 +99,7 @@ enum SignalKind: String, Codable, CaseIterable, Hashable, Sendable {
     /// Tingkat minimum yang ditandai sinyal ini jika muncul sendirian.
     var floor: RiskLevel {
         switch self {
-        case .impersonation, .urgency: .review
+        case .impersonation, .urgency: .danger
         case .secretCode, .transfer, .remoteApp: .danger
         }
     }
@@ -120,7 +139,7 @@ enum Speaker: String, Codable, Hashable, Sendable {
 /// Satu potongan transkrip ±5 detik.
 struct TranscriptLine: Identifiable, Hashable, Codable, Sendable {
     let id: Int
-    let offset: TimeInterval
+    let offset: TimeInterval?
     let speaker: Speaker
     let text: String
     let flagged: [String]
@@ -339,7 +358,7 @@ enum HistoryPresentation: String, Codable, Hashable, Sendable {
     var title: String {
         switch self {
         case .safe: "Aman"
-        case .review: "Waspada"
+        case .review: "Bahaya"
         case .danger: "Bahaya"
         case .unassessed: "Tidak dapat dinilai"
         }
@@ -357,7 +376,7 @@ enum HistoryPresentation: String, Codable, Hashable, Sendable {
     var colorRole: HistoryColorRole {
         switch self {
         case .safe: .safe
-        case .review: .warning
+        case .review: .danger
         case .danger: .danger
         case .unassessed: .neutral
         }
@@ -390,7 +409,7 @@ enum HistoryPresentation: String, Codable, Hashable, Sendable {
         }
     }
 
-    var glyph: Color { self == .review ? Brand.signalInk : .white }
+    var glyph: Color { .white }
 }
 
 enum HistoryColorRole: String, Codable, Hashable, Sendable {

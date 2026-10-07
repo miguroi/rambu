@@ -12,9 +12,19 @@ struct HistoryList: View {
 
     static func visibleRecords(_ records: [CallRecord], forGuardian: Bool) -> [CallRecord] { records }
 
+    static func handledAlerts(_ alerts: [FamilyAlert], records: [CallRecord]) -> [FamilyAlert] {
+        let recordedIDs = Set(records.map(\.id))
+        return alerts.filter { $0.decision != nil && !recordedIDs.contains($0.id) }
+            .sorted { $0.raisedAt > $1.raisedAt }
+    }
+
+    private var handled: [FamilyAlert] {
+        forGuardian ? Self.handledAlerts(model.alerts, records: records) : []
+    }
+
     var body: some View {
         List {
-            if records.isEmpty {
+            if records.isEmpty && handled.isEmpty {
                 VStack(spacing: 10) {
                     MascotView(pose: .calm, sign: .safe).frame(height: 130)
                     Text("Belum ada riwayat").font(Brand.display(.title3)).foregroundStyle(Brand.ink)
@@ -25,6 +35,26 @@ struct HistoryList: View {
                 .padding(.vertical, 40)
                 .listRowBackground(Color.clear)
             } else {
+                if !handled.isEmpty {
+                    Section("Peringatan ditangani") {
+                        ForEach(handled) { alert in
+                            NavigationLink(value: alert.id) {
+                                VStack(alignment: .leading, spacing: 6) {
+                                    Text(alert.title).font(.headline).foregroundStyle(Brand.ink)
+                                    if let decision = alert.decision {
+                                        Label("\(decision.by.name): \(decision.verdict.pastTitle)",
+                                              systemImage: decision.verdict == .scam ? "hand.raised.fill" : "checkmark.circle.fill")
+                                            .font(.subheadline)
+                                            .foregroundStyle(decision.verdict == .scam ? Brand.dangerInk : Brand.safeInk)
+                                    }
+                                    Text(alert.callEnded ? "Panggilan selesai" : "Menunggu panggilan selesai")
+                                        .font(.caption).foregroundStyle(Brand.ink2)
+                                }
+                                .padding(.vertical, 4)
+                            }
+                        }
+                    }
+                }
                 Section {
                     ForEach(records) { record in
                         NavigationLink(value: record.id) { HistoryRow(record: record, forGuardian: forGuardian) }
@@ -35,7 +65,13 @@ struct HistoryList: View {
         .scrollContentBackground(.hidden)
         .background(Brand.canvas)
         .navigationTitle("Riwayat")
-        .navigationDestination(for: UUID.self) { CallDetail(recordID: $0) }
+        .navigationDestination(for: UUID.self) { id in
+            if records.contains(where: { $0.id == id }) {
+                CallDetail(recordID: id)
+            } else {
+                AlertDetail(alertID: id)
+            }
+        }
         .toolbar { ToolbarItem(placement: .topBarTrailing) { ProfileButton() } }
     }
 }

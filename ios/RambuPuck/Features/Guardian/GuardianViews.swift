@@ -61,7 +61,7 @@ private struct AlertHeroCard: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            LevelBand(level: alert.level, callEnded: alert.callEnded, startedAt: alert.startedAt)
+            LevelBand(level: alert.level, callEnded: alert.callEnded, detectedAt: alert.raisedAt)
 
             VStack(alignment: .leading, spacing: 14) {
                 HStack(alignment: .top, spacing: 8) {
@@ -113,12 +113,12 @@ private struct ProtectedParentCard: View {
                 Avatar(person: model.parent, size: 52)
                 VStack(alignment: .leading, spacing: 3) {
                     Text(model.parent.name).font(.headline).foregroundStyle(Brand.ink)
-                    if model.session != nil {
-                        Label("Sesi analisis aktif", systemImage: "waveform")
+                    if [.waitingForPuck, .listening, .finishing].contains(model.guardianSessionStatus) {
+                        Label(model.guardianSessionStatus.message, systemImage: "waveform")
                         .font(.subheadline.weight(.semibold))
                         .foregroundStyle(Brand.teal)
                     } else {
-                        Text("Tidak ada sesi analisis aktif").font(.subheadline).foregroundStyle(Brand.ink2)
+                        Text(model.guardianSessionStatus.message).font(.subheadline).foregroundStyle(Brand.ink2)
                     }
                 }
                 Spacer(minLength: 0)
@@ -170,7 +170,7 @@ private struct QuietState: View {
             Image(systemName: "bell")
                 .font(.title2).foregroundStyle(Brand.teal)
             VStack(alignment: .leading, spacing: 4) {
-                Text("Belum ada peringatan")
+                Text("Tidak ada peringatan baru")
                     .font(Brand.display(.title3)).foregroundStyle(Brand.ink)
                 Text("Peringatan akan muncul saat analisis menemukan tanda penipuan.")
                     .font(.subheadline).foregroundStyle(Brand.ink2)

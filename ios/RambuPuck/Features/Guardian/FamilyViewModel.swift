@@ -122,6 +122,10 @@ final class FamilyViewModel {
     }
 
     func applyRemoteAlerts(_ remote: [FamilyAlert]) {
+        if state.pilotConnected {
+            let remoteIDs = Set(remote.map(\.id))
+            state.alerts.removeAll { !remoteIDs.contains($0.id) }
+        }
         for alert in remote.reversed() {
             let index = state.alerts.firstIndex { $0.id == alert.id }
             let previous = index.map { state.alerts[$0] }

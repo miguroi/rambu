@@ -10,6 +10,9 @@ struct ProfileView: View {
 
     @State private var name = ""
     @State private var relation = "Anak"
+    @State private var phoneNumber = ""
+    @State private var savingPhone = false
+    @State private var phoneError: String?
     @State private var showInvite = false
     @State private var showJoin = false
     @State private var showTutorial = false
@@ -52,6 +55,37 @@ struct ProfileView: View {
                     }
                 }
 
+                if model.pilotConnected {
+                    Section {
+                        TextField("Contoh: 081234567890", text: $phoneNumber)
+                            .keyboardType(.phonePad)
+                            .textContentType(.telephoneNumber)
+                            .autocorrectionDisabled()
+                            .accessibilityLabel("Nomor telepon Anda")
+                        Button(savingPhone ? "Menyimpan…" : "Simpan nomor") {
+                            Task {
+                                savingPhone = true
+                                phoneError = nil
+                                if await app.pilot.savePhoneNumber(phoneNumber) {
+                                    phoneNumber = model.currentPerson.phoneNumber ?? ""
+                                } else {
+                                    phoneError = model.pilotError
+                                }
+                                savingPhone = false
+                            }
+                        }
+                        .disabled(savingPhone || phoneNumber == (me.phoneNumber ?? ""))
+                        if let phoneError {
+                            Text(phoneError).font(.subheadline).foregroundStyle(Brand.dangerInk)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                    } header: {
+                        Text("Nomor telepon (opsional)")
+                    } footer: {
+                        Text("Dibagikan kepada keluarga yang terhubung agar mereka bisa menelepon Anda. Kosongkan dan simpan untuk menghapus nomor.")
+                    }
+                }
+
                 if model.allowsDemoControls && model.persona.isParent {
                     guardiansSection
                 } else if model.allowsDemoControls {
@@ -80,10 +114,11 @@ struct ProfileView: View {
                         HStack {
                             Label("Keluarga", systemImage: "person.2")
                             Spacer()
-                            Text(model.pilotConnected ? "Terhubung" : "Belum")
+                            Text(model.pilotConnected ? "Tergabung" : "Belum")
                                 .foregroundStyle(model.pilotConnected ? Brand.safeInk : Brand.ink3)
                         }
                     }
+                    if model.pilotConnected { ServerConnectionLabel() }
                 } header: {
                     Text("Hubungkan keluarga")
                 } footer: {
@@ -122,11 +157,13 @@ struct ProfileView: View {
                         saveName()
                         dismiss()
                     }
+                    .disabled(savingPhone)
                 }
             }
             .onAppear {
                 name = me.name
                 relation = me.relation
+                phoneNumber = me.phoneNumber ?? ""
             }
             .sheet(isPresented: $showInvite) { InviteSheet() }
             .sheet(isPresented: $showJoin) { JoinParentSheet() }

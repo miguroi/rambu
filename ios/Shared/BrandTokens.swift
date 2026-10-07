@@ -66,7 +66,7 @@ enum RiskLevel: Int, Codable, Hashable, Comparable, CaseIterable, Sendable {
     var title: String {
         switch self {
         case .safe: "Aman"
-        case .review: "Waspada"
+        case .review: "Bahaya"
         case .danger: "Bahaya"
         }
     }
@@ -75,7 +75,7 @@ enum RiskLevel: Int, Codable, Hashable, Comparable, CaseIterable, Sendable {
     var shortTitle: String {
         switch self {
         case .safe: "Aman"
-        case .review: "Waspada"
+        case .review: "Bahaya"
         case .danger: "Bahaya"
         }
     }
@@ -93,7 +93,7 @@ enum RiskLevel: Int, Codable, Hashable, Comparable, CaseIterable, Sendable {
     var tint: Color {
         switch self {
         case .safe: Brand.safe
-        case .review: Brand.signal
+        case .review: Brand.danger
         case .danger: Brand.danger
         }
     }
@@ -101,7 +101,7 @@ enum RiskLevel: Int, Codable, Hashable, Comparable, CaseIterable, Sendable {
     var soft: Color {
         switch self {
         case .safe: Brand.safeSoft
-        case .review: Brand.signalSoft
+        case .review: Brand.dangerSoft
         case .danger: Brand.dangerSoft
         }
     }
@@ -109,14 +109,14 @@ enum RiskLevel: Int, Codable, Hashable, Comparable, CaseIterable, Sendable {
     var ink: Color {
         switch self {
         case .safe: Brand.safeInk
-        case .review: Brand.signalInk
+        case .review: Brand.dangerInk
         case .danger: Brand.dangerInk
         }
     }
 
     /// Warna tanda seru di dalam ikon. Kuning butuh tanda gelap supaya kontrasnya cukup.
     var glyph: Color {
-        self == .review ? Brand.signalInk : .white
+        .white
     }
 
     var parentAdvice: String {

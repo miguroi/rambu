@@ -16,16 +16,21 @@ struct QuickCallGuardians: View {
                         Text(person.relation).font(.subheadline).foregroundStyle(Brand.ink2)
                     }
                     .lineLimit(1)
-                    Button {
-                        openURL(URL(string: "tel:+620000000000")!) { accepted in if !accepted { callInfo = person } }
-                    } label: {
-                        Label("Telepon", systemImage: "phone.fill")
-                            .font(.subheadline.weight(.semibold))
-                            .frame(maxWidth: .infinity)
+                    if let url = person.telephoneURL {
+                        Button {
+                            openURL(url) { accepted in if !accepted { callInfo = person } }
+                        } label: {
+                            Label("Telepon", systemImage: "phone.fill")
+                                .font(.subheadline.weight(.semibold))
+                                .frame(maxWidth: .infinity)
+                        }
+                        .buttonStyle(.glassProminent)
+                        .tint(Brand.safe)
+                        .accessibilityLabel("Telepon \(person.name)")
+                    } else {
+                        Text("Nomor belum ditambahkan").font(.caption).foregroundStyle(Brand.ink2)
+                            .fixedSize(horizontal: false, vertical: true)
                     }
-                    .buttonStyle(.glassProminent)
-                    .tint(Brand.safe)
-                    .accessibilityLabel("Telepon \(person.name)")
                 }
                 .frame(maxWidth: .infinity)
                 .padding(14)
@@ -36,7 +41,7 @@ struct QuickCallGuardians: View {
         .alert("Telepon \(callInfo?.name ?? "")", isPresented: .init(get: { callInfo != nil }, set: { if !$0 { callInfo = nil } })) {
             Button("Oke", role: .cancel) {}
         } message: {
-            Text("Simulator tidak bisa menelepon. Di HP asli, telepon langsung tersambung.")
+            Text("Panggilan tidak dapat dibuka. Coba melalui aplikasi Telepon; simulator tidak mendukung panggilan.")
         }
     }
 }

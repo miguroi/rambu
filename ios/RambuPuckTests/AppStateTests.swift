@@ -95,6 +95,16 @@ struct AppStateTests {
         #expect(state.featuredAlert?.id == session.id)
         #expect(state.otherGuardians(than: .sinta) == [.richard])
 
+        state.alerts[0].decision = GuardianDecision(by: .sinta, verdict: .scam, at: now)
+        #expect(state.featuredAlert == nil)
+        #expect(state.activeAlert?.decision?.verdict == .scam)
+        #expect(HistoryList.handledAlerts(state.alerts, records: []).map(\.id) == [session.id])
+        #expect(state.alerts[0].callEnded == false)
+        let completed = CallRecord(id: session.id, title: "Panggilan", callerDetail: "Tidak tersedia",
+                                   channel: .cellular, startedAt: now, duration: 60, level: .danger,
+                                   signals: [.secretCode], evidence: [], decision: state.alerts[0].decision)
+        #expect(HistoryList.handledAlerts(state.alerts, records: [completed]).isEmpty)
+
         state.persona = .ratna
         state.notificationsAuthorized = false
         state.isOnline = false
@@ -136,6 +146,18 @@ struct AppStateTests {
         #expect(state.history == [real])
         #expect(state.guardians.isEmpty)
         #expect(!state.puck.isConnected)
+        #expect(state.parent.name.isEmpty)
+        #expect(!state.onboardingComplete)
+    }
+
+    @Test("Upgrade preserves a real parent even when named like a sample")
+    func keepsAuthenticatedParentIdentity() {
+        let parent = Person(id: "parent-real", name: "Ibu Ratna", initial: "R", relation: "Orang tua", colorHex: 0x006F63)
+        let state = AppState()
+        state.restore(SavedState(onboardingComplete: true, persona: .ratna, parent: parent,
+                                 guardians: [], extraParents: [], history: [], puck: .unpaired, narrationEnabled: true))
+        #expect(state.parent == parent)
+        #expect(state.onboardingComplete)
     }
 
     @Test("History hides technical server diagnostics")

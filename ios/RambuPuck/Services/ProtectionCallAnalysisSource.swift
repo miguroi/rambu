@@ -226,7 +226,7 @@ private final class ProtectionRemoteSession: CallAnalysisSession, @unchecked Sen
             assessmentContinuation.yield(ChunkAssessment(
                 line: TranscriptLine(
                     id: lineID,
-                    offset: TimeInterval(lineID * 5),
+                    offset: nil,
                     speaker: .unknown,
                     text: evidence.quote,
                     flagged: [evidence.quote],
@@ -246,7 +246,7 @@ private final class ProtectionRemoteSession: CallAnalysisSession, @unchecked Sen
     private func riskLevel(_ value: String) throws -> RiskLevel {
         switch value {
         case "low": .safe
-        case "needs_review": .review
+        case "needs_review": .danger
         case "high_risk": .danger
         default: throw BackendAnalysisError.schema(detail: "Tingkat risiko backend tidak dikenal.")
         }

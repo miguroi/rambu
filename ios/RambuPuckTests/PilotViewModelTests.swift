@@ -3,9 +3,10 @@ import Testing
 @testable import RambuPuck
 
 private actor PilotHTTPStub: HTTPDataSession {
-    private let responses: [String: Data]
+    private var responses: [String: Data]
     private var requestedPaths: [String] = []
     private var requestBodies: [String: Data] = [:]
+    private var requestMethods: [String: String] = [:]
 
     init(responses: [String: String]) {
         self.responses = responses.mapValues { Data($0.utf8) }
@@ -15,6 +16,7 @@ private actor PilotHTTPStub: HTTPDataSession {
         let path = request.url?.path ?? ""
         requestedPaths.append(path)
         requestBodies[path] = request.httpBody
+        requestMethods[path] = request.httpMethod
         guard let data = responses[path], let url = request.url,
               let response = HTTPURLResponse(
                 url: url,
@@ -29,11 +31,193 @@ private actor PilotHTTPStub: HTTPDataSession {
 
     func paths() -> [String] { requestedPaths }
     func body(for path: String) -> Data? { requestBodies[path] }
+    func method(for path: String) -> String? { requestMethods[path] }
+    func respond(_ body: String, for path: String) { responses[path] = Data(body.utf8) }
+}
+
+private actor GatedPilotHTTPStub: HTTPDataSession {
+    private let base: any HTTPDataSession
+    private let fail: Bool
+    private var gate: CheckedContinuation<Void, Never>?
+    var isWaiting = false
+
+    init(base: any HTTPDataSession, fail: Bool) { self.base = base; self.fail = fail }
+
+    func data(for request: URLRequest) async throws -> (Data, URLResponse) {
+        if request.url?.path == "/api/pilot/profile" {
+            isWaiting = true
+            await withCheckedContinuation { gate = $0 }
+            if fail { throw URLError(.notConnectedToInternet) }
+        }
+        return try await base.data(for: request)
+    }
+
+    func release() { gate?.resume(); gate = nil }
 }
 
 @MainActor
 @Suite(.serialized)
 struct PilotViewModelTests {
+    @Test("A late refresh cannot restore a departed family's profile or connection status")
+    func ignoresRefreshAfterDisconnect() async throws {
+        let store = PilotCredentialStore()
+        let previous = store.load()
+        defer { if let previous { store.save(previous) } else { store.clear() } }
+        for fail in [false, true] {
+            let base = PilotHTTPStub(responses: ["/api/pilot/profile": Self.profileJSON,
+                                                  "/api/pilot/alerts": "[]", "/api/pilot/history": "[]"])
+            let transport = GatedPilotHTTPStub(base: base, fail: fail)
+            let sync = PilotSync(session: transport, initialCredentials: Self.credentials)
+            var profiles = 0
+            var statuses: [PilotServerStatus] = []
+            var errors: [String] = []
+            sync.onProfile = { _ in profiles += 1 }
+            sync.onServerStatus = { statuses.append($0) }
+            sync.onError = { errors.append($0) }
+            let request = Task { await sync.refresh() }
+            for _ in 0..<100 {
+                if await transport.isWaiting { break }
+                try await Task.sleep(for: .milliseconds(10))
+            }
+            #expect(await transport.isWaiting)
+            sync.disconnect()
+            await transport.release()
+            await request.value
+            #expect(profiles == 0)
+            #expect(statuses == [.unknown])
+            #expect(errors.isEmpty)
+            #expect(!sync.isConnected)
+        }
+    }
+    @Test("A failed background refresh reports unavailable without losing family membership")
+    func backgroundRefreshReportsFailureAndRecovers() async throws {
+        let store = PilotCredentialStore()
+        let previous = store.load()
+        defer { if let previous { store.save(previous) } else { store.clear() } }
+        let stub = PilotHTTPStub(responses: ["/api/pilot/profile": Self.profileJSON,
+                                              "/api/pilot/alerts": "[]", "/api/pilot/history": "[]"])
+        let sync = PilotSync(session: stub, initialCredentials: Self.credentials)
+        var updates = 0
+        var error: String?
+        var serverStatus: PilotServerStatus = .unknown
+        sync.onProfile = { _ in updates += 1 }
+        sync.onError = { error = $0 }
+        sync.onServerStatus = { serverStatus = $0 }
+        sync.start()
+        defer { sync.disconnect() }
+        for _ in 0..<100 where updates == 0 { try await Task.sleep(for: .milliseconds(10)) }
+        #expect(updates > 0)
+        #expect(serverStatus == .reachable)
+        await stub.respond("invalid response", for: "/api/pilot/history")
+        for _ in 0..<250 where error == nil { try await Task.sleep(for: .milliseconds(10)) }
+        #expect(error != nil)
+        #expect(serverStatus == .unavailable)
+        #expect(sync.isConnected)
+        await stub.respond("[]", for: "/api/pilot/history")
+        let before = updates
+        await sync.refresh()
+        #expect(updates == before + 1)
+        #expect(serverStatus == .reachable)
+    }
+    @Test("Profile decoding retains authoritative session status and supports older servers")
+    func profileRetainsSessionStatus() throws {
+        let decoder = JSONDecoder()
+        decoder.keyDecodingStrategy = .convertFromSnakeCase
+        let json = Self.profileJSON.replacingOccurrences(of: "\"family_id\":", with: "\"session_status\":\"listening\",\"family_id\":")
+        let profile = try decoder.decode(PilotProfileDTO.self, from: Data(json.utf8))
+        let encoded = try JSONEncoder().encode(profile)
+        let values = try #require(JSONSerialization.jsonObject(with: encoded) as? [String: Any])
+        #expect(values["sessionStatus"] as? String == "listening")
+        let (state, pilot) = makePilot(persona: .sinta)
+        #expect(state.session == nil)
+        pilot.applyProfile(profile)
+        #expect(state.guardianSessionStatus == .listening)
+        state.pilotServerStatus = .unavailable
+        #expect(state.guardianSessionStatus == .unknown)
+        #expect(state.pilotConnected)
+        for raw in ["idle", "waiting_for_puck", "finishing"] {
+            var next = profile
+            next.sessionStatus = raw
+            pilot.applyProfile(next)
+            #expect(state.guardianSessionStatus.rawValue == raw)
+        }
+        let oldProfile = try decoder.decode(PilotProfileDTO.self, from: Data(Self.profileJSON.utf8))
+        pilot.applyProfile(oldProfile)
+        #expect(state.guardianSessionStatus == .unknown)
+        var unsupported = profile
+        unsupported.sessionStatus = "unsupported"
+        pilot.applyProfile(unsupported)
+        #expect(state.guardianSessionStatus == .unknown)
+    }
+
+    @Test("Evidence without audio timing decodes without losing older saved excerpts")
+    func nullableEvidenceTimingIsBackwardCompatible() throws {
+        let decoder = JSONDecoder()
+        for suffix in ["", ",\"offset\":null", ",\"offset\":12"] {
+            let json = "{\"id\":0,\"speaker\":\"unknown\",\"text\":\"Berikan OTP\",\"flagged\":[\"OTP\"],\"signals\":[\"secretCode\"]\(suffix)}"
+            let line = try decoder.decode(PilotTranscriptLineDTO.self, from: Data(json.utf8)).line
+            #expect(line.text == "Berikan OTP")
+            #expect(line.offset == (suffix.contains("12") ? 12 : nil))
+        }
+        let json = #"{"id":0,"speaker":"unknown","text":"Berikan OTP","flagged":[],"signals":[]}"#
+        let saved = try decoder.decode(TranscriptLine.self, from: Data(json.utf8))
+        #expect(saved.offset == nil)
+        #expect(try decoder.decode(TranscriptLine.self, from: JSONEncoder().encode(saved)) == saved)
+    }
+
+    @Test("A family member's saved contact number reaches the dialable app profile")
+    func familyProfileRetainsPhoneNumber() throws {
+        let decoder = JSONDecoder()
+        decoder.keyDecodingStrategy = .convertFromSnakeCase
+        let member = try decoder.decode(PilotPersonDTO.self, from: Data(#"{"id":"parent-1","name":"Ibu","relation":"Ibu","role":"parent","phone_number":"+6281234567890"}"#.utf8))
+        let stored = try JSONEncoder().encode(member.person)
+        let values = try #require(JSONSerialization.jsonObject(with: stored) as? [String: Any])
+        #expect(values["phoneNumber"] as? String == "+6281234567890")
+        #expect(member.person.telephoneURL?.absoluteString == "tel:+6281234567890")
+        #expect(member.person.renamed("Ibu Baru").telephoneURL?.absoluteString == "tel:+6281234567890")
+    }
+
+    @Test("Call URLs contain only valid international numbers, never dummy or control characters")
+    func callURLValidationAndLegacyProfiles() throws {
+        for input in ["", "112", "tel:123", "+62812;123456", "+62812#123456", "+" + String(repeating: "1", count: 16)] {
+            #expect(PhoneNumber.normalized(input) == nil)
+        }
+        #expect(PhoneNumber.normalized("0812-3456-7890") == "+6281234567890")
+        #expect(PhoneNumber.normalized("+1 (415) 555-0123") == "+14155550123")
+        #expect(Person.ratna.telephoneURL == nil)
+        let legacy = try JSONDecoder().decode(Person.self, from: JSONEncoder().encode(Person.ratna))
+        #expect(legacy.telephoneURL == nil)
+    }
+
+    @Test("Updating the own contact sends PUT and retains server membership")
+    func syncSavesOwnNumberAndCanClearIt() async throws {
+        let credentialStore = PilotCredentialStore()
+        let previous = credentialStore.load()
+        defer { if let previous { credentialStore.save(previous) } else { credentialStore.clear() } }
+        let response = Self.profileJSON.replacingOccurrences(of: "\"role\": \"guardian\"", with: "\"role\": \"guardian\", \"phone_number\": \"+6281234567890\"")
+        let stub = PilotHTTPStub(responses: ["/api/pilot/profile": response])
+        let sync = PilotSync(session: stub, initialCredentials: Self.credentials)
+        let updated = try await sync.updatePhoneNumber("+6281234567890")
+        #expect(updated.member.phoneNumber == "+6281234567890")
+        #expect(sync.credentials?.member.phoneNumber == "+6281234567890")
+        #expect(await stub.method(for: "/api/pilot/profile") == "PUT")
+        let first = try #require(await stub.body(for: "/api/pilot/profile"))
+        #expect((try JSONSerialization.jsonObject(with: first) as? [String: String])?["phone_number"] == "+6281234567890")
+        _ = try await sync.updatePhoneNumber("")
+        let cleared = try #require(await stub.body(for: "/api/pilot/profile"))
+        #expect((try JSONSerialization.jsonObject(with: cleared) as? [String: String])?["phone_number"] == "")
+    }
+
+    @Test("An empty server history removes cached pilot call records after a reset")
+    func emptyServerHistoryClearsConnectedCache() {
+        let (state, pilot) = makePilot()
+        state.pilotConnected = true
+        state.history = CallRecord.seed()
+        #expect(!state.history.isEmpty)
+        pilot.applyHistory([])
+        #expect(state.history.isEmpty)
+    }
+
     @Test("Infrastructure diagnostics are not exposed as family error messages")
     func hidesInfrastructureDiagnostics() {
         let diagnostic = "The origin web server returned an invalid response to Cloudflare. private-token"
@@ -371,14 +555,14 @@ struct PilotViewModelTests {
     func testHistoryPresentationMapsSafeReviewDangerAndUnassessed() {
         let presentations: [HistoryPresentation] = [.safe, .review, .danger, .unassessed]
 
-        #expect(presentations.map(\.title) == ["Aman", "Waspada", "Bahaya", "Tidak dapat dinilai"])
+        #expect(presentations.map(\.title) == ["Aman", "Bahaya", "Bahaya", "Tidak dapat dinilai"])
         #expect(presentations.map(\.symbol) == [
             "checkmark.circle.fill",
             "exclamationmark.triangle.fill",
             "exclamationmark.octagon.fill",
             "questionmark.circle.fill",
         ])
-        #expect(presentations.map(\.colorRole) == [.safe, .warning, .danger, .neutral])
+        #expect(presentations.map(\.colorRole) == [.safe, .danger, .danger, .neutral])
 
         let safe = CallRecord(
             id: UUID(), title: "Aman", callerDetail: "Kontak", channel: .cellular,

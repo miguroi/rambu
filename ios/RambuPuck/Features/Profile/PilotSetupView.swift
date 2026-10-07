@@ -1,5 +1,16 @@
 import SwiftUI
 
+struct ServerConnectionLabel: View {
+    @Environment(AppState.self) private var model
+
+    var body: some View {
+        Label(model.pilotServerStatus.message,
+              systemImage: model.pilotServerStatus == .reachable ? "network" : "network.slash")
+            .font(.subheadline).foregroundStyle(Brand.ink2)
+            .fixedSize(horizontal: false, vertical: true)
+    }
+}
+
 struct PilotSetupView: View {
     @Environment(\.dismiss) private var dismiss
 
@@ -109,6 +120,9 @@ struct FamilySetupContent: View {
 
     private var connectedContent: some View {
         VStack(alignment: .leading, spacing: 20) {
+            Label("Keluarga terhubung", systemImage: "person.2.fill")
+                .font(.headline).foregroundStyle(Brand.teal)
+            ServerConnectionLabel()
             if model.pilotRole == "parent" {
                 if model.guardians.isEmpty {
                     Text("Undang pendamping Anda")
