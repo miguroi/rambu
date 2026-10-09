@@ -1,0 +1,39 @@
+file,kategori,label,risiko,modus,respons_korban,durasi_detik,indikator,detik_sinyal_kritis_pertama,suara_penelepon,suara_pengguna
+00_Aman/aman_01.mp3,00_Aman,AMAN,AMAN,"Bank asli: konfirmasi transaksi, tidak minta OTP",aman,44.26,,,sid4,sid6
+00_Aman/aman_02.mp3,00_Aman,AMAN,AMAN,"Kurir asli: konfirmasi waktu antar, COD dibayar saat barang tiba",aman,34.51,,,sid7,sid2
+00_Aman/aman_03.mp3,00_Aman,AMAN,AMAN,"Anak telepon ibu dari nomor tersimpan, minta uang kos seperti biasa",aman,32.66,,,sid5,sid4
+00_Aman/aman_04.mp3,00_Aman,AMAN,AMAN,Klinik: pengingat jadwal kontrol,aman,35.48,,,sid1,sid9
+00_Aman/aman_05.mp3,00_Aman,AMAN,AMAN,"Telemarketing asuransi, ditolak dengan sopan, tanpa minta data rahasia",aman,35.55,,,sid3,sid2
+00_Aman/aman_06.mp3,00_Aman,AMAN,AMAN,"Tetangga: arisan dan iuran RT, tanpa tekanan",aman,31.14,,,sid0,sid4
+00_Aman/aman_07.mp3,00_Aman,AMAN,AMAN,Teknisi internet: jadwal kunjungan perbaikan yang dilaporkan sendiri,aman,40.91,,,sid5,sid6
+00_Aman/aman_08.mp3,00_Aman,AMAN,AMAN,"Bank asli: edukasi waspada penipuan, menyebut OTP tanpa memintanya",aman,55.66,,,sid8,sid2
+01_OTP_Bank/otp_bank_01.mp3,01_OTP_Bank,PENIPUAN,TINGGI,"CS bank palsu: transaksi mencurigakan, minta OTP",patuh,75.23,OTORITAS|URGENSI|ANCAMAN|MINTA_KREDENSIAL|ISOLASI,34.44,sid8,sid2
+01_OTP_Bank/otp_bank_02.mp3,01_OTP_Bank,PENIPUAN,TINGGI,"Perubahan tarif transfer, minta nomor kartu, CVV, OTP",patuh,73.24,OTORITAS|URGENSI|ANCAMAN|MINTA_KREDENSIAL|ISOLASI,33.25,sid3,sid6
+01_OTP_Bank/otp_bank_03.mp3,01_OTP_Bank,PENIPUAN,TINGGI,"Dompet digital dibekukan, minta OTP dan PIN",patuh,72.55,OTORITAS|ANCAMAN|URGENSI|MINTA_KREDENSIAL|ISOLASI,36.11,sid5,sid4
+01_OTP_Bank/otp_bank_04.mp3,01_OTP_Bank,PENIPUAN,TINGGI,"Kartu kredit: batalkan transaksi, minta CVV dan OTP",ragu_lalu_patuh,75.9,OTORITAS|URGENSI|MINTA_KREDENSIAL|ANCAMAN|ISOLASI,20.32,sid0,sid9
+01_OTP_Bank/otp_bank_05.mp3,01_OTP_Bank,PENIPUAN,TINGGI,"Mobile banking diblokir, minta user ID, PIN, OTP",menolak,60.09,OTORITAS|ANCAMAN|URGENSI|MINTA_KREDENSIAL|ISOLASI,9.67,sid7,sid2
+01_OTP_Bank/otp_bank_06.mp3,01_OTP_Bank,PENIPUAN,TINGGI,"Operator seluler: upgrade kartu, minta kode verifikasi WhatsApp",patuh,58.64,OTORITAS|URGENSI|ANCAMAN|MINTA_KREDENSIAL|ISOLASI,19.58,sid1,sid6
+02_Aparat_Instansi/aparat_01.mp3,02_Aparat_Instansi,PENIPUAN,TINGGI,"Polisi palsu: rekening terlibat pencucian uang, pindahkan ke rekening aman",patuh,81.26,OTORITAS|ANCAMAN|URGENSI|MINTA_TRANSFER|ISOLASI,39.51,sid9,sid4
+02_Aparat_Instansi/aparat_02.mp3,02_Aparat_Instansi,PENIPUAN,TINGGI,"Petugas pajak palsu: Coretax, instal aplikasi dan bayar tunggakan",patuh,71.45,OTORITAS|URGENSI|ANCAMAN|LINK_APK|MINTA_KREDENSIAL|BIAYA_DIMUKA|ISOLASI,31.61,sid5,sid9
+02_Aparat_Instansi/aparat_03.mp3,02_Aparat_Instansi,PENIPUAN,TINGGI,"Dukcapil palsu: aktivasi IKD, instal aplikasi, sebut NIK dan OTP",patuh,62.68,OTORITAS|ANCAMAN|URGENSI|MINTA_KREDENSIAL|LINK_APK|ISOLASI,29.65,sid3,sid6
+02_Aparat_Instansi/aparat_04.mp3,02_Aparat_Instansi,PENIPUAN,TINGGI,"Bea Cukai palsu: paket ditahan, bayar denda",patuh,72.55,OTORITAS|ANCAMAN|MINTA_TRANSFER|BIAYA_DIMUKA|URGENSI,21.85,sid6,sid2
+02_Aparat_Instansi/aparat_05.mp3,02_Aparat_Instansi,PENIPUAN,TINGGI,"BPJS palsu disambungkan ke polisi palsu, transfer untuk audit",ragu_lalu_patuh,71.72,OTORITAS|ANCAMAN|ISOLASI|MINTA_TRANSFER|URGENSI,37.45,sid8,sid4
+02_Aparat_Instansi/aparat_06.mp3,02_Aparat_Instansi,PENIPUAN,TINGGI,"Kejaksaan palsu: surat panggilan, uang jaminan",menolak,66.48,OTORITAS|ANCAMAN|URGENSI|MINTA_TRANSFER|BIAYA_DIMUKA|ISOLASI,21.55,sid8,sid9
+03_Keluarga_Darurat/keluarga_01.mp3,03_Keluarga_Darurat,PENIPUAN,TINGGI,"Mengaku perawat RS: anak kecelakaan, minta biaya operasi",patuh,70.24,OTORITAS|URGENSI|BIAYA_DIMUKA|MINTA_TRANSFER|ISOLASI|ANCAMAN,30.96,sid0,sid6
+03_Keluarga_Darurat/keluarga_02.mp3,03_Keluarga_Darurat,PENIPUAN,TINGGI,"Mengaku polisi: anak ditahan, minta uang damai",patuh,71.23,OTORITAS|ANCAMAN|URGENSI|MINTA_TRANSFER|ISOLASI,32.23,sid9,sid2
+03_Keluarga_Darurat/keluarga_03.mp3,03_Keluarga_Darurat,PENIPUAN,TINGGI,"Mengaku anak dengan nomor baru, HP rusak, minta transfer",patuh,58.37,IDENTITAS_KABUR|ISOLASI|URGENSI|MINTA_TRANSFER,22.98,sid5,sid4
+03_Keluarga_Darurat/keluarga_04.mp3,03_Keluarga_Darurat,PENIPUAN,TINGGI,"Mengaku guru: anak jatuh di sekolah, beli alat medis",patuh,58.76,OTORITAS|URGENSI|BIAYA_DIMUKA|MINTA_TRANSFER|ISOLASI,25.58,sid3,sid9
+03_Keluarga_Darurat/keluarga_05.mp3,03_Keluarga_Darurat,PENIPUAN,TINGGI,Tebak siapa saya: saudara jauh pinjam uang mendesak,ragu_lalu_patuh,63.71,IDENTITAS_KABUR|URGENSI|MINTA_TRANSFER|ISOLASI,34.59,sid6,sid2
+03_Keluarga_Darurat/keluarga_06.mp3,03_Keluarga_Darurat,PENIPUAN,TINGGI,"Mengaku anak minta transfer, korban verifikasi ke keluarga",menolak,49.85,IDENTITAS_KABUR|URGENSI|BIAYA_DIMUKA|MINTA_TRANSFER|ANCAMAN|ISOLASI,13.47,sid8,sid4
+04_Hadiah_Undian/hadiah_01.mp3,04_Hadiah_Undian,PENIPUAN,TINGGI,"Undian bank berhadiah mobil, bayar pajak pemenang",patuh,71.35,IMING_HADIAH|OTORITAS|BIAYA_DIMUKA|URGENSI|ANCAMAN|MINTA_TRANSFER|MINTA_KREDENSIAL|ISOLASI,50.35,sid8,sid2
+04_Hadiah_Undian/hadiah_02.mp3,04_Hadiah_Undian,PENIPUAN,TINGGI,"Undian operator seluler, dipandu ke ATM",patuh,69.95,IMING_HADIAH|OTORITAS|URGENSI|ISOLASI|MINTA_TRANSFER,36.91,sid5,sid6
+04_Hadiah_Undian/hadiah_03.mp3,04_Hadiah_Undian,PENIPUAN,TINGGI,"Giveaway marketplace, bayar ongkir dan minta OTP",patuh,54.2,IMING_HADIAH|OTORITAS|BIAYA_DIMUKA|MINTA_TRANSFER|MINTA_KREDENSIAL|URGENSI,24.62,sid1,sid4
+04_Hadiah_Undian/hadiah_04.mp3,04_Hadiah_Undian,PENIPUAN,TINGGI,"Bantuan pemerintah cair, biaya admin pencairan",patuh,60.11,OTORITAS|IMING_HADIAH|URGENSI|BIAYA_DIMUKA|ANCAMAN|MINTA_TRANSFER|MINTA_KREDENSIAL|ISOLASI,43.67,sid7,sid2
+04_Hadiah_Undian/hadiah_05.mp3,04_Hadiah_Undian,PENIPUAN,TINGGI,"Cashback dompet digital, klik tautan dan masukkan PIN",patuh,53.32,IMING_HADIAH|OTORITAS|URGENSI|LINK_APK|MINTA_KREDENSIAL|ISOLASI,11.32,sid0,sid9
+04_Hadiah_Undian/hadiah_06.mp3,04_Hadiah_Undian,PENIPUAN,TINGGI,"Kuis televisi, biaya balik nama, korban menolak",menolak,51.55,IMING_HADIAH|OTORITAS|BIAYA_DIMUKA|URGENSI|ANCAMAN|MINTA_TRANSFER,30.86,sid9,sid4
+05_Kurir_Paket/kurir_01.mp3,05_Kurir_Paket,PENIPUAN,TINGGI,"Kurir palsu: alamat tidak lengkap, instal aplikasi lacak paket",patuh,63.04,OTORITAS|URGENSI|ANCAMAN|LINK_APK|ISOLASI,22.61,sid5,sid2
+05_Kurir_Paket/kurir_02.mp3,05_Kurir_Paket,PENIPUAN,TINGGI,"Paket COD yang tidak pernah dipesan, bayar lewat transfer",ragu_lalu_patuh,59.54,OTORITAS|MINTA_TRANSFER|URGENSI|ANCAMAN|ISOLASI,20.37,sid6,sid4
+05_Kurir_Paket/kurir_03.mp3,05_Kurir_Paket,PENIPUAN,TINGGI,"Paket hilang, klaim ganti rugi, minta data kartu dan OTP",patuh,61.84,OTORITAS|IMING_HADIAH|MINTA_KREDENSIAL|URGENSI|ISOLASI,20.63,sid3,sid6
+05_Kurir_Paket/kurir_04.mp3,05_Kurir_Paket,PENIPUAN,TINGGI,"Paket tertahan, bayar ongkir tambahan lewat tautan",patuh,52.93,OTORITAS|URGENSI|ANCAMAN|BIAYA_DIMUKA|LINK_APK|MINTA_KREDENSIAL,18.62,sid7,sid2
+05_Kurir_Paket/kurir_05.mp3,05_Kurir_Paket,PENIPUAN,TINGGI,"CS marketplace palsu: pesanan gagal, refund lewat pindai QRIS",patuh,56.94,OTORITAS|LINK_APK|IMING_HADIAH|MINTA_TRANSFER|MINTA_KREDENSIAL|URGENSI,12.68,sid0,sid9
+05_Kurir_Paket/kurir_06.mp3,05_Kurir_Paket,PENIPUAN,TINGGI,"Kurir palsu kirim file resi, korban menolak",menolak,48.05,OTORITAS|LINK_APK|URGENSI|ANCAMAN,7.42,sid8,sid4

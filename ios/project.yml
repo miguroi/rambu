@@ -1,0 +1,93 @@
+name: RambuPuck
+options:
+  bundleIdPrefix: id.rambu
+  deploymentTarget:
+    iOS: "26.0"
+  createIntermediateGroups: true
+  developmentLanguage: id
+settings:
+  base:
+    SWIFT_VERSION: "6.0"
+    MARKETING_VERSION: "1.0"
+    CURRENT_PROJECT_VERSION: "6"
+    CODE_SIGN_STYLE: Automatic
+    DEVELOPMENT_TEAM: ""
+    ENABLE_USER_SCRIPT_SANDBOXING: YES
+targets:
+  RambuPuck:
+    type: application
+    platform: iOS
+    sources:
+      - path: RambuPuck
+      - path: Shared
+    info:
+      path: RambuPuck/Info.plist
+      properties:
+        CFBundleDisplayName: Rambu
+        CFBundleDevelopmentRegion: id
+        UILaunchScreen:
+          UIColorName: LaunchBackground
+        UIUserInterfaceStyle: Light
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+        NSSupportsLiveActivities: true
+        NSBluetoothAlwaysUsageDescription: Rambu memakai Bluetooth untuk terhubung ke Rambu Puck di punggung HP Anda.
+        NSLocalNetworkUsageDescription: Rambu terhubung ke server pilot pada jaringan Wi-Fi yang sama.
+        NSAppTransportSecurity:
+          NSAllowsLocalNetworking: true
+        CFBundleURLTypes:
+          - CFBundleURLName: id.rambu.puck.undangan
+            CFBundleURLSchemes:
+              - rambu
+        ITSAppUsesNonExemptEncryption: false
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: id.rambu.puck
+        CODE_SIGN_ENTITLEMENTS: RambuPuck/RambuPuck.entitlements
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
+        TARGETED_DEVICE_FAMILY: "1"
+    dependencies:
+      - target: RambuPuckWidgets
+  RambuPuckWidgets:
+    type: app-extension
+    platform: iOS
+    sources:
+      - path: RambuPuckWidgets
+      - path: Shared
+    info:
+      path: RambuPuckWidgets/Info.plist
+      properties:
+        CFBundleDisplayName: Rambu
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.widgetkit-extension
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: id.rambu.puck.widgets
+        TARGETED_DEVICE_FAMILY: "1"
+        SKIP_INSTALL: YES
+  RambuPuckTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - path: RambuPuckTests
+    dependencies:
+      - target: RambuPuck
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+        PRODUCT_BUNDLE_IDENTIFIER: id.rambu.puck.tests
+        TEST_HOST: $(BUILT_PRODUCTS_DIR)/RambuPuck.app/RambuPuck
+        BUNDLE_LOADER: $(TEST_HOST)
+schemes:
+  RambuPuck:
+    build:
+      targets:
+        RambuPuck: all
+        RambuPuckTests: [test]
+    run:
+      config: Debug
+    test:
+      config: Debug
+      targets:
+        - RambuPuckTests
