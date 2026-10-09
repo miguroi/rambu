@@ -110,7 +110,7 @@ def test_example_environment_contains_placeholders_only() -> None:
 
     assert "LANGFLOW_URL=http://langflow:7860" in example
     assert "LANGFLOW_FLOW_ID=rambu" in example
-    assert "RAMBU_PUBLIC_URL=https://api.rambu.sfatimah.com" in example
+    assert "RAMBU_PUBLIC_URL=https://rambu-api.sfatimah.com" in example
     assert "APNS_ENVIRONMENT=production" in example
     assert "replace-with-" in example
     assert "sk-or-" not in example

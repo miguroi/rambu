@@ -156,6 +156,8 @@ enum DemoLaunch {
             model.onboardingStep = OnboardingStep(rawValue: parts.dropFirst().first ?? "") ?? .welcome
         case "history":
             model.parentTab = .history
+        case "puck":
+            model.parentTab = .puck
         case "profile":
             model.showProfile = true
         case "guardian-profile":

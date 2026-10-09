@@ -22,10 +22,11 @@ public typealias PuckEngineFactory = @Sendable (URL, String) -> any PuckProtecti
 
 @MainActor
 public final class PuckControllerViewModel: ObservableObject {
-    public static let defaultServerURL = "https://api.rambu.sfatimah.com"
+    public static let defaultServerURL = "https://rambu-api.sfatimah.com"
     public static let serverURLKey = "RambuPuckController.serverURL"
     public static let displayNameKey = "RambuPuckController.displayName"
     public static let shortcutEnabledKey = "RambuPuckController.shortcutEnabled"
+    private static let retiredServerURL = "https://api.rambu.sfatimah.com"
 
     @Published public private(set) var state: PuckControllerState
     @Published public var serverURLText: String
@@ -52,13 +53,22 @@ public final class PuckControllerViewModel: ObservableObject {
             PuckProtectionEngine(api: PuckAPI(serverURL: url, token: token))
         }
     ) {
+        let storedServerURL = defaults.string(forKey: Self.serverURLKey)
+        let initialServerURL = storedServerURL == Self.retiredServerURL
+            ? Self.defaultServerURL
+            : storedServerURL ?? Self.defaultServerURL
+
         self.credentialStore = credentialStore
         self.defaults = defaults
         self.pairerFactory = pairerFactory
         self.engineFactory = engineFactory
-        self.serverURLText = defaults.string(forKey: Self.serverURLKey) ?? Self.defaultServerURL
+        self.serverURLText = initialServerURL
         self.displayName = defaults.string(forKey: Self.displayNameKey) ?? "Mac puck"
         self.state = .disconnected
+
+        if storedServerURL == Self.retiredServerURL {
+            defaults.set(Self.defaultServerURL, forKey: Self.serverURLKey)
+        }
 
         do {
             if let credential = try credentialStore.load(),

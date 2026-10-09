@@ -54,6 +54,28 @@ final class PuckControllerViewModelTests: XCTestCase {
         accessToken: "token-1"
     )
 
+    func testNewControllerDefaultsToSingleLevelPublicHostname() {
+        let model = makeModel(store: MemoryCredentialStore())
+
+        XCTAssertEqual(model.serverURLText, "https://rambu-api.sfatimah.com")
+    }
+
+    func testControllerMigratesRetiredNestedPublicHostname() {
+        let defaults = isolatedDefaults()
+        defaults.set(
+            "https://api.rambu.sfatimah.com",
+            forKey: PuckControllerViewModel.serverURLKey
+        )
+
+        let model = makeModel(store: MemoryCredentialStore(), defaults: defaults)
+
+        XCTAssertEqual(model.serverURLText, "https://rambu-api.sfatimah.com")
+        XCTAssertEqual(
+            defaults.string(forKey: PuckControllerViewModel.serverURLKey),
+            "https://rambu-api.sfatimah.com"
+        )
+    }
+
     func testMissingKeychainItemOverridesRememberedPreferences() {
         let defaults = isolatedDefaults()
         defaults.set("https://old.example.com", forKey: PuckControllerViewModel.serverURLKey)

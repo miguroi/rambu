@@ -77,8 +77,8 @@ load_environment() {
   export RAMBU_BIND_ADDRESS
   export RAMBU_ENV_FILE="${ENVIRONMENT_FILE}"
 
-  [[ "${RAMBU_PUBLIC_URL}" == "https://api.rambu.sfatimah.com" ]] || \
-    fail "RAMBU_PUBLIC_URL must be https://api.rambu.sfatimah.com."
+  [[ "${RAMBU_PUBLIC_URL}" == "https://rambu-api.sfatimah.com" ]] || \
+    fail "RAMBU_PUBLIC_URL must be https://rambu-api.sfatimah.com."
   [[ "${RAMBU_BIND_ADDRESS}" == "127.0.0.1" ]] || \
     fail "RAMBU_BIND_ADDRESS must remain 127.0.0.1."
   [[ "${APNS_ENVIRONMENT}" == "production" ]] || \

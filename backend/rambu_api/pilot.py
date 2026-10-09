@@ -175,6 +175,9 @@ class PilotStore:
                 """
             )
             self._ensure_protection_session_metadata_columns()
+            member_columns = {row[1] for row in self._connection.execute("PRAGMA table_info(members)")}
+            if "phone_number" not in member_columns:
+                self._connection.execute("ALTER TABLE members ADD COLUMN phone_number TEXT")
 
     def close(self) -> None:
         with self._lock:
@@ -194,7 +197,7 @@ class PilotStore:
                 (family_id, code, _iso(expires), _iso(now)),
             )
             self._connection.execute(
-                "INSERT INTO members VALUES (?, ?, 'parent', ?, 'Orang tua', ?, ?)",
+                "INSERT INTO members (id, family_id, role, name, relation, token_hash, created_at) VALUES (?, ?, 'parent', ?, 'Orang tua', ?, ?)",
                 (member_id, family_id, name, _token_hash(token), _iso(now)),
             )
         return PilotSession(
@@ -231,7 +234,7 @@ class PilotStore:
             now = _now()
             with self._connection:
                 self._connection.execute(
-                    "INSERT INTO members VALUES (?, ?, 'guardian', ?, ?, ?, ?)",
+                    "INSERT INTO members (id, family_id, role, name, relation, token_hash, created_at) VALUES (?, ?, 'guardian', ?, ?, ?, ?)",
                     (member_id, family["id"], name, relation, _token_hash(token), _iso(now)),
                 )
         return PilotSession(
@@ -331,12 +334,15 @@ class PilotStore:
                 return self._protection_snapshot(existing)
             active = self._connection.execute(
                 """
-                SELECT 1 FROM protection_sessions
+                SELECT * FROM protection_sessions
                 WHERE family_id = ? AND status IN ('waiting_for_puck', 'listening')
+                ORDER BY started_at DESC LIMIT 1
                 """,
                 (member["family_id"],),
             ).fetchone()
             if active is not None:
+                if active["status"] == "listening" and active["puck_id"] is not None:
+                    return self._protection_snapshot(active)
                 raise ActiveProtectionSessionConflict(
                     "Keluarga sudah memiliki sesi perlindungan aktif."
                 )
@@ -454,6 +460,12 @@ class PilotStore:
         return self._protection_snapshot(row)
 
     def active_protection_session(self, token: str) -> ProtectionSessionSnapshot:
+        snapshot, _ = self.claim_active_protection_session(token)
+        return snapshot
+
+    def claim_active_protection_session(
+        self, token: str
+    ) -> tuple[ProtectionSessionSnapshot, bool]:
         puck = self.authenticate_puck(token)
         now = _iso(_now())
         with self._lock, self._connection:
@@ -469,10 +481,11 @@ class PilotStore:
                 raise MissingProtectionSessionError("Tidak ada sesi perlindungan aktif.")
             if row["puck_id"] not in {None, puck["id"]}:
                 raise AuthorizationError("Sesi aktif sedang digunakan puck lain.")
+            newly_claimed = row["puck_id"] is None
             self._connection.execute(
                 "UPDATE pucks SET last_seen_at = ? WHERE id = ?", (now, puck["id"])
             )
-            if row["puck_id"] is None:
+            if newly_claimed:
                 self._connection.execute(
                     """
                     UPDATE protection_sessions
@@ -484,7 +497,7 @@ class PilotStore:
             row = self._connection.execute(
                 "SELECT * FROM protection_sessions WHERE id = ?", (row["id"],)
             ).fetchone()
-        return self._protection_snapshot(row)
+        return self._protection_snapshot(row), newly_claimed
 
     def get_puck_protection_session(
         self, token: str, session_id: str
@@ -761,12 +774,32 @@ class PilotStore:
         member = self.authenticate(token)
         people = self._family_members(member["family_id"])
         parent = next(person for person in people if person.role == "parent")
+        with self._lock:
+            active = self._connection.execute(
+                """SELECT status, end_requested_at FROM protection_sessions
+                   WHERE family_id = ? AND status IN ('waiting_for_puck', 'listening')
+                   ORDER BY started_at DESC LIMIT 1""",
+                (member["family_id"],),
+            ).fetchone()
+        session_status = "idle" if active is None else (
+            "finishing" if active["end_requested_at"] is not None else active["status"]
+        )
         return PilotProfile(
             family_id=member["family_id"],
             member=self._person(member),
             parent=parent,
             guardians=[person for person in people if person.role == "guardian"],
+            session_status=session_status,
         )
+
+    def update_contact(self, token: str, phone_number: str | None) -> PilotProfile:
+        member = self.authenticate(token)
+        with self._lock, self._connection:
+            self._connection.execute(
+                "UPDATE members SET phone_number = ? WHERE id = ?",
+                (phone_number, member["id"]),
+            )
+        return self.profile(token)
 
     def register_push_token(self, access_token: str, push_token: str, environment: str) -> None:
         member = self.authenticate(access_token)
@@ -864,12 +897,12 @@ class PilotStore:
             if existing is not None and existing["family_id"] != session["family_id"]:
                 raise AuthorizationError("Peringatan berasal dari keluarga lain.")
 
-            level = "danger" if assessment.risk_level == "high_risk" else "review"
+            level = "danger"
             signals = [self._pilot_signal(value) for value in assessment.signals]
             evidence = [
                 PilotTranscriptLine(
                     id=index,
-                    offset=float(index * 5),
+                    offset=None,
                     speaker="unknown",
                     text=item.quote,
                     flagged=[item.quote],
@@ -927,6 +960,7 @@ class PilotStore:
         member = self.authenticate(token)
         if member["role"] != "parent":
             raise AuthorizationError("Hanya perangkat orang tua yang dapat membuat peringatan.")
+        value.level = "danger"
         now = _iso(_now())
         signals = json.dumps(value.signals, ensure_ascii=False)
         evidence = json.dumps([line.model_dump(mode="json") for line in value.evidence], ensure_ascii=False)
@@ -1022,14 +1056,14 @@ class PilotStore:
             outcome = "analyzed"
             presentation = {
                 "low": "safe",
-                "needs_review": "review",
+                "needs_review": "danger",
                 "high_risk": "danger",
             }[assessment.risk_level]
             signals = [self._pilot_signal(value) for value in assessment.signals]
             evidence = [
                 PilotTranscriptLine(
                     id=index,
-                    offset=float(index * 5),
+                    offset=None,
                     speaker="unknown",
                     text=item.quote,
                     flagged=[item.quote],
@@ -1081,6 +1115,7 @@ class PilotStore:
             raise AuthorizationError("Hanya pengawas yang dapat memberi keputusan.")
         if verdict not in {"scam", "safe"}:
             raise ValueError("Keputusan tidak valid.")
+        alert_id = alert_id.lower()
         decided_at = _now()
         with self._lock:
             self._connection.execute("BEGIN IMMEDIATE")
@@ -1114,6 +1149,7 @@ class PilotStore:
         member = self.authenticate(token)
         if member["role"] != "parent":
             raise AuthorizationError("Hanya perangkat orang tua yang dapat mengakhiri panggilan.")
+        alert_id = alert_id.lower()
         with self._lock, self._connection:
             cursor = self._connection.execute(
                 "UPDATE alerts SET call_ended = 1, updated_at = ? WHERE id = ? AND family_id = ?",
@@ -1124,6 +1160,7 @@ class PilotStore:
         return self._alert(alert_id, member["family_id"])
 
     def _alert(self, alert_id: str, family_id: str) -> PilotAlert:
+        alert_id = alert_id.lower()
         with self._lock:
             row = self._connection.execute(
                 "SELECT * FROM alerts WHERE id = ? AND family_id = ?", (alert_id, family_id)
@@ -1139,7 +1176,7 @@ class PilotStore:
             channel=row["channel"],
             started_at=row["started_at"],
             raised_at=row["raised_at"],
-            level=row["level"],
+            level="danger",
             signals=json.loads(row["signals_json"]),
             evidence=json.loads(row["evidence_json"]),
             recipients=[person for person in people if person.role == "guardian"],
@@ -1166,7 +1203,8 @@ class PilotStore:
     @staticmethod
     def _person(member: sqlite3.Row) -> PilotPerson:
         return PilotPerson(
-            id=member["id"], name=member["name"], relation=member["relation"], role=member["role"]
+            id=member["id"], name=member["name"], relation=member["relation"], role=member["role"],
+            phone_number=member["phone_number"],
         )
 
     def _new_code(self) -> str:

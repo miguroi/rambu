@@ -44,8 +44,49 @@ class RecordingAnalyzer:
         )
 
 
+class SequenceAnalyzer:
+    def __init__(self, values: list[RiskAssessment | Exception]) -> None:
+        self.values: Iterator[RiskAssessment | Exception] = iter(values)
+        self.calls: list[tuple[str, bool]] = []
+
+    def analyze(self, transcript: str, final: bool) -> RiskAssessment:
+        self.calls.append((transcript, final))
+        value = next(self.values)
+        if isinstance(value, Exception):
+            raise value
+        return value
+
+
+def assessment(level: str) -> RiskAssessment:
+    if level == "low":
+        return RiskAssessment(
+            risk_level="low",
+            signals=[],
+            evidence=[],
+            explanation="Tidak ada tanda penipuan.",
+            recommended_action="Tetap waspada.",
+        )
+    return RiskAssessment(
+        risk_level=level,
+        signals=["secret_code"],
+        evidence=[{"quote": "informasi SMS", "signals": ["secret_code"]}],
+        explanation="Penelepon meminta informasi rahasia dari SMS.",
+        recommended_action="Akhiri panggilan dan jangan berikan informasi tersebut.",
+    )
+
+
+def contract_failure() -> LangflowFailure:
+    return LangflowFailure(
+        "invalid_response",
+        "Respons Langflow tidak sesuai kontrak Rambu.",
+        "http://langflow",
+        reason="schema_validation",
+    )
+
+
 def configured_service(
-    texts: list[str | Exception], analyzer: RecordingAnalyzer | None = None
+    texts: list[str | Exception],
+    analyzer: RecordingAnalyzer | SequenceAnalyzer | None = None,
 ) -> tuple[ProtectionService, PilotStore, str, str, str]:
     store = PilotStore(":memory:")
     parent = store.create_family("Ibu Ratna")
@@ -132,6 +173,63 @@ def test_end_request_waits_for_claimed_puck_final_chunk() -> None:
     assert ending.end_requested is True
     assert completed.status == "completed"
     assert completed.outcome == "no_speech"
+
+
+def test_contract_failure_retries_once_and_records_the_valid_result(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    analyzer = SequenceAnalyzer([contract_failure(), assessment("high_risk")])
+    service, _, _, puck_token, session_id = configured_service(
+        ["Tolong berikan informasi SMS"], analyzer
+    )
+    caplog.set_level(logging.WARNING, logger="uvicorn.error.rambu.analysis")
+
+    snapshot = service.process_chunk(puck_token, session_id, 0, False, wav_bytes())
+
+    assert len(analyzer.calls) == 2
+    assert snapshot.status == "listening"
+    assert snapshot.assessment is not None
+    assert snapshot.assessment.risk_level == "high_risk"
+    assert "reason=schema_validation" in caplog.text
+    assert "informasi SMS" not in caplog.text
+
+
+def test_repeated_contract_failure_preserves_previous_risk_and_completes() -> None:
+    analyzer = SequenceAnalyzer(
+        [assessment("high_risk"), contract_failure(), contract_failure()]
+    )
+    service, _, _, puck_token, session_id = configured_service(
+        ["informasi SMS", "ucapan tidak jelas"], analyzer
+    )
+    first = service.process_chunk(puck_token, session_id, 0, False, wav_bytes())
+
+    completed = service.process_chunk(
+        puck_token, session_id, 1, True, wav_bytes(seconds=2)
+    )
+
+    assert first.assessment is not None
+    assert first.assessment.risk_level == "high_risk"
+    assert completed.status == "completed"
+    assert completed.outcome == "analyzed"
+    assert completed.assessment is not None
+    assert completed.assessment.risk_level == "high_risk"
+    assert completed.masked_transcript == "informasi SMS ucapan tidak jelas"
+
+
+def test_risk_never_downgrades_after_a_valid_higher_assessment() -> None:
+    analyzer = SequenceAnalyzer([assessment("high_risk"), assessment("low")])
+    service, _, _, puck_token, session_id = configured_service(
+        ["informasi SMS", "percakapan selesai"], analyzer
+    )
+    service.process_chunk(puck_token, session_id, 0, False, wav_bytes())
+
+    completed = service.process_chunk(
+        puck_token, session_id, 1, True, wav_bytes(seconds=2)
+    )
+
+    assert completed.status == "completed"
+    assert completed.assessment is not None
+    assert completed.assessment.risk_level == "high_risk"
 
 
 @pytest.mark.parametrize(

@@ -1,5 +1,6 @@
 from concurrent.futures import ThreadPoolExecutor
 from datetime import UTC, datetime
+import sqlite3
 
 from fastapi.testclient import TestClient
 
@@ -8,6 +9,51 @@ from rambu_api.models import PilotAlertInput, RiskAssessment
 from rambu_api.pilot import DecisionConflict, PilotStore
 
 from .test_api import StubDemoService
+
+
+def test_contact_migration_preserves_existing_family_and_tokens(tmp_path) -> None:
+    path = tmp_path / "legacy.sqlite3"
+    original = PilotStore(path)
+    parent = original.create_family("Ibu")
+    child = original.join_family(parent.invite_code, "Anak", "Anak")
+    original.close()
+    with sqlite3.connect(path) as connection:
+        columns = {row[1] for row in connection.execute("PRAGMA table_info(members)")}
+        if "phone_number" in columns:
+            connection.execute("ALTER TABLE members DROP COLUMN phone_number")
+    migrated = PilotStore(path)
+    profile = migrated.profile(child.access_token)
+    assert profile.parent.id == parent.member.id
+    assert profile.parent.phone_number is None
+    assert profile.member.id == child.member.id
+    migrated.close()
+
+
+def test_phone_numbers_are_optional_shared_with_family_and_editable_only_by_owner() -> None:
+    store = PilotStore(":memory:")
+    parent = store.create_family("Ibu")
+    child = store.join_family(parent.invite_code, "Anak", "Anak")
+    other = store.create_family("Keluarga lain")
+    with TestClient(create_app(service=StubDemoService(), pilot_store=store)) as client:
+        updated = client.put("/api/pilot/profile", headers=authorization(parent.access_token),
+                             json={"phone_number": "0812-3456-7890"})
+        assert updated.status_code == 200
+        assert updated.json()["member"]["phone_number"] == "+6281234567890"
+        family = client.get("/api/pilot/profile", headers=authorization(child.access_token)).json()
+        assert family["parent"]["phone_number"] == "+6281234567890"
+        assert family["member"]["phone_number"] is None
+        assert client.put("/api/pilot/profile", json={"phone_number": "+6281234567890"}).status_code == 401
+        assert client.put("/api/pilot/profile", headers=authorization(child.access_token),
+                          json={"phone_number": "+628111111111", "member_id": parent.member.id}).status_code == 422
+        for invalid in ["112", "tel:123", "+62812;123456", "+62812#123456", "letters", "+" + "1" * 16]:
+            assert client.put("/api/pilot/profile", headers=authorization(parent.access_token),
+                              json={"phone_number": invalid}).status_code == 422
+        unchanged = client.get("/api/pilot/profile", headers=authorization(other.access_token)).json()
+        assert unchanged["parent"]["phone_number"] is None
+        cleared = client.put("/api/pilot/profile", headers=authorization(parent.access_token),
+                             json={"phone_number": None})
+        assert cleared.status_code == 200
+        assert cleared.json()["parent"]["phone_number"] is None
 
 
 class RecordingPushSender:
@@ -23,6 +69,46 @@ class RecordingPushSender:
 
 def authorization(token: str) -> dict[str, str]:
     return {"authorization": f"Bearer {token}"}
+
+
+def test_family_profile_reports_server_session_without_cross_family_leak() -> None:
+    store = PilotStore(":memory:")
+    parent = store.create_family("Ibu")
+    child = store.join_family(parent.invite_code, "Anak", "Anak")
+    other = store.create_family("Lain")
+    puck = store.pair_puck(parent.invite_code, "Mac")
+    with TestClient(create_app(service=StubDemoService(), pilot_store=store)) as client:
+        def status(token):
+            response = client.get("/api/pilot/profile", headers=authorization(token))
+            assert response.status_code == 200
+            return response.json().get("session_status")
+
+        assert status(child.access_token) == "idle"
+        session = store.create_protection_session(parent.access_token, alert_payload()["id"], datetime.now(UTC), "cellular")
+        assert status(child.access_token) == "waiting_for_puck"
+        assert status(other.access_token) == "idle"
+        assert client.get("/api/pilot/profile").status_code == 401
+        store.active_protection_session(puck.access_token)
+        assert status(child.access_token) == "listening"
+        store.request_protection_end(parent.access_token, session.id)
+        assert status(child.access_token) == "finishing"
+        store.record_protection_chunk(puck.access_token, session.id, sequence=0, digest="end", masked_transcript="", assessment=None, final=True)
+        assert status(child.access_token) == "idle"
+
+
+def test_server_evidence_does_not_invent_audio_timestamps() -> None:
+    store = PilotStore(":memory:")
+    parent = store.create_family("Ibu")
+    puck = store.pair_puck(parent.invite_code, "Mac")
+    session = store.create_protection_session(parent.access_token, alert_payload()["id"], datetime.now(UTC), "cellular")
+    store.active_protection_session(puck.access_token)
+    assessment = RiskAssessment(risk_level="high_risk", signals=["secret_code"],
+                                evidence=[{"quote": "Berikan OTP", "signals": ["secret_code"]}],
+                                explanation="Meminta kode", recommended_action="Tutup telepon")
+    store.record_protection_chunk(puck.access_token, session.id, sequence=0, digest="audio", masked_transcript="Berikan OTP", assessment=assessment, final=True)
+    alert, _ = store.upsert_protection_alert(puck.access_token, session.id)
+    assert alert.evidence[0].offset is None
+    assert store.history(parent.access_token)[0].evidence[0].offset is None
 
 
 def alert_payload(alert_id: str = "98f73943-b925-4984-a26d-0e193e1521a4") -> dict:
@@ -184,6 +270,32 @@ def test_store_atomically_accepts_only_one_concurrent_decision() -> None:
     losers = [result for result in results if result.startswith("lost:")]
     assert len(winners) == 1
     assert losers == [f"lost:{winners[0]}"]
+    store.close()
+
+
+def test_guardian_can_decide_with_uppercase_alert_id() -> None:
+    store = PilotStore(":memory:")
+    parent = store.create_family("Ibu Ratna")
+    guardian = store.join_family(parent.invite_code or "", "Richard", "Anak")
+    alert_id = alert_payload()["id"]
+    store.publish_alert(parent.access_token, PilotAlertInput.model_validate(alert_payload()))
+
+    decision = store.decide(guardian.access_token, alert_id.upper(), "scam")
+
+    assert decision.verdict == "scam"
+    assert decision.by.name == "Richard"
+    store.close()
+
+
+def test_parent_can_end_alert_with_uppercase_alert_id() -> None:
+    store = PilotStore(":memory:")
+    parent = store.create_family("Ibu Ratna")
+    alert_id = alert_payload()["id"]
+    store.publish_alert(parent.access_token, PilotAlertInput.model_validate(alert_payload()))
+
+    alert = store.end_alert(parent.access_token, alert_id.upper())
+
+    assert alert.call_ended is True
     store.close()
 
 

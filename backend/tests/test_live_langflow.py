@@ -31,6 +31,12 @@ def live_client() -> LangflowClient:
         ("Halo Bu, arisan dimulai pukul empat sore.", "low"),
         ("Ibu harus segera memastikan data ini hari ini.", "needs_review"),
         ("Saya dari bank, berikan OTP [KODE] sekarang.", "high_risk"),
+        (
+            "Saya Richard dari Bank BMI. Ada pengeluaran dari rekening ibu. "
+            "Akan ada neko day untuk dikirim di SMS. Lihat nih bu, dan bisa "
+            "dikasih tau ke saya juga.",
+            "high_risk",
+        ),
     ],
 )
 def test_live_langflow_returns_expected_valid_assessment(transcript: str, expected: str) -> None:

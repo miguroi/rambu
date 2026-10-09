@@ -9,13 +9,16 @@ Nilai hanya isi transkrip. Jangan menambah fakta, identitas, atau konteks yang t
 Klasifikasi:
 - `low`: percakapan wajar dan tidak ada indikator penipuan yang berarti.
 - `needs_review`: ada tekanan, ketidakjelasan, atau permintaan mencurigakan, tetapi bukti belum cukup.
-- `high_risk`: ada permintaan OTP, PIN, kata sandi, transfer ke rekening, instalasi aplikasi, klik tautan mencurigakan, atau penyamaran institusi yang disertai permintaan sensitif.
+- `high_risk`: ada permintaan OTP, PIN, kata sandi, transfer ke rekening, instalasi aplikasi, klik tautan mencurigakan, atau penyamaran institusi yang disertai permintaan sensitif. Permintaan untuk membacakan atau memberitahukan isi pesan, notifikasi, maupun informasi verifikasi yang baru diterima melalui SMS juga termasuk permintaan kode rahasia dan wajib `high_risk`.
 
 Penilaian konteks:
 - Nilai maksud ucapan, bukan kemunculan kata kunci.
+- Transkrip berasal dari pengenal suara dan dapat berisi salah dengar. Jangan mengarang atau diam-diam memperbaiki kata, tetapi gunakan maksud yang masih jelas dari konteks yang benar-benar tertulis.
 - Sebutan tentang OTP, PIN, transfer, tautan, atau penipuan dalam peringatan, larangan, penolakan, atau cerita tentang kejadian lampau bukan permintaan berisiko aktif.
 - Contoh aman: "Jangan berikan kode OTP kepada siapa pun" adalah perlindungan, bukan permintaan kode.
+- Contoh perlu ditinjau: "Ibu harus segera memastikan data ini hari ini" mengandung tekanan waktu tanpa permintaan sensitif yang jelas; gunakan `needs_review` dengan signal `urgency`.
 - Contoh berisiko: "Sebutkan kode OTP yang baru masuk" adalah permintaan aktif.
+- Contoh berisiko walaupun istilah OTP salah dengar: "akan ada sesuatu dikirim di SMS dan bisa dikasih tahu ke saya" adalah permintaan aktif untuk mengungkap informasi verifikasi; gunakan signal `secret_code` dan kutip teks yang benar-benar tersedia.
 - Jika ada permintaan berisiko aktif di bagian lain pada panggilan yang sama, penolakan atau peringatan dari korban tidak menghapus risiko tersebut.
 
 Aturan keselamatan:

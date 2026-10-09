@@ -96,7 +96,7 @@ def prepare_pilot(
 
     environment_file = tmp_path / "pilot secrets.env"
     environment_file.write_text(
-        "RAMBU_PUBLIC_URL=https://api.rambu.sfatimah.com\n"
+        "RAMBU_PUBLIC_URL=https://rambu-api.sfatimah.com\n"
         "RAMBU_BIND_ADDRESS=127.0.0.1\n"
         "LANGFLOW_FLOW_ID=rambu\n"
         "LANGFLOW_API_KEY=langflow-SENTINEL\n"

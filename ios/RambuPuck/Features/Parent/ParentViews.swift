@@ -12,6 +12,9 @@ struct ParentRoot: View {
             Tab("Riwayat", systemImage: "clock.fill", value: ParentTab.history) {
                 NavigationStack { HistoryList(forGuardian: false) }
             }
+            Tab("Puck", systemImage: "circle.circle.fill", value: ParentTab.puck) {
+                PuckScreen()
+            }
         }
         .tabBarMinimizeBehavior(.onScrollDown)
         .fullScreenCover(isPresented: $model.isCallScreenPresented) {
@@ -20,6 +23,60 @@ struct ParentRoot: View {
                     CallStatusView()
                         .presentationDetents([.large])
                 }
+        }
+    }
+}
+
+/// Device guide only: no hardware readings or simulated device actions.
+struct PuckScreen: View {
+    var body: some View {
+        NavigationStack {
+            List {
+                Section {
+                    PhotoSlot(name: "PhotoPuckProduct") {
+                        PuckIllustration().frame(maxWidth: 240)
+                    }
+                    .frame(height: 200)
+                    .listRowInsets(EdgeInsets())
+                    .listRowBackground(Color.clear)
+                }
+
+                Section("Saat menerima panggilan") {
+                    Label {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("Letakkan puck dekat HP").font(.headline)
+                            Text("Pastikan suara dari HP tidak terhalang.")
+                                .foregroundStyle(Brand.ink2)
+                        }
+                    } icon: {
+                        Image(systemName: "iphone.gen3")
+                            .foregroundStyle(Brand.teal)
+                    }
+
+                    Label {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("Nyalakan speaker").font(.headline)
+                            Text("Suara percakapan perlu terdengar oleh puck.")
+                                .foregroundStyle(Brand.ink2)
+                        }
+                    } icon: {
+                        Image(systemName: "speaker.wave.2.fill")
+                            .foregroundStyle(Brand.teal)
+                    }
+                }
+
+                Section("Jika ada peringatan") {
+                    Text("Jangan berikan OTP, PIN, atau kata sandi. Periksa peringatan di Rambu dan hubungi keluarga jika ragu.")
+                        .foregroundStyle(Brand.ink)
+                }
+            }
+            .foregroundStyle(Brand.ink)
+            .scrollContentBackground(.hidden)
+            .background(Brand.canvas)
+            .navigationTitle("Rambu Puck")
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) { ProfileButton() }
+            }
         }
     }
 }

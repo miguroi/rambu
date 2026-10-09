@@ -21,6 +21,9 @@ from .transcription import Transcriber
 
 MAXIMUM_CHUNK_BYTES = 1_048_576
 TRANSCRIPTION_LOGGER = logging.getLogger("uvicorn.error.rambu.transcription")
+ANALYSIS_LOGGER = logging.getLogger("uvicorn.error.rambu.analysis")
+CONTRACT_FAILURE_CODES = frozenset({"invalid_json", "invalid_response"})
+RISK_RANK = {"low": 0, "needs_review": 1, "high_risk": 2}
 
 
 class Analyzer(Protocol):
@@ -72,6 +75,11 @@ class ProtectionService:
 
     def get_active_puck_session(self, puck_token: str) -> ProtectionSessionSnapshot:
         return self.store.active_protection_session(puck_token)
+
+    def claim_active_puck_session(
+        self, puck_token: str
+    ) -> tuple[ProtectionSessionSnapshot, bool]:
+        return self.store.claim_active_protection_session(puck_token)
 
     def get_puck_session(
         self, puck_token: str, session_id: str
@@ -131,17 +139,44 @@ class ProtectionService:
         assessment: RiskAssessment | None = None
         if masked_transcript:
             try:
-                assessment = self.analyzer.analyze(masked_transcript, final=final)
+                for attempt in range(2):
+                    try:
+                        assessment = self.analyzer.analyze(masked_transcript, final=final)
+                        if assessment.risk_level == "needs_review":
+                            assessment = assessment.model_copy(update={"risk_level": "high_risk"})
+                        break
+                    except LangflowFailure as error:
+                        if error.code not in CONTRACT_FAILURE_CODES or attempt == 1:
+                            raise
+                        ANALYSIS_LOGGER.warning(
+                            "analysis contract retry session=%s sequence=%d reason=%s",
+                            session_id,
+                            sequence,
+                            error.reason or error.code,
+                        )
             except LangflowFailure as error:
-                self.store.fail_protection_session(
-                    puck_token,
-                    session_id,
-                    ProtectionFailure(
-                        code=f"analysis_{error.code}",
-                        message=error.safe_message,
-                    ),
-                )
-                raise
+                if error.code in CONTRACT_FAILURE_CODES and (
+                    not final or current.assessment is not None
+                ):
+                    ANALYSIS_LOGGER.warning(
+                        "analysis contract fallback session=%s sequence=%d reason=%s "
+                        "previous_assessment=%s",
+                        session_id,
+                        sequence,
+                        error.reason or error.code,
+                        current.assessment is not None,
+                    )
+                    assessment = current.assessment
+                else:
+                    self.store.fail_protection_session(
+                        puck_token,
+                        session_id,
+                        ProtectionFailure(
+                            code=f"analysis_{error.code}",
+                            message=error.safe_message,
+                        ),
+                    )
+                    raise
             except Exception:
                 self.store.fail_protection_session(
                     puck_token,
@@ -152,6 +187,13 @@ class ProtectionService:
                     ),
                 )
                 raise
+
+        if (
+            current.assessment is not None
+            and assessment is not None
+            and RISK_RANK[current.assessment.risk_level] > RISK_RANK[assessment.risk_level]
+        ):
+            assessment = current.assessment
 
         return self.store.record_protection_chunk(
             puck_token,

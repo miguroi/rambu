@@ -445,7 +445,7 @@ struct PuckState: Hashable, Codable, Sendable {
 
 // MARK: - Navigasi
 
-enum ParentTab: Hashable { case home, history }
+enum ParentTab: Hashable { case home, history, puck }
 enum GuardianTab: Hashable { case home, history }
 
 enum OnboardingStep: String, Hashable, Sendable {

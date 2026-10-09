@@ -31,6 +31,7 @@ from .models import (
     ProtectionFailure,
     ProtectionSessionSnapshot,
     PushTokenRequest,
+    UpdatePilotContactRequest,
 )
 from .pilot import (
     ActiveProtectionSessionConflict,
@@ -331,10 +332,25 @@ def create_app(
         response_model=ProtectionSessionSnapshot,
     )
     def active_puck_session(
+        background_tasks: BackgroundTasks,
         authorization: str | None = Header(default=None),
     ) -> ProtectionSessionSnapshot:
         try:
-            return protections().get_active_puck_session(token_from(authorization))
+            token = token_from(authorization)
+            snapshot, newly_claimed = protections().claim_active_puck_session(token)
+            if newly_claimed:
+                targets = pilots.protection_notification_tokens(
+                    token, snapshot.id, "parent", push_environment
+                )
+                background_tasks.add_task(
+                    send_protection_warning,
+                    targets,
+                    "Panggilan WhatsApp terdeteksi",
+                    "Rambu Puck mulai mendengarkan dan melindungi panggilan ini.",
+                    str(snapshot.call_id),
+                    snapshot.id,
+                )
+            return snapshot
         except HTTPException:
             raise
         except Exception as error:
@@ -474,6 +490,15 @@ def create_app(
     def pilot_profile(authorization: str | None = Header(default=None)) -> PilotProfile:
         try:
             return pilots.profile(token_from(authorization))
+        except HTTPException:
+            raise
+        except Exception as error:
+            raise pilot_error(error) from error
+
+    @app.put("/api/pilot/profile", response_model=PilotProfile)
+    def update_pilot_contact(value: UpdatePilotContactRequest, authorization: str | None = Header(default=None)) -> PilotProfile:
+        try:
+            return pilots.update_contact(token_from(authorization), value.phone_number)
         except HTTPException:
             raise
         except Exception as error:

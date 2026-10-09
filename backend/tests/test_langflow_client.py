@@ -34,6 +34,21 @@ def envelope(value: object) -> dict[str, object]:
     }
 
 
+def test_validated_yellow_warning_is_delivered_as_red_without_changing_evidence() -> None:
+    transcript = "Saya dari bank."
+    client = LangflowClient(
+        "http://localhost:7861", "rambu", "secret",
+        transport=lambda *_: envelope(assessment(
+            risk_level="needs_review", signals=["impersonation"],
+            evidence=[{"quote": transcript, "signals": ["impersonation"]}],
+        )),
+    )
+    result = client.analyze(transcript, final=False)
+    assert result.risk_level == "high_risk"
+    assert result.evidence[0].quote == transcript
+    assert result.signals == ["impersonation"]
+
+
 def failure_from(call) -> Exception:
     with pytest.raises(Exception) as captured:
         call()
@@ -145,7 +160,7 @@ def test_explicit_secret_code_requests_are_always_high_risk(transcript: str) -> 
         "Saya menolak menyebutkan PIN saya.",
     ],
 )
-def test_secret_code_mentions_without_an_active_request_are_not_forced_red(
+def test_existing_warnings_use_red_without_adding_secret_code_requests(
     transcript: str,
 ) -> None:
     response = assessment(
@@ -162,7 +177,8 @@ def test_secret_code_mentions_without_an_active_request_are_not_forced_red(
 
     result = client.analyze(transcript, final=False)
 
-    assert result.risk_level == "needs_review"
+    assert result.risk_level == "high_risk"
+    assert result.evidence[0].quote == transcript
 
 
 @pytest.mark.parametrize(

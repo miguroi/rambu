@@ -263,7 +263,7 @@ def test_risky_chunk_persists_alert_and_pushes_guardian_without_parent_publish()
     assert [sent[0] for sent in pushes.sent].count(["bb" * 32]) == 1
 
 
-def test_yellow_to_red_escalation_pushes_guardian_once_per_level() -> None:
+def test_all_risky_chunks_use_red_and_notify_guardian_once() -> None:
     pushes = RecordingProtectionPushSender()
     analyzer = SequenceAnalyzer(
         [review_assessment(), danger_assessment(), danger_assessment()]
@@ -287,9 +287,8 @@ def test_yellow_to_red_escalation_pushes_guardian_once_per_level() -> None:
     assert upload_chunk(client, puck.access_token, session.id, sequence=2).status_code == 200
 
     guardian_pushes = [sent for sent in pushes.sent if sent[0] == ["bb" * 32]]
-    assert len(guardian_pushes) == 2
-    assert "Review" in guardian_pushes[0][1]
-    assert "Danger" in guardian_pushes[1][1]
+    assert len(guardian_pushes) == 1
+    assert "Danger" in guardian_pushes[0][1]
     alerts = client.get(
         "/api/pilot/alerts", headers=auth(guardian.access_token)
     ).json()
@@ -511,13 +510,13 @@ def test_parent_and_guardian_share_safe_review_danger_and_unassessed_history() -
     assert guardian_response.json() == parent_response.json()
     records = {record["title"]: record for record in parent_response.json()}
     assert records["Telepon aman"]["presentation"] == "safe"
-    assert records["Telepon perlu ditinjau"]["presentation"] == "review"
+    assert records["Telepon perlu ditinjau"]["presentation"] == "danger"
     assert records["Telepon bahaya"]["presentation"] == "danger"
     assert records["Telepon bahaya"]["signals"] == ["secretCode", "remoteApp"]
     assert records["Telepon bahaya"]["evidence"] == [
         {
             "id": 0,
-            "offset": 0.0,
+            "offset": None,
             "speaker": "unknown",
             "text": "Halo",
             "flagged": ["Halo"],
@@ -525,7 +524,7 @@ def test_parent_and_guardian_share_safe_review_danger_and_unassessed_history() -
         },
         {
             "id": 1,
-            "offset": 5.0,
+            "offset": None,
             "speaker": "unknown",
             "text": "pihak bank",
             "flagged": ["pihak bank"],
@@ -728,6 +727,77 @@ def test_puck_created_session_pushes_parent_once_and_not_guardian() -> None:
     assert created.json()["puck_connected"] is True
     assert repeated.status_code == 201
     assert repeated.json()["id"] == created.json()["id"]
+    assert pushes.sent == [
+        (
+            ["aa" * 32],
+            "Panggilan WhatsApp terdeteksi",
+            "Rambu Puck mulai mendengarkan dan melindungi panggilan ini.",
+            session_payload()["call_id"],
+        )
+    ]
+
+
+def test_parent_reuses_active_puck_session_instead_of_creating_a_conflict() -> None:
+    client, store, _, _ = build_client()
+    parent = store.create_family("Ibu Ratna")
+    puck = store.pair_puck(parent.invite_code or "", "Mac")
+    puck_call_id = "7f011753-8f09-4a45-8812-8a4591a96b3c"
+    phone_call_id = "b2546d82-9466-4015-a663-ca10ccacffbf"
+
+    puck_session = client.post(
+        "/api/pucks/sessions",
+        headers=auth(puck.access_token),
+        json={
+            **session_payload(puck_call_id),
+            "channel": "whatsapp",
+            "title": "Panggilan WhatsApp terdeteksi",
+            "caller_detail": "Kontak WhatsApp",
+        },
+    )
+    phone_session = client.post(
+        "/api/protection/sessions",
+        headers=auth(parent.access_token),
+        json={**session_payload(phone_call_id), "channel": "cellular"},
+    )
+
+    session_count = store._connection.execute(
+        "SELECT COUNT(*) FROM protection_sessions WHERE family_id = ?",
+        (parent.family_id,),
+    ).fetchone()[0]
+    assert puck_session.status_code == 201
+    assert phone_session.status_code == 201
+    assert phone_session.json()["id"] == puck_session.json()["id"]
+    assert phone_session.json()["call_id"] == puck_call_id
+    assert phone_session.json()["status"] == "listening"
+    assert session_count == 1
+
+
+def test_puck_joining_parent_session_pushes_parent_once_and_not_guardian() -> None:
+    pushes = RecordingProtectionPushSender()
+    client, store, _, _ = build_client(push_sender=pushes)
+    parent = store.create_family("Ibu Ratna")
+    guardian = store.join_family(parent.invite_code or "", "Richard", "Anak")
+    puck = store.pair_puck(parent.invite_code or "", "Mac")
+    store.register_push_token(parent.access_token, "aa" * 32, "sandbox")
+    store.register_push_token(guardian.access_token, "bb" * 32, "sandbox")
+
+    created = client.post(
+        "/api/protection/sessions",
+        headers=auth(parent.access_token),
+        json={**session_payload(), "channel": "whatsapp"},
+    )
+    first_claim = client.get(
+        "/api/pucks/sessions/active", headers=auth(puck.access_token)
+    )
+    repeated_claim = client.get(
+        "/api/pucks/sessions/active", headers=auth(puck.access_token)
+    )
+
+    assert created.status_code == 201
+    assert first_claim.status_code == 200
+    assert first_claim.json()["status"] == "listening"
+    assert repeated_claim.status_code == 200
+    assert repeated_claim.json()["id"] == first_claim.json()["id"]
     assert pushes.sent == [
         (
             ["aa" * 32],
